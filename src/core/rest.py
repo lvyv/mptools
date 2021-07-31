@@ -20,36 +20,11 @@
 
 """
 =========================
-unit test module
+rest module
 =========================
 
-test entry point.
+Provide web api access points.
 """
 
 # Author: Awen <26896225@qq.com>
-# License: MIT
-
-from multiprocessing import Manager, Pool
-
-
-def get_data(pageNo, q):
-    print(q.get())
-
-
-if __name__ == "__main__":
-    m = Manager()
-    q = m.Queue()
-    p = {}
-    no_pages = 5
-    pool_tuple = [(x, q) for x in range(1, no_pages)]
-    q.put(1)
-    q.put(2)
-    q.put(3)
-    q.put(4)
-    q.put(5)
-    with Pool(processes=3) as pool:
-        pool.starmap(get_data, pool_tuple)
-    # for i in range(1, no_pages):
-    #     print("result", i, ":", q.get())
-    pool.close()
-    pool.join()
+# License: Apache Licence 2.0

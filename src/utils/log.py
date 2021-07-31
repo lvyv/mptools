@@ -20,36 +20,28 @@
 
 """
 =========================
-unit test module
+log module
 =========================
 
-test entry point.
+Log util for the project.
 """
 
 # Author: Awen <26896225@qq.com>
-# License: MIT
+# License: Apache Licence 2.0
 
-from multiprocessing import Manager, Pool
+import os
+import time
+import logging
+
+LOG_LVL_INFO = logging.INFO
+LOG_LVL_ERRO = logging.ERROR
+
+start_time = time.monotonic()
+logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 
 
-def get_data(pageNo, q):
-    print(q.get())
-
-
-if __name__ == "__main__":
-    m = Manager()
-    q = m.Queue()
-    p = {}
-    no_pages = 5
-    pool_tuple = [(x, q) for x in range(1, no_pages)]
-    q.put(1)
-    q.put(2)
-    q.put(3)
-    q.put(4)
-    q.put(5)
-    with Pool(processes=3) as pool:
-        pool.starmap(get_data, pool_tuple)
-    # for i in range(1, no_pages):
-    #     print("result", i, ":", q.get())
-    pool.close()
-    pool.join()
+def logger(name, level, msg, exc_info=None):
+    elapsed = time.monotonic() - start_time
+    hours = int(elapsed // 60)
+    seconds = elapsed - (hours * 60)
+    logging.log(level, f'{hours:3}:{seconds:06.3f} {name:20} {msg}', exc_info=exc_info)

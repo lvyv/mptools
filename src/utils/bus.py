@@ -20,36 +20,42 @@
 
 """
 =========================
-unit test module
+bus module
 =========================
 
-test entry point.
+Event bus of all processes.
 """
 
 # Author: Awen <26896225@qq.com>
-# License: MIT
+# License: Apache Licence 2.0
 
-from multiprocessing import Manager, Pool
+import os
+import utils.log as log
+
+DEFAULT_POLLING_TIMEOUT = 0.02
+EBUS_TOPIC_RTSP = 'rtsp'
+EBUS_TOPIC_AI = 'ai'
 
 
-def get_data(pageNo, q):
-    print(q.get())
+def send_cmd(bus, topic, msg):
+    try:
+        ret = False
+        while bus[topic]:   # timeout should be taken into consideration
+            pass
+    except KeyError as err:
+        bus['rtsp'] = msg
+        log.logger(os.getpid(), log.LOG_LVL_INFO, f'send-->{msg}')
+    finally:
+        return ret
 
 
-if __name__ == "__main__":
-    m = Manager()
-    q = m.Queue()
-    p = {}
-    no_pages = 5
-    pool_tuple = [(x, q) for x in range(1, no_pages)]
-    q.put(1)
-    q.put(2)
-    q.put(3)
-    q.put(4)
-    q.put(5)
-    with Pool(processes=3) as pool:
-        pool.starmap(get_data, pool_tuple)
-    # for i in range(1, no_pages):
-    #     print("result", i, ":", q.get())
-    pool.close()
-    pool.join()
+def recv_cmd(bus, topic):
+    try:
+        msg = None
+        # pid = os.getpid()
+        msg = bus.pop(topic)
+        log.logger(os.getpid(), log.LOG_LVL_INFO, f'got events: {msg}')
+    except KeyError as ke:
+        pass
+    finally:
+        return msg
