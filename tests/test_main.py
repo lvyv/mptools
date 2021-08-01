@@ -23,33 +23,37 @@
 unit test module
 =========================
 
-test entry point.
+测试核心模块的主进程模块.
 """
 
 # Author: Awen <26896225@qq.com>
 # License: MIT
 
-from multiprocessing import Manager, Pool
+import unittest
+from core.main import MainContext
 
 
-def get_data(pageNo, q):
-    print(q.get())
+class TestMain(unittest.TestCase):
+    """Tests for `phm` package."""
+
+    def setUp(self):
+        """Set up test fixtures, if any."""
+
+    def tearDown(self):
+        """Tear down test fixtures, if any."""
+
+    def test_MainContext(self):
+        """Test core.main.MainContext."""
+        with MainContext() as main_ctx:
+            num = 3     # how many processes do I need?
+            main_ctx.log('ok')
+            res = main_ctx.start_procs('RTSP', cnt=num)
+            for pool in main_ctx.pools_:
+                pool.close()
+                pool.join()
+        self.assertEqual(len(res), num)
+        self.assertEqual(sum(res), 0)
 
 
 if __name__ == "__main__":
-    m = Manager()
-    q = m.Queue()
-    p = {}
-    no_pages = 5
-    pool_tuple = [(x, q) for x in range(1, no_pages)]
-    q.put(1)
-    q.put(2)
-    q.put(3)
-    q.put(4)
-    q.put(5)
-    with Pool(processes=3) as pool:
-        pool.starmap(get_data, pool_tuple)
-    # for i in range(1, no_pages):
-    #     print("result", i, ":", q.get())
-    pool.close()
-    pool.join()
+    unittest.main()

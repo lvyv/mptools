@@ -40,7 +40,7 @@ start_time = time.monotonic()
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 
 
-def logger(name, level, msg, exc_info=None):
+def logger(name, msg, level=LOG_LVL_INFO, exc_info=None):
     elapsed = time.monotonic() - start_time
     hours = int(elapsed // 60)
     seconds = elapsed - (hours * 60)
