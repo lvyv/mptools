@@ -46,13 +46,22 @@ class TestMain(unittest.TestCase):
         """Test core.main.MainContext."""
         with MainContext() as main_ctx:
             num = 3     # how many processes do I need?
-            main_ctx.log('ok')
+            main_ctx.log('started.')
+
             res = main_ctx.start_procs('RTSP', cnt=num)
             for pool in main_ctx.pools_:
                 pool.close()
                 pool.join()
-        self.assertEqual(len(res), num)
-        self.assertEqual(sum(res), 0)
+            self.assertEqual(len(res), num)
+            self.assertEqual(sum(res), 0)
+
+            num = 2
+            res = main_ctx.start_procs('MQTT', cnt=num)
+            for pool in main_ctx.pools_:
+                pool.close()
+                pool.join()
+            self.assertEqual(len(res), num)
+            self.assertEqual(sum(res), 0)
 
 
 if __name__ == "__main__":

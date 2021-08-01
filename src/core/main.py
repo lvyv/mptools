@@ -39,12 +39,30 @@ from core.ai import proc_ai
 from utils import bus, log
 
 
+class MqttWorker:
+    def __init__(self, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
+        self.log = functools.partial(log.logger, f'{name}')
+
+    def run(self):
+        self.log(f'running...')
+        return 0
+
+
+class AiWorker:
+    def __init__(self, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
+        self.log = functools.partial(log.logger, f'{name}')
+
+    def run(self):
+        self.log(f'running...')
+        return 0
+
+
 class RestWorker:
     def __init__(self, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
         self.log = functools.partial(log.logger, f'{name}')
 
     def run(self):
-        self.log(f'Rest running...')
+        self.log(f'running...')
         return 0
 
 
@@ -53,7 +71,7 @@ class RtspWorker:
         self.log = functools.partial(log.logger, f'{name}')
 
     def run(self):
-        self.log('Rtsp running...')
+        self.log('running...')
         return 0
 
 
@@ -69,7 +87,7 @@ def proc_worker_wrapper(proc_worker_class, name, evt_bus, in_q=None, out_q=None,
     :param out_q: 输出数据队列，子进程之间数据通道。
     :param up_evt: 启动信号。
     :param down_evt: 停止信号。
-    :param args: 其它参数。
+    :param kwargs: 其它参数。
     :return: 子进程退出码：0为正常，-1为错误。
     """
     proc_worker = proc_worker_class(name, evt_bus, in_q, out_q, up_evt, down_evt, **kwargs)
@@ -137,30 +155,6 @@ class MainContext:
         # -- Don't eat exceptions that reach here.
         return not exc_type
 
-    def new_share_queue(self, *args, **kwargs):
-        """
-        本函数在主进程上下文环境添加新的数据队列，用于进程间数据通信。
-
-        Parameters
-        ----------
-        *args : tuple, None
-            Optional function arguments.
-        **kwargs : dict, optional
-            Determine cluster model could be used for prediction or not.
-        Returns
-        ----------
-        multiprocessing.JoinableQueue
-            Share proxy of queue object.
-        Raises
-        ----------
-        RuntimeError
-            If called with partitioned variable regularization and
-        eager execution is enabled.
-        """
-        jq = multiprocessing.Manager().JoinableQueue(*args, **kwargs)
-        self.queues.append(jq)
-        return jq
-
     def start_procs(self, name, **kwargs):
         """
         本函数调用工厂类在主进程上下文环境启动所有子进程。
@@ -182,17 +176,14 @@ class MainContext:
         RuntimeError
             待定.
         """
-        # rtsps = multiprocessing.Pool(processes=PROC_RTSP_CNT)
-        # rtsps.starmap_async(proc_rtsp, [(idx, self.evt_b_, None, pic_que) for idx in range(PROC_RTSP_CNT)])
-        #
-        # ais = multiprocessing.Pool(processes=PROC_AI_CNT)
-        # ais.starmap_async(proc_ai, [(idx, ebs, pic_que, vec_que) for idx in range(PROC_AI_CNT)])
-
-        # proc = Proc(name, worker_class, self.shutdown_event, self.event_queue, *args)
         if 'RTSP' == name:
             pool, res = ProcSimpleFactory.create(RtspWorker, name, self.evt_b_, None, self.pic_q_, **kwargs)
         elif 'REST' == name:
-            pool, res = ProcSimpleFactory.create(RestWorker, name, self.evt_b_, None, self.pic_q_, **kwargs)
+            pool, res = ProcSimpleFactory.create(RestWorker, name, self.evt_b_, None, None, **kwargs)
+        elif 'AI' == name:
+            pool, res = ProcSimpleFactory.create(AiWorker, name, self.evt_b_, self.pic_q_, self.vec_q_, **kwargs)
+        elif 'MQTT' == name:
+            pool, res = ProcSimpleFactory.create(MqttWorker, name, self.evt_b_, self.vec_q_, None, **kwargs)
         else:
             pool, res = (None, None)
 
@@ -233,19 +224,29 @@ class MainContext:
         # return num_failed, num_terminated
         return True
 
-    def stop_queues(self):
-        # num_items_left = 0
-        # # -- Clear the queues list and close all associated queues
-        # for q in self.queues:
-        #     num_items_left += sum(1 for __ in q.drain())
-        #     q.close()
-        #
-        # # -- Wait for all queue threads to stop
-        # while self.queues:
-        #     q = self.queues.pop(0)
-        #     q.join_thread()
-        # return num_items_left
-        return True
+    def new_share_queue(self, *args, **kwargs):
+        """
+        本函数在主进程上下文环境添加新的数据队列，用于进程间数据通信。
+
+        Parameters
+        ----------
+        *args : tuple, None
+            Optional function arguments.
+        **kwargs : dict, optional
+            Determine cluster model could be used for prediction or not.
+        Returns
+        ----------
+        multiprocessing.JoinableQueue
+            Share proxy of queue object.
+        Raises
+        ----------
+        RuntimeError
+            If called with partitioned variable regularization and
+        eager execution is enabled.
+        """
+        jq = multiprocessing.Manager().JoinableQueue(*args, **kwargs)
+        self.queues.append(jq)
+        return jq
 
 
 if __name__ == '__main__':
