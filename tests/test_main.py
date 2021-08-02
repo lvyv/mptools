@@ -30,7 +30,10 @@ unit test module
 # License: MIT
 
 import unittest
+import random
 from core.main import MainContext
+from time import sleep, time
+from utils import bus, log
 
 
 class TestMain(unittest.TestCase):
@@ -45,21 +48,25 @@ class TestMain(unittest.TestCase):
     def test_MainContext(self):
         """Test core.main.MainContext."""
         with MainContext() as main_ctx:
-            num = 3     # how many processes do I need?
             main_ctx.log('started.')
 
-            res = main_ctx.start_procs('RTSP', cnt=num)
-            for pool in main_ctx.pools_:
-                pool.close()
-                pool.join()
-            self.assertEqual(len(res), num)
-            self.assertEqual(sum(res), 0)
+            num = 3     # how many processes do I need?
+            main_ctx.start_procs('RTSP', cnt=num)
 
             num = 2
-            res = main_ctx.start_procs('MQTT', cnt=num)
-            for pool in main_ctx.pools_:
-                pool.close()
-                pool.join()
+            main_ctx.start_procs('MQTT', cnt=num)
+
+            main_ctx.stop_procs()
+            main_ctx.start_procs('RTSP', cnt=2)
+
+            interval = 1
+            while True:
+                sleep(interval - time() % interval)
+                numb = random.randrange(1, 4)
+
+            main_ctx.factory_.pool_.close()
+            main_ctx.factory_.pool_.join()
+
             self.assertEqual(len(res), num)
             self.assertEqual(sum(res), 0)
 

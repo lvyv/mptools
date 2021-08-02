@@ -69,10 +69,25 @@ class RestWorker:
 class RtspWorker:
     def __init__(self, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
         self.log = functools.partial(log.logger, f'{name}')
+        self.evt_bus_ = evt_bus
+        self.out_q_ = out_q
 
     def run(self):
-        self.log('running...')
-        return 0
+        while True:
+            sleep(3 - time() % 3)
+            try:
+                # 1. get instruction from main process and handle it
+                msg = bus.recv_cmd(self.evt_bus_, bus.EBUS_TOPIC_RTSP)
+                self.log(msg)
+                if 'END' == msg:
+                    break
+
+            except KeyError as err:
+                self.log(f'{err}', level=log.LOG_LVL_ERRO)
+            except TypeError as err:
+                self.log(f'{err}', level=log.LOG_LVL_ERRO)
+            finally:
+                pass
 
 
 # -- Process Wrapper
@@ -90,7 +105,8 @@ def proc_worker_wrapper(proc_worker_class, name, evt_bus, in_q=None, out_q=None,
     :param kwargs: 其它参数。
     :return: 子进程退出码：0为正常，-1为错误。
     """
-    proc_worker = proc_worker_class(name, evt_bus, in_q, out_q, up_evt, down_evt, **kwargs)
+    pid = os.getpid()
+    proc_worker = proc_worker_class(f'{name}-{pid}', evt_bus, in_q, out_q, up_evt, down_evt, **kwargs)
     return proc_worker.run()
 
 
@@ -101,20 +117,20 @@ class ProcSimpleFactory:
     子进程分别在该函数中实例化进程对象，并启动主循环。
     """
 
-    def __init__(self):
+    def __init__(self, nop):
         self.log = functools.partial(log.logger, f'ProcSimpleFactory')
+        self.pool_ = multiprocessing.Pool(processes=nop)
 
-    @classmethod
-    def create(cls, worker_class, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
+    def create(self, worker_class, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
         default_cnt = 1
         for key, value in kwargs.items():
             if key == 'cnt':
                 default_cnt = value
-        pool = multiprocessing.Pool(processes=default_cnt)
-        res = pool.starmap(proc_worker_wrapper, [(worker_class, f'{name}{idx}',
-                                                  evt_bus, in_q, out_q, up_evt, down_evt) for idx in
-                                                 range(default_cnt)])
-        return pool, res
+
+        res = self.pool_.starmap_async(proc_worker_wrapper,
+                                       [(worker_class, f'{name}', evt_bus, in_q, out_q, up_evt, down_evt)
+                                        for idx in range(default_cnt)])
+        return res
 
 
 class MainContext:
@@ -124,7 +140,7 @@ class MainContext:
     完成对所有运行子进程的下发配置和查询状态（主要是事件总线和图片及向量队列）。
     """
 
-    # STOP_WAIT_SECS = 3.0
+    NUMBER_OF_PROCESSES = 10
 
     def __init__(self):
         self.log = functools.partial(log.logger, f'MAIN')
@@ -133,14 +149,14 @@ class MainContext:
         self.vec_q_ = multiprocessing.Manager().Queue()
         self.evt_b_ = multiprocessing.Manager().dict()
 
-        self.pools_ = []  # 子进程池的容器
-
         self.queues_ = []  # 子进程间数据队列
         self.queues_.append(self.pic_q_)
         self.queues_.append(self.vec_q_)
 
         self.evt_buses_ = []  # 进程间通信总线
         self.evt_buses_.append(self.evt_b_)
+
+        self.factory_ = ProcSimpleFactory(self.NUMBER_OF_PROCESSES)
 
     def __enter__(self):
         return self
@@ -177,76 +193,21 @@ class MainContext:
             待定.
         """
         if 'RTSP' == name:
-            pool, res = ProcSimpleFactory.create(RtspWorker, name, self.evt_b_, None, self.pic_q_, **kwargs)
+            res = self.factory_.create(RtspWorker, name, self.evt_b_, None, self.pic_q_, **kwargs)
         elif 'REST' == name:
-            pool, res = ProcSimpleFactory.create(RestWorker, name, self.evt_b_, None, None, **kwargs)
+            res = self.factory_.create(RestWorker, name, self.evt_b_, None, None, **kwargs)
         elif 'AI' == name:
-            pool, res = ProcSimpleFactory.create(AiWorker, name, self.evt_b_, self.pic_q_, self.vec_q_, **kwargs)
+            res = self.factory_.create(AiWorker, name, self.evt_b_, self.pic_q_, self.vec_q_, **kwargs)
         elif 'MQTT' == name:
-            pool, res = ProcSimpleFactory.create(MqttWorker, name, self.evt_b_, self.vec_q_, None, **kwargs)
+            res = self.factory_.create(MqttWorker, name, self.evt_b_, self.vec_q_, None, **kwargs)
         else:
-            pool, res = (None, None)
+            res = (None, None)
 
-        self.pools_.append(pool)
         return res
 
-    def stop_procs(self):
-        # self.event_queue.safe_put(EventMessage("stop_procs", "END", "END"))
-        # self.shutdown_event.set()
-        # end_time = time.time() + self.STOP_WAIT_SECS
-        # num_terminated = 0
-        # num_failed = 0
-        #
-        # # -- Wait up to STOP_WAIT_SECS for all processes to complete
-        # for proc in self.procs:
-        #     join_secs = _sleep_secs(self.STOP_WAIT_SECS, end_time)
-        #     proc.proc.join(join_secs)
-        #
-        # # -- Clear the procs list and _terminate_ any procs that
-        # # have not yet exited
-        # still_running = []
-        # while self.procs:
-        #     proc = self.procs.pop()
-        #     if proc.proc.is_alive():
-        #         if proc.terminate():
-        #             num_terminated += 1
-        #         else:
-        #             still_running.append(proc)
-        #     else:
-        #         exitcode = proc.proc.exitcode
-        #         if exitcode:
-        #             self.log(logging.ERROR, f"Process {proc.name} ended with exitcode {exitcode}")
-        #             num_failed += 1
-        #         else:
-        #             self.log(logging.DEBUG, f"Process {proc.name} stopped successfully")
-        #
-        # self.procs = still_running
-        # return num_failed, num_terminated
+    def stop_procs(self, msg='END'):
+        bus.send_cmd(self.evt_b_, bus.EBUS_TOPIC_RTSP, msg)
         return True
-
-    def new_share_queue(self, *args, **kwargs):
-        """
-        本函数在主进程上下文环境添加新的数据队列，用于进程间数据通信。
-
-        Parameters
-        ----------
-        *args : tuple, None
-            Optional function arguments.
-        **kwargs : dict, optional
-            Determine cluster model could be used for prediction or not.
-        Returns
-        ----------
-        multiprocessing.JoinableQueue
-            Share proxy of queue object.
-        Raises
-        ----------
-        RuntimeError
-            If called with partitioned variable regularization and
-        eager execution is enabled.
-        """
-        jq = multiprocessing.Manager().JoinableQueue(*args, **kwargs)
-        self.queues.append(jq)
-        return jq
 
 
 if __name__ == '__main__':
@@ -273,7 +234,7 @@ if __name__ == '__main__':
         log.logger(os.getpid(), f'messages in event bus: {len(ebs)}', log.LOG_LVL_INFO)
         log.logger(os.getpid(), f'pictures in pic_que: {pic_que.qsize()}', log.LOG_LVL_INFO)
 
-    pool_rtsp.close()
-    pool_ai.close()
-    pool_rtsp.join()
-    pool_ai.join()
+    # pool_rtsp.close()
+    # pool_ai.close()
+    # pool_rtsp.join()
+    # pool_ai.join()

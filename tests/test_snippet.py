@@ -20,43 +20,45 @@
 
 """
 =========================
-bus module
+unit test module
 =========================
 
-Event bus of all processes.
+测试multiprocessing库的一些用法及python code snippet.
 """
 
 # Author: Awen <26896225@qq.com>
-# License: Apache Licence 2.0
+# License: MIT
 
-import os
-import utils.log as log
+from multiprocessing import Pool
 
-# DEFAULT_POLLING_TIMEOUT = 0.02
-EBUS_TOPIC_RTSP = 'rtsp'
-EBUS_TOPIC_AI = 'ai'
-EBUS_TOPIC_MAIN = 'main'
+import time
+
+work = [("A", 5), ("B", 2), ("C", 1), ("D", 3)]
 
 
-def send_cmd(bus, topic, msg):
-    try:
-        ret = False
-        while bus[topic]:   # timeout should be taken into consideration
-            pass
-    except KeyError as err:
-        bus['rtsp'] = msg
-        log.logger(os.getpid(), log.LOG_LVL_INFO, f'send-->{msg}')
-    finally:
-        return ret
+def work_log(name, ts):
+    print(f" Process {name} waiting {ts} seconds.")
+    time.sleep(ts)
+    print(f" Process {name} Finished.")
 
 
-def recv_cmd(bus, topic):
-    try:
-        msg = None
-        # pid = os.getpid()
-        msg = bus.pop(topic)
-        log.logger(os.getpid(), log.LOG_LVL_INFO, f'got events: {msg}')
-    except KeyError as ke:
-        pass
-    finally:
-        return msg
+def pool_handler():
+    p = Pool(2)
+    p.starmap(work_log, [it for it in work])
+
+
+def test_kwargs(**kwargs):
+    for k, v in kwargs.items():
+        print(k, v)
+
+
+def test_arg(*args, **kwargs):
+    test_kwargs(**kwargs)
+    for it in args:
+        print(it)
+    return True
+
+
+if __name__ == '__main__':
+    pool_handler()
+    test_arg('a', 1, key3=3, key5=5, key4=4)
