@@ -30,8 +30,24 @@ unit test module
 # License: MIT
 
 from multiprocessing import Pool
-
 import time
+
+
+from fastapi import FastAPI, File, UploadFile
+import uvicorn
+
+app = FastAPI()
+
+
+@app.post("/files/")
+async def create_file(file: bytes = File(...)):
+    return {"file_size": len(file)}
+
+
+@app.post("/uploadfile/")
+async def create_upload_file(file: UploadFile = File(...)):
+    return {"filename": file.filename}
+
 
 work = [("A", 5), ("B", 2), ("C", 1), ("D", 3)]
 
@@ -62,18 +78,4 @@ def test_arg(*args, **kwargs):
 if __name__ == '__main__':
     # pool_handler()
     # test_arg('a', 1, key3=3, key5=5, key4=4)
-    import ffmpeg
-
-    in_file = ffmpeg.input('in.mp4')
-    overlay_file = ffmpeg.input('overlay.png')
-    (
-        ffmpeg
-            .concat(
-            in_file.trim(start_frame=10, end_frame=20),
-            in_file.trim(start_frame=30, end_frame=40),
-        )
-            .overlay(overlay_file.hflip())
-            .drawbox(50, 50, 120, 120, color='red', thickness=5)
-            .output('out.mp4')
-            .run()
-    )
+    uvicorn.run(app, host="0.0.0.0", port=21800)

@@ -35,6 +35,7 @@ import functools
 import os
 from time import time, sleep
 from core.rtsp import RtspWorker
+from core.ai import AiWorker
 # from core.ai import proc_ai
 from utils import bus, log
 
@@ -50,13 +51,13 @@ class MqttWorker:
         return 0
 
 
-class AiWorker:
-    def __init__(self, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
-        self.log = functools.partial(log.logger, f'{name}')
-
-    def run(self):
-        self.log(f'running...')
-        return 0
+# class AiWorker:
+#     def __init__(self, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
+#         self.log = functools.partial(log.logger, f'{name}')
+#
+#     def run(self):
+#         self.log(f'running...')
+#         return 0
 
 
 class RestWorker:
@@ -69,7 +70,7 @@ class RestWorker:
 
 
 # -- Process Wrapper
-def proc_worker_wrapper(proc_worker_class, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
+def proc_worker_wrapper(proc_worker_class, name, evt_bus, in_q=None, out_q=None, dicts=None, **kwargs):
     """
     子进程的入口点。
 
@@ -78,13 +79,12 @@ def proc_worker_wrapper(proc_worker_class, name, evt_bus, in_q=None, out_q=None,
     :param evt_bus: 事件总线，子进程之间及主进程信令通道。
     :param in_q: 输入数据队列，子进程之间数据通道。
     :param out_q: 输出数据队列，子进程之间数据通道。
-    :param up_evt: 启动信号。
-    :param down_evt: 停止信号。
+    :param dicts: 额外参数。
     :param kwargs: 其它参数。
     :return: 子进程退出码：0为正常，-1为错误。
     """
     pid = os.getpid()
-    proc_worker = proc_worker_class(f'{name}-{pid}', evt_bus, in_q, out_q, up_evt, down_evt, **kwargs)
+    proc_worker = proc_worker_class(f'{name}-{pid}', evt_bus, in_q, out_q, dicts, **kwargs)
     return proc_worker.run()
 
 
@@ -99,14 +99,15 @@ class ProcSimpleFactory:
         self.log = functools.partial(log.logger, f'ProcSimpleFactory')
         self.pool_ = multiprocessing.Pool(processes=nop)
 
-    def create(self, worker_class, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
+    def create(self, worker_class, name, evt_bus, in_q=None, out_q=None, **kwargs):
         default_cnt = 1
         for key, value in kwargs.items():
             if key == 'cnt':
                 default_cnt = value
+                break
 
         res = self.pool_.starmap_async(proc_worker_wrapper,
-                                       [(worker_class, f'{name}', evt_bus, in_q, out_q, up_evt, down_evt)
+                                       [(worker_class, f'{name}', evt_bus, in_q, out_q, kwargs)
                                         for idx in range(default_cnt)])
         return res
 

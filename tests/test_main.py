@@ -50,14 +50,17 @@ class TestMain(unittest.TestCase):
         with MainContext() as main_ctx:
             main_ctx.log('started.')
 
-            num = 3     # how many processes do I need?
-            main_ctx.start_procs('RTSP', cnt=num)
+            num = 1  # how many processes do I need?
+            main_ctx.start_procs('RTSP', cnt=num, rtsp_url='rtsp://admin:admin123@192.168.101.114:554/cam/realmonitor'
+                                                           '?channel=1&subtype=0')
+            num = 1  # how many processes do I need?
+            main_ctx.start_procs('RTSP', cnt=num, rtsp_url='rtsp://admin:admin123@192.168.101.114:554/cam/playback'
+                                                           '?channel=1&subtype=0&starttime=2021_08_03_11_50_00')
+            num = 3
+            main_ctx.start_procs('AI', cnt=num)
 
-            num = 2
-            main_ctx.start_procs('MQTT', cnt=num)
-
-            main_ctx.stop_procs()
-            main_ctx.start_procs('RTSP', cnt=2)
+            # main_ctx.stop_procs()
+            # main_ctx.start_procs('RTSP', cnt=2)
 
             interval = 1
             while True:

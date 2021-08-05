@@ -35,7 +35,7 @@ from utils import bus, log
 
 class ProcWorker:
 
-    def __init__(self, name, evt_bus, **kwargs):
+    def __init__(self, name, evt_bus, dicts, **kwargs):
         self.name = name
         self.log = functools.partial(log.logger, f'{name}')
         self.evt_bus_ = evt_bus
