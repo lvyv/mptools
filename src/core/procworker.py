@@ -39,26 +39,25 @@ class ProcWorker:
         self.name = name
         self.log = functools.partial(log.logger, f'{name}')
         self.evt_bus_ = evt_bus
-        self.init_args(**kwargs)
-
-    def init_signals(self, **kwargs):
-        self.log(kwargs)
-        return True
+        self.bus_topic_ = bus.EBUS_TOPIC_BASE
+        # self.init_args(**kwargs)
+        self.break_out_ = False
 
     def main_loop(self):
-        self.log("Entering main_loop.")
-        while True:
-            evt = bus.recv_cmd(self.evt_bus_, bus.EBUS_TOPIC_RTSP)
+        # self.log("Entering main_loop.")
+        while self.break_out_ is False:
+            evt = bus.recv_cmd(self.evt_bus_, self.bus_topic_)
             self.main_func(evt)
+        self.log("Leaving main_loop.")
 
     def startup(self):
         self.log("Entering startup.")
-        bus.send_cmd(self.evt_bus_, bus.EBUS_TOPIC_MAIN, {'src': self.name, 'content': 'UP'})
+        # bus.send_cmd(self.evt_bus_, bus.EBUS_TOPIC_MAIN, {'src': self.name, 'content': 'UP'})
         pass
 
     def shutdown(self):
         self.log("Entering shutdown.")
-        bus.send_cmd(self.evt_bus_, bus.EBUS_TOPIC_MAIN, {'src': self.name, 'content': 'DOWN'})
+        # bus.send_cmd(self.evt_bus_, bus.EBUS_TOPIC_MAIN, {'src': self.name, 'content': 'DOWN'})
         pass
 
     def main_func(self, event, *args):
@@ -66,10 +65,9 @@ class ProcWorker:
         raise NotImplementedError(f"{self.__class__.__name__}.main_func is not implemented")
 
     def run(self):
-        self.init_signals()
         try:
             self.startup()
-            self.startup_event.set()
+            # self.startup_event.set()
             self.main_loop()
             self.log("Normal Shutdown.")
             return 0

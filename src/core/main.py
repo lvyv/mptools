@@ -34,8 +34,8 @@ import random
 import functools
 import os
 from time import time, sleep
-from core.rtsp import proc_rtsp
-from core.ai import proc_ai
+from core.rtsp import RtspWorker
+# from core.ai import proc_ai
 from utils import bus, log
 
 
@@ -45,6 +45,8 @@ class MqttWorker:
 
     def run(self):
         self.log(f'running...')
+        sleep(3 - time() % 3)
+
         return 0
 
 
@@ -64,30 +66,6 @@ class RestWorker:
     def run(self):
         self.log(f'running...')
         return 0
-
-
-class RtspWorker:
-    def __init__(self, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
-        self.log = functools.partial(log.logger, f'{name}')
-        self.evt_bus_ = evt_bus
-        self.out_q_ = out_q
-
-    def run(self):
-        while True:
-            sleep(3 - time() % 3)
-            try:
-                # 1. get instruction from main process and handle it
-                msg = bus.recv_cmd(self.evt_bus_, bus.EBUS_TOPIC_RTSP)
-                self.log(msg)
-                if 'END' == msg:
-                    break
-
-            except KeyError as err:
-                self.log(f'{err}', level=log.LOG_LVL_ERRO)
-            except TypeError as err:
-                self.log(f'{err}', level=log.LOG_LVL_ERRO)
-            finally:
-                pass
 
 
 # -- Process Wrapper
@@ -210,29 +188,29 @@ class MainContext:
         return True
 
 
-if __name__ == '__main__':
-
-    INTERVAL = 1
-    PROC_RTSP_CNT = 3
-    PROC_AI_CNT = 2
-
-    mgr = multiprocessing.Manager()
-    pic_que = mgr.Queue()  # Is JoinableQueue better?
-    vec_que = mgr.Queue()
-    ebs = mgr.dict()
-
-    pool_rtsp = multiprocessing.Pool(processes=PROC_RTSP_CNT)
-    pool_rtsp.starmap_async(proc_rtsp, [(1, ebs, None, pic_que), (2, ebs, None, pic_que)])
-
-    pool_ai = multiprocessing.Pool(processes=PROC_AI_CNT)
-    pool_ai.starmap_async(proc_ai, [(1, ebs, pic_que, vec_que), (2, ebs, pic_que, vec_que)])
-
-    while True:
-        sleep(INTERVAL - time() % INTERVAL)
-        numb = random.randrange(1, 4)
-        bus.send_cmd(ebs, bus.EBUS_TOPIC_RTSP, numb)
-        log.logger(os.getpid(), f'messages in event bus: {len(ebs)}', log.LOG_LVL_INFO)
-        log.logger(os.getpid(), f'pictures in pic_que: {pic_que.qsize()}', log.LOG_LVL_INFO)
+# if __name__ == '__main__':
+#
+#     INTERVAL = 1
+#     PROC_RTSP_CNT = 3
+#     PROC_AI_CNT = 2
+#
+#     mgr = multiprocessing.Manager()
+#     pic_que = mgr.Queue()  # Is JoinableQueue better?
+#     vec_que = mgr.Queue()
+#     ebs = mgr.dict()
+#
+#     pool_rtsp = multiprocessing.Pool(processes=PROC_RTSP_CNT)
+#     pool_rtsp.starmap_async(proc_rtsp, [(1, ebs, None, pic_que), (2, ebs, None, pic_que)])
+#
+#     pool_ai = multiprocessing.Pool(processes=PROC_AI_CNT)
+#     pool_ai.starmap_async(proc_ai, [(1, ebs, pic_que, vec_que), (2, ebs, pic_que, vec_que)])
+#
+#     while True:
+#         sleep(INTERVAL - time() % INTERVAL)
+#         numb = random.randrange(1, 4)
+#         bus.send_cmd(ebs, bus.EBUS_TOPIC_RTSP, numb)
+#         log.logger(os.getpid(), f'messages in event bus: {len(ebs)}', log.LOG_LVL_INFO)
+#         log.logger(os.getpid(), f'pictures in pic_que: {pic_que.qsize()}', log.LOG_LVL_INFO)
 
     # pool_rtsp.close()
     # pool_ai.close()

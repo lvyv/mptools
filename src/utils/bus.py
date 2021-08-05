@@ -36,6 +36,7 @@ import utils.log as log
 EBUS_TOPIC_RTSP = 'rtsp'
 EBUS_TOPIC_AI = 'ai'
 EBUS_TOPIC_MAIN = 'main'
+EBUS_TOPIC_BASE = 'base'    # base class topic
 
 
 def send_cmd(bus, topic, msg):
