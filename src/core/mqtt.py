@@ -28,3 +28,42 @@ Publish recognized results to iot gateway.
 
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
+
+
+import cv2
+import imutils
+from time import time, sleep
+from utils import bus
+from core.procworker import ProcWorker
+from imutils.video import VideoStream
+
+
+class MqttWorker(ProcWorker):
+    def __init__(self, name, evt_bus, in_q=None, out_q=None, dicts=None, **kwargs):
+        super().__init__(name, evt_bus, dicts, **kwargs)
+        self.bus_topic_ = bus.EBUS_TOPIC_MQTT
+        self.in_q_ = in_q
+        self.mqtt_host_ = None
+        self.mqtt_port_ = None
+        self.fsvr_url_ = None
+        for key, value in dicts.items():
+            if key == 'mqtt_host':
+                self.mqtt_host_ = value
+            elif key == 'mqtt_port':
+                self.mqtt_port_ = value
+            elif key == 'fsvr_url':
+                self.fsvr_url_ = value
+
+    # def startup(self):
+    #     self.vs_ = VideoStream(self.rtsp_url_).start()
+
+    def main_func(self, event, *args):
+        if 'END' == event:
+            self.break_out_ = True
+        # 全速
+        vec = self.in_q_.get()
+        self.log(vec)
+
+    # def shutdown(self):
+    #     cv2.destroyAllWindows()
+    #     self.vs_.stop()

@@ -39,14 +39,30 @@ import uvicorn
 app = FastAPI()
 
 
+def call_aimeter(contents):
+    ret = [
+        {'id': 1, 'key1': 31.2, 'loc': [14, 23]},
+        {'id': 2, 'key2': 20, 'loc': [102, 538]}
+    ]
+    return ret
+
+
 @app.post("/files/")
 async def create_file(file: bytes = File(...)):
-    return {"file_size": len(file)}
+    fs = len(file)
+    print(fs)
+    return {"file_size": fs}
 
 
 @app.post("/uploadfile/")
-async def create_upload_file(file: UploadFile = File(...)):
-    return {"filename": file.filename}
+async def create_upload_file(upfile: UploadFile = File(...)):
+    print(upfile.filename, upfile.content_type)
+    contents = upfile.file.read()
+    # outfile = open(upfile.filename, 'wb')
+    # outfile.write(contents)
+    # outfile.close()
+    ret = call_aimeter(contents)
+    return ret
 
 
 work = [("A", 5), ("B", 2), ("C", 1), ("D", 3)]

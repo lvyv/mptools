@@ -36,27 +36,18 @@ import os
 from time import time, sleep
 from core.rtsp import RtspWorker
 from core.ai import AiWorker
-# from core.ai import proc_ai
+from core.mqtt import MqttWorker
 from utils import bus, log
 
 
-class MqttWorker:
-    def __init__(self, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
-        self.log = functools.partial(log.logger, f'{name}')
-
-    def run(self):
-        self.log(f'running...')
-        sleep(3 - time() % 3)
-
-        return 0
-
-
-# class AiWorker:
+# class MqttWorker:
 #     def __init__(self, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
 #         self.log = functools.partial(log.logger, f'{name}')
 #
 #     def run(self):
 #         self.log(f'running...')
+#         sleep(3 - time() % 3)
+#
 #         return 0
 
 

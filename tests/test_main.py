@@ -59,6 +59,9 @@ class TestMain(unittest.TestCase):
             num = 3
             main_ctx.start_procs('AI', cnt=num)
 
+            num = 3
+            main_ctx.start_procs('MQTT', cnt=num, mqtt_host='192.168.1.225', mqtt_port=1886)
+
             # main_ctx.stop_procs()
             # main_ctx.start_procs('RTSP', cnt=2)
 
