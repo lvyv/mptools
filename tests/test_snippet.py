@@ -32,14 +32,17 @@ unit test module
 from multiprocessing import Pool
 import time
 
+# ----fastapi-----
 
 from fastapi import FastAPI, File, UploadFile
 import uvicorn
+
 
 app = FastAPI()
 
 
 def call_aimeter(contents):
+    print(contents)
     ret = [
         {'id': 1, 'key1': 31.2, 'loc': [14, 23]},
         {'id': 2, 'key2': 20, 'loc': [102, 538]}
@@ -64,6 +67,7 @@ async def create_upload_file(upfile: UploadFile = File(...)):
     ret = call_aimeter(contents)
     return ret
 
+# ----pool-----
 
 work = [("A", 5), ("B", 2), ("C", 1), ("D", 3)]
 
@@ -79,6 +83,9 @@ def pool_handler():
     p.starmap(work_log, [it for it in work])
 
 
+# ----args-----
+
+
 def test_kwargs(**kwargs):
     for k, v in kwargs.items():
         print(k, v)
@@ -92,6 +99,6 @@ def test_arg(*args, **kwargs):
 
 
 if __name__ == '__main__':
-    # pool_handler()
     # test_arg('a', 1, key3=3, key5=5, key4=4)
+    # pool_handler()
     uvicorn.run(app, host="0.0.0.0", port=21800)

@@ -29,13 +29,12 @@ Publish recognized results to iot gateway.
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
 
-
 import cv2
 import imutils
+import paho.mqtt.client as mqtt_client
 from time import time, sleep
 from utils import bus
 from core.procworker import ProcWorker
-from imutils.video import VideoStream
 
 
 class MqttWorker(ProcWorker):
@@ -45,25 +44,37 @@ class MqttWorker(ProcWorker):
         self.in_q_ = in_q
         self.mqtt_host_ = None
         self.mqtt_port_ = None
+        self.mqtt_cid_ = None
+        self.mqtt_topic_ = None
         self.fsvr_url_ = None
         for key, value in dicts.items():
             if key == 'mqtt_host':
                 self.mqtt_host_ = value
             elif key == 'mqtt_port':
                 self.mqtt_port_ = value
+            elif key == 'mqtt_cid':
+                self.mqtt_cid_ = value
+            elif key == 'mqtt_topic':
+                self.mqtt_topic_ = value
             elif key == 'fsvr_url':
                 self.fsvr_url_ = value
+        self.client_ = None
 
-    # def startup(self):
-    #     self.vs_ = VideoStream(self.rtsp_url_).start()
+    def startup(self):
+        self.client_ = mqtt_client.Client()
+        self.client_.username_pw_set(self.mqtt_cid_)
+        self.client_.connect(self.mqtt_host_, self.mqtt_port_)
+        self.client_.loop_start()
 
     def main_func(self, event, *args):
         if 'END' == event:
             self.break_out_ = True
         # 全速
         vec = self.in_q_.get()
+        self.client_.publish(self.mqtt_topic_, vec, 1)
         self.log(vec)
 
-    # def shutdown(self):
-    #     cv2.destroyAllWindows()
-    #     self.vs_.stop()
+    def shutdown(self):
+        self.client_.loop_stop()
+        self.client_.disconnect()
+        self.client_ = None

@@ -28,3 +28,45 @@ Provide web api access points.
 
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
+
+import uvicorn
+from typing import Optional
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+from utils import bus
+from core.procworker import ProcWorker
+
+
+app_ = FastAPI(
+    title="视频图像智能分析软件",
+    description="视频图像智能分析软件对外发布的RESTful API接口",
+    version="2.2.0", )
+
+
+class Item(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float
+    tax: Optional[float] = None
+
+
+@app_.post("/items/")
+async def create_item(item: Item):
+    return item
+
+
+class RestWorker(ProcWorker):
+    def __init__(self, name, evt_bus, in_q=None, out_q=None, dicts=None, **kwargs):
+        super().__init__(name, evt_bus, dicts, **kwargs)
+        self.bus_topic_ = bus.EBUS_TOPIC_AI
+        self.in_q_ = in_q
+        self.out_q_ = out_q
+        self.pt_ = 29080
+        for key, value in kwargs.items():
+            if key == 'port':
+                self.pt_ = value
+                break
+
+    def run(self, *kwargs):
+        uvicorn.run(app_, host="0.0.0.0", port=self.pt_)
