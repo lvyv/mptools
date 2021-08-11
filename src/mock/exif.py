@@ -69,6 +69,7 @@ app = FastAPI()
 async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(...)):
     """模拟视频调度的跳转到预置点接口"""
     item = {"deviceid": deviceid, "channelid": channelid, "cmdCode": 130, "parameter1": 0, "parameter2": viewpoint}
+    print(f"Zoom to: {item}")
     return item
 
 
