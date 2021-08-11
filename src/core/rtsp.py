@@ -32,7 +32,7 @@ Pull av stream from nvr and decode pictures from the streams.
 import cv2
 import imutils
 from time import time, sleep
-from utils import bus
+from utils import bus, comn
 from core.procworker import ProcWorker
 from imutils.video import VideoStream
 
@@ -43,30 +43,61 @@ class RtspWorker(ProcWorker):
         self.bus_topic_ = bus.EBUS_TOPIC_RTSP
         self.out_q_ = out_q
         self.vs_ = None
-        self.rtsp_url_ = None
+        self.args_ = None
+        self.sample_rate_ = None
         for key, value in dicts.items():
             if key == 'rtsp_url':
-                self.rtsp_url_ = value
-                break
+                self.args_ = value
+            if key == 'sample_rate':
+                self.sample_rate_ = value
 
     def startup(self):
-        self.vs_ = VideoStream(self.rtsp_url_).start()
+        """启动进程后，访问对应的rtsp流."""
+        self.log(f'{self.name} started.')
+        url = self.args_['rtsp_url']
+        self.vs_ = VideoStream(src=url, framerate=24).start()
+        # self.log(f'Got stream!')
 
     def main_func(self, event, *args):
+        """
+        本函数实现按配置文件调度摄像头，取rtsp流解析，并调用ai的业务逻辑。
+        重载基类主循环函数调用。
+
+        Parameters
+        ----------
+        event : 主事件循环的外部事件回调。
+        *args: tuple, None
+            扩展参数。
+        Returns
+        -------
+            无返回值。
+        """
         if 'END' == event:
             self.break_out_ = True
-        # 1秒1帧
-        sleep(3 - time() % 3)
-        frame = self.vs_.read()
-        if frame is not None:
-            frame = imutils.resize(frame, width=1200)  # size changed from 6MB to 2MB
-            # cv2.imshow('NVR realtime', frame)
-            pic = {'channel': self.name, 'frame': frame}
-            self.out_q_.put(pic)
-
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
-            self.break_out_ = True
+        # 1.按参数设置摄像头到预置点，因为预置点有多个，所以要轮流执行
+        # 2.等待摄像头执行到预置点位
+        # 3.读取流并设置处理该图片的参数
+        did = self.args_['device_id']
+        cid = self.args_['channel_id']
+        vps = self.args_['view_ports']
+        inteval = 1 / self.sample_rate_
+        for vp in vps:
+            comn.run_to_viewpoints(did, cid, vp['preset_id'])
+            duration = vp['seconds']                # 配置文件要求停留多少秒
+            st = time()
+            delta = 0
+            cnt = 0
+            while duration > delta:
+                sleep(inteval - time() % inteval)               # 休眠采样间隔的时间
+                frame = self.vs_.read()
+                if frame is not None:
+                    frame = imutils.resize(frame, width=1200)   # size changed from 6MB to 2MB
+                    # cv2.imshow('NVR realtime', frame)
+                    pic = {'channel': vp, 'frame': frame}       # 把模型微服务参数等通过队列传给后续进程
+                    self.out_q_.put(pic)
+                    self.log(f'采用第{cnt}帧.')
+                    cnt = cnt + 1
+                delta = time() - st                             # 消耗的时间（秒）
 
     def shutdown(self):
         cv2.destroyAllWindows()

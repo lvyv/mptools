@@ -32,7 +32,7 @@ Feed AI meter picture one by one and get recognized results.
 import io
 import requests
 from matplotlib import pyplot as plt
-from utils import bus
+from utils import bus, comn
 from core.procworker import ProcWorker
 
 
@@ -51,11 +51,11 @@ class AiWorker(ProcWorker):
         buf = io.BytesIO()
         plt.imsave(buf, pic['frame'], format='png')
         image_data = buf.getvalue()
-        name = pic['channel']
-
-        files = {'upfile': (name, image_data, 'image/png')}
-        resp = requests.post('http://127.0.0.1:21800/uploadfile/', files=files)  # data=image_data)
-        # self.log(f'{resp.status_code},{resp.content}')
+        vp = pic['channel']
+        name = vp['name']
+        rest = vp['micro_service']
+        files = {'upfile': (comn.replace_non_ascii(name), image_data, 'image/png')}
+        resp = requests.post(rest, files=files, verify=False)  # data=image_data)
         self.out_q_.put(resp.content)
 
 

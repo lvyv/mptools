@@ -28,3 +28,22 @@ Some common function and tools of the project.
 
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
+
+import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+
+def replace_non_ascii(x): return ''.join(i if ord(i) < 128 else '_' for i in x)
+
+
+def run_to_viewpoints(devid, channelid, presetid):
+    resp = None
+    try:
+        payload = {'viewpoint': presetid}
+        resp = requests.post(f'http://127.0.0.1:21900/api/ptz/front_end_command/{devid}/{channelid}', data=payload)
+    except KeyError as ke:
+        pass
+    finally:
+        return resp

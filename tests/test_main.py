@@ -33,6 +33,7 @@ import unittest
 import random
 from core.main import MainContext
 from time import sleep, time
+from utils import config
 from utils import bus, log
 
 
@@ -49,33 +50,28 @@ class TestMain(unittest.TestCase):
         """Test core.main.MainContext."""
         with MainContext() as main_ctx:
             main_ctx.log('started.')
+            cfg = config.load_json('v2v.cfg')
+            for channel in cfg['rtsp_urls']:
+                main_ctx.start_procs('RTSP', rtsp_url=channel, sample_rate=1)
+                # 'rtsp://admin:admin123@192.168.101.114:554/cam/realmonitor?channel=1&subtype=0'
+                # 'rtsp://admin:admin123@192.168.101.114:554/cam/playback?channel=1&subtype=0&starttime=2021_08_03_11_50_00'
+                num = 2
+                main_ctx.start_procs('AI', cnt=num)
+                num = 3
+                mqtt = cfg['mqtt_svrs'][0]
+                main_ctx.start_procs('MQTT', cnt=num, mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'],
+                                     mqtt_topic=mqtt['mqtt_tp'])
 
-            num = 1  # how many processes do I need?
-            main_ctx.start_procs('RTSP', cnt=num, rtsp_url='rtsp://admin:admin123@192.168.101.114:554/cam/realmonitor'
-                                                           '?channel=1&subtype=0')
-            num = 1  # how many processes do I need?
-            main_ctx.start_procs('RTSP', cnt=num, rtsp_url='rtsp://admin:admin123@192.168.101.114:554/cam/playback'
-                                                           '?channel=1&subtype=0&starttime=2021_08_03_11_50_00')
-            num = 3
-            main_ctx.start_procs('AI', cnt=num)
-
-            num = 3
-            main_ctx.start_procs('MQTT', cnt=num, mqtt_host='192.168.1.225', mqtt_port=1886, mqtt_topic='/dt/devid-1',
-                                 mqtt_cid='devid-1')
-
-            # main_ctx.stop_procs()
-            # main_ctx.start_procs('RTSP', cnt=2)
-
-            interval = 1
-            while True:
-                sleep(interval - time() % interval)
-                numb = random.randrange(1, 4)
+            # interval = 1
+            # while True:
+            #     sleep(interval - time() % interval)
+            #     numb = random.randrange(1, 4)
 
             main_ctx.factory_.pool_.close()
             main_ctx.factory_.pool_.join()
 
-            self.assertEqual(len(res), num)
-            self.assertEqual(sum(res), 0)
+            # self.assertEqual(len(res), num)
+            # self.assertEqual(sum(res), 0)
 
 
 if __name__ == "__main__":

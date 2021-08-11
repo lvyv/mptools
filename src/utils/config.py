@@ -24,7 +24,23 @@ config module
 =========================
 
 Configuration related stuff here.
+1个视频通道对应rtsp的url
+1个视频通道包含多个预置点viewpoint
+1个预置点包含多个热点区aoi
 """
 
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
+
+import json
+
+
+def load_json(fp):
+    try:
+        load_dict = None
+        with open(fp, 'r', encoding='UTF-8') as load_f:
+            load_dict = json.load(load_f)
+            load_f.close()
+    finally:
+        return load_dict
+

@@ -29,10 +29,7 @@ Publish recognized results to iot gateway.
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
 
-import cv2
-import imutils
 import paho.mqtt.client as mqtt_client
-from time import time, sleep
 from utils import bus
 from core.procworker import ProcWorker
 
@@ -52,8 +49,6 @@ class MqttWorker(ProcWorker):
                 self.mqtt_host_ = value
             elif key == 'mqtt_port':
                 self.mqtt_port_ = value
-            elif key == 'mqtt_cid':
-                self.mqtt_cid_ = value
             elif key == 'mqtt_topic':
                 self.mqtt_topic_ = value
             elif key == 'fsvr_url':
