@@ -30,11 +30,8 @@ unit test module
 # License: MIT
 
 import unittest
-import random
 from core.main import MainContext
-from time import sleep, time
 from utils import config
-from utils import bus, log
 
 
 class TestMain(unittest.TestCase):
@@ -61,17 +58,6 @@ class TestMain(unittest.TestCase):
                 mqtt = cfg['mqtt_svrs'][0]
                 main_ctx.start_procs('MQTT', cnt=num, mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'],
                                      mqtt_topic=mqtt['mqtt_tp'])
-
-            # interval = 1
-            # while True:
-            #     sleep(interval - time() % interval)
-            #     numb = random.randrange(1, 4)
-
-            main_ctx.factory_.pool_.close()
-            main_ctx.factory_.pool_.join()
-
-            # self.assertEqual(len(res), num)
-            # self.assertEqual(sum(res), 0)
 
 
 if __name__ == "__main__":

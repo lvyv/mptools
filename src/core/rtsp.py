@@ -41,6 +41,7 @@ class RtspWorker(ProcWorker):
     def __init__(self, name, evt_bus, in_q=None, out_q=None, dicts=None, **kwargs):
         super().__init__(name, evt_bus, dicts, **kwargs)
         self.bus_topic_ = bus.EBUS_TOPIC_RTSP
+        self.in_q_ = in_q
         self.out_q_ = out_q
         self.vs_ = None
         self.args_ = None

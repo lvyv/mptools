@@ -31,6 +31,8 @@ Event bus of all processes.
 
 import os
 import utils.log as log
+from pynng import Bus0, Timeout
+import time
 
 # DEFAULT_POLLING_TIMEOUT = 0.02
 EBUS_TOPIC_RTSP = 'rtsp'
@@ -40,9 +42,44 @@ EBUS_TOPIC_MAIN = 'main'
 EBUS_TOPIC_BASE = 'base'    # base class topic
 
 
+class IEventBusMixin:
+    address_ = 'tcp://127.0.0.1:13131'
+    central_ = None
+
+    @classmethod
+    def get_beeper(cls, rtimeout=None):
+        return Bus0(dial=cls.address_, recv_timeout=rtimeout)
+
+    @classmethod
+    def get_central(cls, rtimeout=None):
+        if cls.central_ is None:
+            cls.central_ = Bus0(listen=cls.address_, recv_timeout=rtimeout)
+        return cls.central_
+
+    def recv_cmd(self, topic):
+        """Mixin methods"""
+        if self.beeper_ is None:
+            raise Exception("evt_bus_ must be set.")
+        ret = None
+        bus = self.beeper_
+        msg = bus.recv(block=True).decode('utf-8').split(':')
+        if msg[0] == topic:
+            ret = msg[1]
+        return ret
+
+    def send_cmd(self, topic, msg):
+        """Mixin methods"""
+        if self.beeper_ is None:
+            raise Exception("evt_bus_ must be set.")
+        bus = self.beeper_
+        json = f'{topic}:{msg}'
+        bus.send(json.encode('utf-8'))
+        self.log('send bytes.')
+
+
 def send_cmd(bus, topic, msg):
+    ret = False
     try:
-        ret = False
         while bus[topic]:   # timeout should be taken into consideration
             pass
     except KeyError as err:
@@ -53,8 +90,8 @@ def send_cmd(bus, topic, msg):
 
 
 def recv_cmd(bus, topic):
+    msg = None
     try:
-        msg = None
         # pid = os.getpid()
         msg = bus.pop(topic)
         log.logger(os.getpid(), log.LOG_LVL_INFO, f'got events: {msg}')

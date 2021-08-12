@@ -38,6 +38,7 @@ class ProcWorker:
     def __init__(self, name, evt_bus, dicts, **kwargs):
         self.name = name
         self.log = functools.partial(log.logger, f'{name}')
+        self.beeper_ = bus.IEventBusMixin.get_beeper()
         self.evt_bus_ = evt_bus
         self.bus_topic_ = bus.EBUS_TOPIC_BASE
         # self.init_args(**kwargs)
