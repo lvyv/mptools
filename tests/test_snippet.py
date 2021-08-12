@@ -112,7 +112,7 @@ def replace_non_ascii(x): return ''.join(i if ord(i) < 128 else '_' for i in x)
 
 
 def test_upload_img():
-    vs_ = VideoStream('rtsp://192.168.1.4/live').start()
+    vs_ = VideoStream('rtsp://127.0.0.1/live').start()
     inteval = 1
     while True:
         sleep(inteval - time() % inteval)  # 休眠采样间隔的时间
