@@ -36,6 +36,7 @@ ChildA，ChildB，ChildC是独立子进程。
 import os
 import unittest
 import multiprocessing
+import functools
 
 from time import time, sleep
 from core.procworker import ProcWorker
@@ -43,19 +44,18 @@ from utils import bus, log
 from pynng import Timeout
 
 
-def proc_worker_wrapper(proc_worker_class, name, evt_bus, dicts=None, **kwargs):
+def proc_worker_wrapper(proc_worker_class, name, dicts=None, **kwargs):
     pid = os.getpid()
-    proc_worker = proc_worker_class(f'{name}-{pid}', evt_bus, dicts, **kwargs)
+    proc_worker = proc_worker_class(f'{name}-{pid}', dicts, **kwargs)
     # sleep(1)
     return proc_worker.run()
 
 
 class ChildA(ProcWorker, bus.IEventBusMixin):
-    def __init__(self, name, evt_bus, dicts=None, **kwargs):
-        super().__init__(name, evt_bus, dicts, **kwargs)
-        self.bus_topic_ = bus.EBUS_TOPIC_AI
+    def __init__(self, name, dicts=None, **kwargs):
+        super().__init__(name, 'ChildA', dicts, **kwargs)
 
-    def main_func(self, event, *args):
+    def main_func(self, event=None, *args):
         if 'END' == event:
             self.break_out_ = True
         sleep(1 - time() % 1)
@@ -63,56 +63,57 @@ class ChildA(ProcWorker, bus.IEventBusMixin):
 
 
 class ChildB(ProcWorker, bus.IEventBusMixin):
-    def __init__(self, name, evt_bus, in_q=None, out_q=None, dicts=None, **kwargs):
-        super().__init__(name, evt_bus, dicts, **kwargs)
-        self.bus_topic_ = bus.EBUS_TOPIC_AI
+    def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
+        super().__init__(name, 'ChildB', dicts, **kwargs)
 
     def run(self, *kwargs):
         self.log(f'Run method called.')
 
 
 class ChildC(ProcWorker, bus.IEventBusMixin):
-    def __init__(self, name, evt_bus, in_q=None, out_q=None, dicts=None, **kwargs):
-        super().__init__(name, evt_bus, dicts, **kwargs)
-        self.bus_topic_ = bus.EBUS_TOPIC_AI
+    def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
+        super().__init__(name, 'ChildC', dicts, **kwargs)
 
     def startup(self):
         self.log('startup called.')
 
-    def main_func(self, event, *args):
+    def main_func(self, event=None, *args):
         sleep(1 - time() % 1)
-        msg = self.recv_cmd('ChildC')
-        self.log(f'main_func called, {msg}')
-        self.send_cmd('Main', 'bye.')
+        self.log(f'Received: {event}')
+        self.send_cmd('TestBus', 'bye.')
 
     def shutdown(self):
         self.log('shutdown called.')
 
 
-class TestBus(unittest.TestCase):
+class TestBus(unittest.TestCase, bus.IEventBusMixin):
     """Tests for `utils.bus` package."""
 
     def setUp(self):
         """Set up test fixtures, if any."""
+        self.beeper_ = bus.IEventBusMixin.get_center(rtimeout=1)
+        self.log = functools.partial(log.logger, 'TestBus')
 
     def tearDown(self):
         """Tear down test fixtures, if any."""
+        self.center_.close()
 
     def test_Bus(self):
         """Test bus."""
-
-        comm = bus.IEventBusMixin.get_central(rtimeout=1)
         pool = multiprocessing.Pool(processes=10)
         pool.starmap_async(proc_worker_wrapper, [(ChildA, f'A', None) for idx in range(1)])
         pool.starmap_async(proc_worker_wrapper, [(ChildB, f'B', None) for idx in range(1)])
         pool.apply_async(proc_worker_wrapper, (ChildC, f'C', None))
         while True:
             try:
-                comm.send(b'ChildC:hello')
+                self.send_cmd('ChildC', 'hello')
                 sleep(3 - time() % 3)
-                log.logger('Main', comm.recv())
+                msg = self.recv_cmd('TestBus')
+                self.log(f'Received:{msg}')
             except Timeout as te:
-                log.logger('Main', te, level=log.LOG_LVL_ERRO)
+                self.log(te, level=log.LOG_LVL_ERRO)
+            except KeyboardInterrupt as be:
+                break
 
         pool.close()
         pool.join()

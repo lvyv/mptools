@@ -38,33 +38,38 @@ import time
 EBUS_TOPIC_RTSP = 'rtsp'
 EBUS_TOPIC_AI = 'ai'
 EBUS_TOPIC_MQTT = 'mqtt'
+EBUS_TOPIC_REST = 'rest'
 EBUS_TOPIC_MAIN = 'main'
-EBUS_TOPIC_BASE = 'base'    # base class topic
+EBUS_TOPIC_PROC = 'procworker'    # base class topic
 
 
 class IEventBusMixin:
     address_ = 'tcp://127.0.0.1:13131'
-    central_ = None
+    center_ = None
 
     @classmethod
-    def get_beeper(cls, rtimeout=None):
+    def get_beeper(cls, rtimeout=1):
         return Bus0(dial=cls.address_, recv_timeout=rtimeout)
 
     @classmethod
-    def get_central(cls, rtimeout=None):
-        if cls.central_ is None:
-            cls.central_ = Bus0(listen=cls.address_, recv_timeout=rtimeout)
-        return cls.central_
+    def get_center(cls, rtimeout=1):
+        if cls.center_ is None:
+            cls.center_ = Bus0(listen=cls.address_, recv_timeout=rtimeout)
+        return cls.center_
 
     def recv_cmd(self, topic):
         """Mixin methods"""
-        if self.beeper_ is None:
-            raise Exception("evt_bus_ must be set.")
-        ret = None
-        bus = self.beeper_
-        msg = bus.recv(block=True).decode('utf-8').split(':')
-        if msg[0] == topic:
-            ret = msg[1]
+        try:
+            if self.beeper_ is None:
+                raise Exception("evt_bus_ must be set.")
+            ret = None
+            bus = self.beeper_
+            msg = bus.recv(block=True).decode('utf-8').split(':')
+            if msg[0] == topic:
+                ret = msg[1]
+        except Timeout as te:
+            # self.log(te, level=log.LOG_LVL_ERRO)
+            pass
         return ret
 
     def send_cmd(self, topic, msg):
@@ -74,7 +79,7 @@ class IEventBusMixin:
         bus = self.beeper_
         json = f'{topic}:{msg}'
         bus.send(json.encode('utf-8'))
-        self.log('send bytes.')
+        self.log(f'send {json} bytes.')
 
 
 def send_cmd(bus, topic, msg):

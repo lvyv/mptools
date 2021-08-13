@@ -61,13 +61,12 @@ class RestWorker:
 
 
 # -- Process Wrapper
-def proc_worker_wrapper(proc_worker_class, name, evt_bus, in_q=None, out_q=None, dicts=None, **kwargs):
+def proc_worker_wrapper(proc_worker_class, name, in_q=None, out_q=None, dicts=None, **kwargs):
     """
     子进程的入口点。
 
     :param proc_worker_class: 类名。
     :param name: 对象名。
-    :param evt_bus: 事件总线，子进程之间及主进程信令通道。
     :param in_q: 输入数据队列，子进程之间数据通道。
     :param out_q: 输出数据队列，子进程之间数据通道。
     :param dicts: 额外参数。
@@ -75,7 +74,7 @@ def proc_worker_wrapper(proc_worker_class, name, evt_bus, in_q=None, out_q=None,
     :return: 子进程退出码：0为正常，-1为错误。
     """
     pid = os.getpid()
-    proc_worker = proc_worker_class(f'{name}-{pid}', evt_bus, in_q, out_q, dicts, **kwargs)
+    proc_worker = proc_worker_class(f'{name}-{pid}', in_q, out_q, dicts, **kwargs)
     return proc_worker.run()
 
 
@@ -90,7 +89,7 @@ class ProcSimpleFactory:
         self.log = functools.partial(log.logger, f'ProcSimpleFactory')
         self.pool_ = multiprocessing.Pool(processes=nop)
 
-    def create(self, worker_class, name, evt_bus, in_q=None, out_q=None, **kwargs):
+    def create(self, worker_class, name, in_q=None, out_q=None, **kwargs):
         default_cnt = 1
         for key, value in kwargs.items():
             if key == 'cnt':
@@ -98,12 +97,12 @@ class ProcSimpleFactory:
                 break
 
         res = self.pool_.starmap_async(proc_worker_wrapper,
-                                       [(worker_class, f'{name}', evt_bus, in_q, out_q, kwargs)
+                                       [(worker_class, f'{name}', in_q, out_q, kwargs)
                                         for idx in range(default_cnt)])
         return res
 
 
-class MainContext:
+class MainContext(bus.IEventBusMixin):
     """封装主进程模块类.
 
     完成所有子进程的创建，终止工作。
@@ -114,6 +113,7 @@ class MainContext:
 
     def __init__(self):
         self.log = functools.partial(log.logger, f'MAIN')
+        self.beeper_ = bus.IEventBusMixin.get_center(rtimeout=1)
 
         self.pic_q_ = multiprocessing.Manager().Queue()  # Is JoinableQueue better?
         self.vec_q_ = multiprocessing.Manager().Queue()
@@ -122,9 +122,6 @@ class MainContext:
         self.queues_ = []  # 子进程间数据队列
         self.queues_.append(self.pic_q_)
         self.queues_.append(self.vec_q_)
-
-        self.evt_buses_ = []  # 进程间通信总线
-        self.evt_buses_.append(self.evt_b_)
 
         self.factory_ = ProcSimpleFactory(self.NUMBER_OF_PROCESSES)
 
@@ -163,20 +160,25 @@ class MainContext:
             待定.
         """
         if 'RTSP' == name:
-            res = self.factory_.create(RtspWorker, name, self.evt_b_, None, self.pic_q_, **kwargs)
+            res = self.factory_.create(RtspWorker, name, None, self.pic_q_, **kwargs)
         elif 'REST' == name:
-            res = self.factory_.create(RestWorker, name, self.evt_b_, None, None, **kwargs)
+            res = self.factory_.create(RestWorker, name, None, None, **kwargs)
         elif 'AI' == name:
-            res = self.factory_.create(AiWorker, name, self.evt_b_, self.pic_q_, self.vec_q_, **kwargs)
+            res = self.factory_.create(AiWorker, name, self.pic_q_, self.vec_q_, **kwargs)
         elif 'MQTT' == name:
-            res = self.factory_.create(MqttWorker, name, self.evt_b_, self.vec_q_, None, **kwargs)
+            res = self.factory_.create(MqttWorker, name, self.vec_q_, None, **kwargs)
         else:
             res = (None, None)
 
         return res
 
-    def stop_procs(self, msg='END'):
-        bus.send_cmd(self.evt_b_, bus.EBUS_TOPIC_RTSP, msg)
+    def stop_procs(self):
+        msg = 'END'
+        self.send_cmd(bus.EBUS_TOPIC_RTSP, msg)
+        self.send_cmd(bus.EBUS_TOPIC_AI, msg)
+        self.send_cmd(bus.EBUS_TOPIC_MQTT, msg)
+        self.send_cmd(bus.EBUS_TOPIC_REST, msg)
+
         return True
 
 

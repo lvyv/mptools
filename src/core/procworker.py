@@ -33,31 +33,24 @@ import functools
 from utils import bus, log
 
 
-class ProcWorker:
+class BaseProcWorker:
 
-    def __init__(self, name, evt_bus, dicts, **kwargs):
+    def __init__(self, name, dicts, **kwargs):
         self.name = name
         self.log = functools.partial(log.logger, f'{name}')
         self.beeper_ = bus.IEventBusMixin.get_beeper()
-        self.evt_bus_ = evt_bus
-        self.bus_topic_ = bus.EBUS_TOPIC_BASE
-        # self.init_args(**kwargs)
         self.break_out_ = False
 
     def main_loop(self):
-        # self.log("Entering main_loop.")
-        while self.break_out_ is False:
-            self.main_func()
-        self.log("Leaving main_loop.")
+        self.log("Entering main_loop.")
+        raise NotImplementedError(f"{self.__class__.__name__}.main_loop is not implemented")
 
     def startup(self):
         self.log("Entering startup.")
-        # bus.send_cmd(self.evt_bus_, bus.EBUS_TOPIC_MAIN, {'src': self.name, 'content': 'UP'})
         pass
 
     def shutdown(self):
         self.log("Entering shutdown.")
-        # bus.send_cmd(self.evt_bus_, bus.EBUS_TOPIC_MAIN, {'src': self.name, 'content': 'DOWN'})
         pass
 
     def main_func(self, event=None, *args):
@@ -76,3 +69,18 @@ class ProcWorker:
             self.log(f"Exception Shutdown: {exc}", exc_info=True)
         finally:
             self.shutdown()
+
+
+class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
+
+    def __init__(self, name, topic, dicts, **kwargs):
+        super().__init__(name, dicts, **kwargs)
+        self.beeper_ = bus.IEventBusMixin.get_beeper()  # Event bus initialized.
+        self.bus_topic_ = topic
+
+    def main_loop(self):
+        # self.log("Entering main_loop.")
+        while self.break_out_ is False:
+            evt = self.recv_cmd(self.bus_topic_)
+            self.main_func(evt)
+        self.log("Leaving main_loop.")

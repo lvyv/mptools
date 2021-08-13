@@ -36,10 +36,10 @@ from utils import bus, comn
 from core.procworker import ProcWorker
 
 
-class AiWorker(ProcWorker):
-    def __init__(self, name, evt_bus, in_q=None, out_q=None, dicts=None, **kwargs):
-        super().__init__(name, evt_bus, dicts, **kwargs)
-        self.bus_topic_ = bus.EBUS_TOPIC_AI
+class AiWorker(ProcWorker, bus.IEventBusMixin):
+    def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
+        super().__init__(name, bus.EBUS_TOPIC_AI, dicts, **kwargs)
+        # self.bus_topic_ = bus.EBUS_TOPIC_AI
         self.in_q_ = in_q
         self.out_q_ = out_q
 

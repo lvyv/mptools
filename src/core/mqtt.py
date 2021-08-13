@@ -34,10 +34,10 @@ from utils import bus
 from core.procworker import ProcWorker
 
 
-class MqttWorker(ProcWorker):
-    def __init__(self, name, evt_bus, in_q=None, out_q=None, dicts=None, **kwargs):
-        super().__init__(name, evt_bus, dicts, **kwargs)
-        self.bus_topic_ = bus.EBUS_TOPIC_MQTT
+class MqttWorker(ProcWorker, bus.IEventBusMixin):
+    def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
+        super().__init__(name, bus.EBUS_TOPIC_MQTT, dicts, **kwargs)
+        # self.bus_topic_ = bus.EBUS_TOPIC_MQTT
         self.in_q_ = in_q
         self.mqtt_host_ = None
         self.mqtt_port_ = None
