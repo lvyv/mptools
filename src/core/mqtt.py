@@ -61,7 +61,7 @@ class MqttWorker(ProcWorker):
         self.client_.connect(self.mqtt_host_, self.mqtt_port_)
         self.client_.loop_start()
 
-    def main_func(self, event, *args):
+    def main_func(self, event=None, *args):
         if 'END' == event:
             self.break_out_ = True
         # 全速

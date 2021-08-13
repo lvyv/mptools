@@ -59,7 +59,7 @@ class RtspWorker(ProcWorker):
         self.vs_ = VideoStream(src=url, framerate=24).start()
         # self.log(f'Got stream!')
 
-    def main_func(self, event, *args):
+    def main_func(self, event=None, *args):
         """
         本函数实现按配置文件调度摄像头，取rtsp流解析，并调用ai的业务逻辑。
         重载基类主循环函数调用。

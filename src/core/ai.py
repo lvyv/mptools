@@ -43,7 +43,7 @@ class AiWorker(ProcWorker):
         self.in_q_ = in_q
         self.out_q_ = out_q
 
-    def main_func(self, event, *args):
+    def main_func(self, event=None, *args):
         if 'END' == event:
             self.break_out_ = True
         # 全速

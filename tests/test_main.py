@@ -59,6 +59,9 @@ class TestMain(unittest.TestCase):
                 main_ctx.start_procs('MQTT', cnt=num, mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'],
                                      mqtt_topic=mqtt['mqtt_tp'])
 
+            main_ctx.factory_.pool_.close()
+            main_ctx.factory_.pool_.join()
+
 
 if __name__ == "__main__":
     unittest.main()

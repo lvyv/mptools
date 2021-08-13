@@ -47,8 +47,7 @@ class ProcWorker:
     def main_loop(self):
         # self.log("Entering main_loop.")
         while self.break_out_ is False:
-            evt = bus.recv_cmd(self.evt_bus_, self.bus_topic_)
-            self.main_func(evt)
+            self.main_func()
         self.log("Leaving main_loop.")
 
     def startup(self):
@@ -61,7 +60,7 @@ class ProcWorker:
         # bus.send_cmd(self.evt_bus_, bus.EBUS_TOPIC_MAIN, {'src': self.name, 'content': 'DOWN'})
         pass
 
-    def main_func(self, event, *args):
+    def main_func(self, event=None, *args):
         self.log("Entering main_func.")
         raise NotImplementedError(f"{self.__class__.__name__}.main_func is not implemented")
 
