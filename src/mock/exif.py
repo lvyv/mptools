@@ -30,11 +30,15 @@ mock module
 # License: MIT
 
 from fastapi import FastAPI, Form, UploadFile, File
+from fastapi.staticfiles import StaticFiles
+from typing import List
 import uvicorn
 
 
 def call_aimeter(contents):
     # print(contents)
+    if contents:
+        pass
     ret = [
         {'id': 1, 'key1': 31.2, 'loc': [14, 23]},
         {'id': 2, 'key2': 20, 'loc': [102, 538]}
@@ -43,7 +47,8 @@ def call_aimeter(contents):
 
 
 def call_objcounting(contents):
-    # print(contents)
+    if contents:
+        pass
     ret = [
         {'id': 1, 'person': 12},
         {'id': 2, 'car': 1}
@@ -52,19 +57,57 @@ def call_objcounting(contents):
 
 
 def call_indicator_freq(contents):
-    # print(contents)
+    if contents:
+        pass
     ret = [
-        {'id': 1, 'error_led': 3},          # 3 表示3Hz
-        {'id': 2, 'power_led': -1},         # -1 表示常亮
-        {'id': 3, 'communicate_led': 0}     # 0 表示常灭
+        {'id': 1, 'error_led': 3},  # 3 表示3Hz
+        {'id': 2, 'power_led': -1},  # -1 表示常亮
+        {'id': 3, 'communicate_led': 0}  # 0 表示常灭
     ]
     return ret
 
 
 app = FastAPI()
 
+# EIF4:REST/WS IOT 外部接口-物联网文件服务器/WS服务（针对实时上传的图片）
+# iot图片文件服务
+app.mount('/viewport', StaticFiles(directory='upfiles'), name='local')
+app.mount('/ui', StaticFiles(directory='../ui'), name='ui')
+app.mount('/docs', StaticFiles(directory='../../docs'), name='docs')
 
-# router functions section
+
+# iot登录
+@app.post("/api/auth/login")
+async def post_iot_login():
+    """模拟物联网登录获取访问令牌接口，有物联网服务器，暂未实现"""
+    pass
+
+
+# iot遥测数据写入
+@app.post("/api/v1/{devicetoken}/telemetry")
+async def post_iot_telemetry(devicetoken: str):
+    """模拟物联网遥测数据推送接口，有物联网服务器，暂未实现"""
+    pass
+
+
+# iot 文件上传
+@app.post("/api/v1/uploadfiles")
+async def post_iot_files(files: List[UploadFile] = File(...)):
+    """模拟物联网文件上传接口"""
+    ret = []
+    for upfile in files:
+        contents = upfile.file.read()
+        path = './upfiles/'
+        outfile = open(f'{path}{upfile.filename}', 'wb')
+        outfile.write(contents)
+        outfile.close()
+        item = {"id": upfile.filename,
+                "url": f'/viewport/{upfile.filename}'}
+        ret.append(item)
+    return ret
+
+
+# EIF5:REST PTZ CNTL 外部接口-视频调度管理软件
 @app.post("/api/ptz/front_end_command/{deviceid}/{channelid}")
 async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(...)):
     """模拟视频调度的跳转到预置点接口"""
@@ -73,6 +116,7 @@ async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(.
     return item
 
 
+# IF2 REST API  内部接口-智能识别
 @app.post("/meter_recognization/")
 async def meter_recognization(upfile: UploadFile = File(...)):
     print(upfile.filename, upfile.content_type)
@@ -107,7 +151,6 @@ async def indicator_frequency(upfile: UploadFile = File(...)):
 
 
 if __name__ == '__main__':
-    # uvicorn.run(app, host="0.0.0.0", port=21900)
     uvicorn.run(app,
                 host="0.0.0.0",
                 port=21900,

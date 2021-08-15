@@ -30,34 +30,22 @@ Entry point of the project.
 # License: Apache Licence 2.0
 
 import multiprocessing
-import random
 import functools
 import os
-from time import time, sleep
 from core.rtsp import RtspWorker
 from core.ai import AiWorker
 from core.mqtt import MqttWorker
+from core.rest import RestWorker
 from utils import bus, log
 
 
-# class MqttWorker:
+# class RestWorker:
 #     def __init__(self, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
 #         self.log = functools.partial(log.logger, f'{name}')
 #
 #     def run(self):
 #         self.log(f'running...')
-#         sleep(3 - time() % 3)
-#
 #         return 0
-
-
-class RestWorker:
-    def __init__(self, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
-        self.log = functools.partial(log.logger, f'{name}')
-
-    def run(self):
-        self.log(f'running...')
-        return 0
 
 
 # -- Process Wrapper
@@ -97,7 +85,7 @@ class ProcSimpleFactory:
                 break
 
         res = self.pool_.starmap_async(proc_worker_wrapper,
-                                       [(worker_class, f'{name}', in_q, out_q, kwargs)
+                                       [(worker_class, f'{name}({idx})', in_q, out_q, kwargs)
                                         for idx in range(default_cnt)])
         return res
 
@@ -109,15 +97,15 @@ class MainContext(bus.IEventBusMixin):
     完成对所有运行子进程的下发配置和查询状态（主要是事件总线和图片及向量队列）。
     """
 
-    NUMBER_OF_PROCESSES = 10
+    NUMBER_OF_PROCESSES = 20
 
-    def __init__(self):
+    def __init__(self, bustopic):
         self.log = functools.partial(log.logger, f'MAIN')
         self.beeper_ = bus.IEventBusMixin.get_center(rtimeout=1)
+        self.bus_topic_ = bustopic
 
         self.pic_q_ = multiprocessing.Manager().Queue()  # Is JoinableQueue better?
         self.vec_q_ = multiprocessing.Manager().Queue()
-        self.evt_b_ = multiprocessing.Manager().dict()
 
         self.queues_ = []  # 子进程间数据队列
         self.queues_.append(self.pic_q_)
@@ -173,7 +161,7 @@ class MainContext(bus.IEventBusMixin):
         return res
 
     def stop_procs(self):
-        msg = 'END'
+        msg = bus.EBUS_SPECIAL_MSG_STOP
         self.send_cmd(bus.EBUS_TOPIC_RTSP, msg)
         self.send_cmd(bus.EBUS_TOPIC_AI, msg)
         self.send_cmd(bus.EBUS_TOPIC_MQTT, msg)

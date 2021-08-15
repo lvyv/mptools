@@ -34,14 +34,14 @@ from utils import bus
 from core.procworker import ProcWorker
 
 
-class MqttWorker(ProcWorker, bus.IEventBusMixin):
+class MqttWorker(ProcWorker):
     def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
         super().__init__(name, bus.EBUS_TOPIC_MQTT, dicts, **kwargs)
-        # self.bus_topic_ = bus.EBUS_TOPIC_MQTT
         self.in_q_ = in_q
+        self.out_q_ = out_q
+        self.mqtt_cid_ = name   # 这个名字无所谓，在网关处会重新mapping key-value到正确的设备号
         self.mqtt_host_ = None
         self.mqtt_port_ = None
-        self.mqtt_cid_ = None
         self.mqtt_topic_ = None
         self.fsvr_url_ = None
         for key, value in dicts.items():

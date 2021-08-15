@@ -30,10 +30,12 @@ unit test module
 # License: MIT
 
 from multiprocessing import Pool
-
+from os import listdir
+from os.path import isfile, join
 from time import time, sleep
-from utils import bus, comn, config
-from core.procworker import ProcWorker
+# from utils import bus, comn, config
+from utils import log
+# from core.procworker import ProcWorker
 
 import requests
 import cv2
@@ -45,7 +47,7 @@ from matplotlib import pyplot as plt
 # ----fastapi-----
 
 from fastapi import FastAPI, File, UploadFile
-import uvicorn
+# import uvicorn
 
 
 app = FastAPI()
@@ -84,7 +86,7 @@ work = [("A", 5), ("B", 2), ("C", 1), ("D", 3)]
 
 def work_log(name, ts):
     print(f" Process {name} waiting {ts} seconds.")
-    time.sleep(ts)
+    sleep(ts)
     print(f" Process {name} Finished.")
 
 
@@ -141,10 +143,22 @@ def test_upload_img():
     # self.out_q_.put(resp.content)
 
 
+def uploadfiles():
+    rest = 'https://127.0.0.1:21900/api/v1/uploadfiles'
+    mypath = '../src/mock/local/'
+    onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
+    files = [('files', (replace_non_ascii(name), open(f'{mypath}{name}', 'rb'))) for name in onlyfiles]
+
+    resp = requests.post(rest, files=files, verify=False)  # data=image_data)
+
+
 if __name__ == '__main__':
     # test_arg('a', 1, key3=3, key5=5, key4=4)
     # pool_handler()
     # uvicorn.run(app, host="0.0.0.0", port=21800)
     # cfg = config.load_json('./v2v.cfg')
     # print(cfg)
-    test_upload_img()
+    # test_upload_img()
+    # logging_guide.py
+    # log.logger('he', 'hello')
+    uploadfiles()

@@ -37,10 +37,9 @@ from core.procworker import ProcWorker
 from imutils.video import VideoStream
 
 
-class RtspWorker(ProcWorker, bus.IEventBusMixin):
+class RtspWorker(ProcWorker):
     def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
-        super().__init__(name, bus.EBUS_TOPIC_RTSP, dicts, **kwargs)
-        # self.bus_topic_ = bus.EBUS_TOPIC_RTSP
+        super().__init__(name, bus.EBUS_TOPIC_PROC, dicts, **kwargs)
         self.in_q_ = in_q
         self.out_q_ = out_q
         self.vs_ = None
@@ -57,7 +56,6 @@ class RtspWorker(ProcWorker, bus.IEventBusMixin):
         self.log(f'{self.name} started.')
         url = self.args_['rtsp_url']
         self.vs_ = VideoStream(src=url, framerate=24).start()
-        # self.log(f'Got stream!')
 
     def main_func(self, event=None, *args):
         """

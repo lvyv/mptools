@@ -44,7 +44,7 @@ def run_to_viewpoints(devid, channelid, presetid):
         payload = {'viewpoint': presetid}
         resp = requests.post(f'https://127.0.0.1:21900/api/ptz/front_end_command/{devid}/{channelid}',
                              data=payload, verify=False)
-    except KeyError as ke:
+    except KeyError:
         pass
     finally:
         return resp

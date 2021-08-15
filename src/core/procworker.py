@@ -38,8 +38,9 @@ class BaseProcWorker:
     def __init__(self, name, dicts, **kwargs):
         self.name = name
         self.log = functools.partial(log.logger, f'{name}')
-        self.beeper_ = bus.IEventBusMixin.get_beeper()
         self.break_out_ = False
+        if dicts:   # 扩展参数
+            pass
 
     def main_loop(self):
         self.log("Entering main_loop.")
@@ -60,9 +61,7 @@ class BaseProcWorker:
     def run(self):
         try:
             self.startup()
-            # self.startup_event.set()
             self.main_loop()
-            self.log("Normal Shutdown.")
             return 0
         except BaseException as exc:
             # -- Catch ALL exceptions, even Terminate and Keyboard interrupt
@@ -79,8 +78,10 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
         self.bus_topic_ = topic
 
     def main_loop(self):
-        # self.log("Entering main_loop.")
         while self.break_out_ is False:
             evt = self.recv_cmd(self.bus_topic_)
-            self.main_func(evt)
+            if evt == bus.EBUS_SPECIAL_MSG_STOP:
+                break
+            else:
+                self.main_func(evt)
         self.log("Leaving main_loop.")

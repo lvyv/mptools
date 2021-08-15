@@ -29,19 +29,31 @@ Log util for the project.
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
 
-import os
 import time
 import logging
+import os
 
 LOG_LVL_INFO = logging.INFO
 LOG_LVL_ERRO = logging.ERROR
 
+log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+lg = logging.getLogger('v2v')
+lg.setLevel(logging.INFO)               # 发布的时候可以修改这个值以便于抑制过多日志
+file_handler = logging.StreamHandler()  # 可以使用RotatingFileHandler，或者UDP/TCP的handler
+formatter = logging.Formatter(log_format)
+file_handler.setFormatter(formatter)
+lg.addHandler(file_handler)
+
 start_time = time.monotonic()
-logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 
 
 def logger(name, msg, level=LOG_LVL_INFO, exc_info=None):
     elapsed = time.monotonic() - start_time
     hours = int(elapsed // 60)
     seconds = elapsed - (hours * 60)
-    logging.log(level, f'{hours:3}:{seconds:06.3f} {name:20} {msg}', exc_info=exc_info)
+    lg.log(level, f'{hours:3}:{seconds:06.3f} {name:20} {msg}', exc_info=exc_info)
+
+
+def log(msg, level=LOG_LVL_INFO):
+    pid = os.getpid()
+    logger(name=pid, msg=msg, level=level)

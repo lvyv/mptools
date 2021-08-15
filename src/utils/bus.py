@@ -29,18 +29,19 @@ Event bus of all processes.
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
 
-import os
-import utils.log as log
 from pynng import Bus0, Timeout
-import time
 
-# DEFAULT_POLLING_TIMEOUT = 0.02
+# 特殊的通讯主题
 EBUS_TOPIC_RTSP = 'rtsp'
 EBUS_TOPIC_AI = 'ai'
 EBUS_TOPIC_MQTT = 'mqtt'
 EBUS_TOPIC_REST = 'rest'
 EBUS_TOPIC_MAIN = 'main'
-EBUS_TOPIC_PROC = 'procworker'    # base class topic
+EBUS_TOPIC_PROC = 'procworker'      # base class topic
+EBUS_TOPIC_BROADCAST = '*'          # 广播主题
+
+# 特殊的总线事件，用于所有子进程的共性行为
+EBUS_SPECIAL_MSG_STOP = 'END'       # 在基类实现的特殊事件，退出主循环
 
 
 class IEventBusMixin:
@@ -59,16 +60,15 @@ class IEventBusMixin:
 
     def recv_cmd(self, topic):
         """Mixin methods"""
+        ret = None
         try:
             if self.beeper_ is None:
                 raise Exception("evt_bus_ must be set.")
-            ret = None
             bus = self.beeper_
             msg = bus.recv(block=True).decode('utf-8').split(':')
-            if msg[0] == topic:
+            if msg[0] == topic or msg[0] == EBUS_TOPIC_BROADCAST:
                 ret = msg[1]
-        except Timeout as te:
-            # self.log(te, level=log.LOG_LVL_ERRO)
+        except Timeout:
             pass
         return ret
 
@@ -79,28 +79,28 @@ class IEventBusMixin:
         bus = self.beeper_
         json = f'{topic}:{msg}'
         bus.send(json.encode('utf-8'))
-        self.log(f'send {json} bytes.')
+        # self.log(f'send {json} bytes.')
 
 
-def send_cmd(bus, topic, msg):
-    ret = False
-    try:
-        while bus[topic]:   # timeout should be taken into consideration
-            pass
-    except KeyError as err:
-        bus['rtsp'] = msg
-        log.logger(os.getpid(), log.LOG_LVL_INFO, f'send-->{msg}')
-    finally:
-        return ret
-
-
-def recv_cmd(bus, topic):
-    msg = None
-    try:
-        # pid = os.getpid()
-        msg = bus.pop(topic)
-        log.logger(os.getpid(), log.LOG_LVL_INFO, f'got events: {msg}')
-    except KeyError as ke:
-        pass
-    finally:
-        return msg
+# def send_cmd(bus, topic, msg):
+#     ret = False
+#     try:
+#         while bus[topic]:   # timeout should be taken into consideration
+#             pass
+#     except KeyError as err:
+#         bus['rtsp'] = msg
+#         log.logger(os.getpid(), log.LOG_LVL_INFO, f'send-->{msg}')
+#     finally:
+#         return ret
+#
+#
+# def recv_cmd(bus, topic):
+#     msg = None
+#     try:
+#         # pid = os.getpid()
+#         msg = bus.pop(topic)
+#         log.logger(os.getpid(), log.LOG_LVL_INFO, f'got events: {msg}')
+#     except KeyError as ke:
+#         pass
+#     finally:
+#         return msg

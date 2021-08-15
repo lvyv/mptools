@@ -31,7 +31,7 @@ unit test module
 
 import unittest
 from core.main import MainContext
-from utils import config
+from utils import config, bus
 
 
 class TestMain(unittest.TestCase):
@@ -45,20 +45,32 @@ class TestMain(unittest.TestCase):
 
     def test_MainContext(self):
         """Test core.main.MainContext."""
-        with MainContext() as main_ctx:
-            main_ctx.log('started.')
+        # 'rtsp://admin:admin123@192.168.101.114:554/cam/realmonitor?channel=1&subtype=0'
+        # 'rtsp://admin:admin123@192.168.101.114:554/cam/playback?channel=1&subtype=0&starttime=2021_08_03_11_50_00'
+        with MainContext(bus.EBUS_TOPIC_MAIN) as main_ctx:
+            main_ctx.log('********************  CASICLOUD AI METER services  ********************')
             cfg = config.load_json('v2v.cfg')
+            # 启动进程
             for channel in cfg['rtsp_urls']:
-                main_ctx.start_procs('RTSP', rtsp_url=channel, sample_rate=1)
-                # 'rtsp://admin:admin123@192.168.101.114:554/cam/realmonitor?channel=1&subtype=0'
-                # 'rtsp://admin:admin123@192.168.101.114:554/cam/playback?channel=1&subtype=0&starttime=2021_08_03_11_50_00'
-                num = 2
+                main_ctx.start_procs('RTSP', rtsp_url=channel, sample_rate=1)   # 不提供cnt=x参数，缺省1个通道启1个进程
+                num = 3                                                         # AI比较慢，安排两个进程处理
                 main_ctx.start_procs('AI', cnt=num)
-                num = 3
+                num = 2                                                         # MQTT比较慢，上传文件，安排两个进程处理
                 mqtt = cfg['mqtt_svrs'][0]
                 main_ctx.start_procs('MQTT', cnt=num, mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'],
                                      mqtt_topic=mqtt['mqtt_tp'])
+            api = cfg['micro_service']
+            (ap, key, cer) = (api['http_port'], api['ssl_keyfile'], api['ssl_certfile'])
+            main_ctx.start_procs('REST', port=ap, ssl_keyfile=key, ssl_certfile=cer)    # 启动1个Rest进程，提供微服务调用
 
+            loop = True
+            while loop:
+                msg = main_ctx.recv_cmd(bus.EBUS_TOPIC_MAIN)
+                if msg:
+                    main_ctx.log(msg)
+
+            main_ctx.stop_procs()
+            # 等待进程结束
             main_ctx.factory_.pool_.close()
             main_ctx.factory_.pool_.join()
 

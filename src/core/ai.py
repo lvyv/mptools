@@ -36,7 +36,7 @@ from utils import bus, comn
 from core.procworker import ProcWorker
 
 
-class AiWorker(ProcWorker, bus.IEventBusMixin):
+class AiWorker(ProcWorker):
     def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
         super().__init__(name, bus.EBUS_TOPIC_AI, dicts, **kwargs)
         # self.bus_topic_ = bus.EBUS_TOPIC_AI
@@ -57,7 +57,3 @@ class AiWorker(ProcWorker, bus.IEventBusMixin):
         files = {'upfile': (comn.replace_non_ascii(name), image_data, 'image/png')}
         resp = requests.post(rest, files=files, verify=False)  # data=image_data)
         self.out_q_.put(resp.content)
-
-
-
-

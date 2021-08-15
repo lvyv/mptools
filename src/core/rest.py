@@ -29,12 +29,14 @@ Provide web api access points.
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
 
+
 import uvicorn
 from typing import Optional
-from fastapi import FastAPI
 from pydantic import BaseModel
+from fastapi import FastAPI
+from fastapi_utils.tasks import repeat_every
 
-from utils import bus
+from utils import bus, log
 from core.procworker import ProcWorker
 
 
@@ -42,6 +44,8 @@ app_ = FastAPI(
     title="视频图像智能分析软件",
     description="视频图像智能分析软件对外发布的RESTful API接口",
     version="2.2.0", )
+rest_statemachine_ = None
+counter_ = 0
 
 
 class Item(BaseModel):
@@ -53,20 +57,43 @@ class Item(BaseModel):
 
 @app_.post("/items/")
 async def create_item(item: Item):
+    rest_statemachine_.send_cmd(bus.EBUS_TOPIC_MAIN, 'hello from rest!')
     return item
 
 
-class RestWorker(ProcWorker, bus.IEventBusMixin):
+@app_.on_event("startup")
+@repeat_every(seconds=1, wait_first=True)
+def periodic():
+    global counter_
+    counter_ += 1
+    log.log(f'{counter_}')
+
+
+class RestWorker(ProcWorker):
     def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
         super().__init__(name, bus.EBUS_TOPIC_REST, dicts, **kwargs)
-        # self.bus_topic_ = bus.EBUS_TOPIC_AI
         self.in_q_ = in_q
         self.out_q_ = out_q
-        self.pt_ = 29080
-        for key, value in kwargs.items():
+
+        self.port_ = None
+        self.ssl_keyfile_ = None
+        self.ssl_certfile_ = None
+
+        for key, value in dicts.items():
             if key == 'port':
-                self.pt_ = value
-                break
+                self.port_ = value
+            elif key == 'ssl_keyfile':
+                self.ssl_keyfile_ = value
+            elif key == 'ssl_certfile':
+                self.ssl_certfile_ = value
 
     def run(self, *kwargs):
-        uvicorn.run(app_, host="0.0.0.0", port=self.pt_)
+        global rest_statemachine_
+        rest_statemachine_ = self
+        uvicorn.run(app_,
+                    host="0.0.0.0",
+                    port=self.port_,
+                    ssl_keyfile=self.ssl_keyfile_,
+                    ssl_certfile=self.ssl_certfile_,
+                    log_level='info'
+                    )
