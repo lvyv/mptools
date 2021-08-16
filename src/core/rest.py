@@ -36,7 +36,7 @@ from pydantic import BaseModel
 from fastapi import FastAPI
 from fastapi_utils.tasks import repeat_every
 
-from utils import bus, log
+from utils import bus
 from core.procworker import ProcWorker
 
 
@@ -44,7 +44,7 @@ app_ = FastAPI(
     title="视频图像智能分析软件",
     description="视频图像智能分析软件对外发布的RESTful API接口",
     version="2.2.0", )
-rest_statemachine_ = None
+rest_proc_ = None
 counter_ = 0
 
 
@@ -57,16 +57,30 @@ class Item(BaseModel):
 
 @app_.post("/items/")
 async def create_item(item: Item):
-    rest_statemachine_.send_cmd(bus.EBUS_TOPIC_MAIN, 'hello from rest!')
+    rest_proc_.send_cmd(bus.EBUS_TOPIC_MAIN, 'hello from rest!') # noqa
+    return item
+
+
+class Switch(BaseModel):
+    cmd: str = 'start'
+
+
+@app_.post("/subprocess/")
+async def create_item(item: Switch):
+    """统一关闭或启动rtsp，ai，mqtt子进程"""
+    cmds = ['start', 'stop']
+    if item.cmd in cmds:
+        rest_proc_.send_cmd(bus.EBUS_TOPIC_MAIN, item.cmd) # noqa
     return item
 
 
 @app_.on_event("startup")
 @repeat_every(seconds=1, wait_first=True)
 def periodic():
+    """周期性任务，用于读取系统状态和实现探针程序数据来源的提取"""
     global counter_
     counter_ += 1
-    log.log(f'{counter_}')
+    # rest_proc_.log(f'{counter_}') # noqa
 
 
 class RestWorker(ProcWorker):
@@ -88,9 +102,9 @@ class RestWorker(ProcWorker):
                 self.ssl_certfile_ = value
 
     def run(self, *kwargs):
-        global rest_statemachine_
-        rest_statemachine_ = self
-        uvicorn.run(app_,
+        global rest_proc_
+        rest_proc_ = self
+        uvicorn.run(app_,       # noqa 标准用法
                     host="0.0.0.0",
                     port=self.port_,
                     ssl_keyfile=self.ssl_keyfile_,

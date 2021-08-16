@@ -62,8 +62,6 @@ class MqttWorker(ProcWorker):
         self.client_.loop_start()
 
     def main_func(self, event=None, *args):
-        if 'END' == event:
-            self.break_out_ = True
         # 全速
         vec = self.in_q_.get()
         self.client_.publish(self.mqtt_topic_, vec, 1)

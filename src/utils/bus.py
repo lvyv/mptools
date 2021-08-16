@@ -79,7 +79,7 @@ class IEventBusMixin:
         bus = self.beeper_
         json = f'{topic}:{msg}'
         bus.send(json.encode('utf-8'))
-        # self.log(f'send {json} bytes.')
+        self.log(f'send {json} bytes.')
 
 
 # def send_cmd(bus, topic, msg):

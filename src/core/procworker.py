@@ -81,7 +81,7 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
         while self.break_out_ is False:
             evt = self.recv_cmd(self.bus_topic_)
             if evt == bus.EBUS_SPECIAL_MSG_STOP:
-                break
+                self.break_out_ = True
             else:
                 self.main_func(evt)
         self.log("Leaving main_loop.")

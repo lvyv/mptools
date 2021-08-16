@@ -44,8 +44,6 @@ class AiWorker(ProcWorker):
         self.out_q_ = out_q
 
     def main_func(self, event=None, *args):
-        if 'END' == event:
-            self.break_out_ = True
         # 全速
         pic = self.in_q_.get()
         buf = io.BytesIO()

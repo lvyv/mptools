@@ -39,7 +39,7 @@ from imutils.video import VideoStream
 
 class RtspWorker(ProcWorker):
     def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
-        super().__init__(name, bus.EBUS_TOPIC_PROC, dicts, **kwargs)
+        super().__init__(name, bus.EBUS_TOPIC_RTSP, dicts, **kwargs)
         self.in_q_ = in_q
         self.out_q_ = out_q
         self.vs_ = None
@@ -71,8 +71,6 @@ class RtspWorker(ProcWorker):
         -------
             无返回值。
         """
-        if 'END' == event:
-            self.break_out_ = True
         # 1.按参数设置摄像头到预置点，因为预置点有多个，所以要轮流执行
         # 2.等待摄像头执行到预置点位
         # 3.读取流并设置处理该图片的参数
@@ -94,7 +92,7 @@ class RtspWorker(ProcWorker):
                     # cv2.imshow('NVR realtime', frame)
                     pic = {'channel': vp, 'frame': frame}       # 把模型微服务参数等通过队列传给后续进程
                     self.out_q_.put(pic)
-                    self.log(f'采用第{cnt}帧.')
+                    self.log(f'采用第{cnt}帧.--du:{duration}--, delta:{delta}.')
                     cnt = cnt + 1
                 delta = time() - st                             # 消耗的时间（秒）
 

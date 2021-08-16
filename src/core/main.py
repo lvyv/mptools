@@ -36,7 +36,7 @@ from core.rtsp import RtspWorker
 from core.ai import AiWorker
 from core.mqtt import MqttWorker
 from core.rest import RestWorker
-from utils import bus, log
+from utils import bus, log, config
 
 
 # class RestWorker:
@@ -99,21 +99,23 @@ class MainContext(bus.IEventBusMixin):
 
     NUMBER_OF_PROCESSES = 20
 
-    def __init__(self, bustopic):
+    def __init__(self, bustopic=bus.EBUS_TOPIC_MAIN):
         self.log = functools.partial(log.logger, f'MAIN')
-        self.beeper_ = bus.IEventBusMixin.get_center(rtimeout=1)
-        self.bus_topic_ = bustopic
+        self.beeper_ = bus.IEventBusMixin.get_center(rtimeout=1)    # 不设置将是阻塞工作模式
+        self.bus_topic_ = bustopic                                  # 事件总线收件主题
+        self.cfg_ = None                                            # 配置文件内容
 
         self.pic_q_ = multiprocessing.Manager().Queue()  # Is JoinableQueue better?
         self.vec_q_ = multiprocessing.Manager().Queue()
 
-        self.queues_ = []  # 子进程间数据队列
-        self.queues_.append(self.pic_q_)
-        self.queues_.append(self.vec_q_)
+        self.queues_ = []                       # 子进程间数据传递队列
+        self.queues_.append(self.pic_q_)        # 图片
+        self.queues_.append(self.vec_q_)        # 识别结果
 
         self.factory_ = ProcSimpleFactory(self.NUMBER_OF_PROCESSES)
 
     def __enter__(self):
+        self.log('********************  CASICLOUD AI METER services  ********************')
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -126,7 +128,7 @@ class MainContext(bus.IEventBusMixin):
         # -- Don't eat exceptions that reach here.
         return not exc_type
 
-    def start_procs(self, name, **kwargs):
+    def switchon_procs(self, name, **kwargs):
         """
         本函数调用工厂类在主进程上下文环境启动所有子进程。
         创建包含指定数量进程的进程池，运行所有进程，并把所有进程执行结果合并为列表，返回。
@@ -160,14 +162,44 @@ class MainContext(bus.IEventBusMixin):
 
         return res
 
+    def start_procs(self, cfg):
+        # 'rtsp://admin:admin123@192.168.101.114:554/cam/realmonitor?channel=1&subtype=0'
+        # 'rtsp://admin:admin123@192.168.101.114:554/cam/playback?channel=1&subtype=0&starttime=2021_08_03_11_50_00'
+        # 启动进程
+        for channel in cfg['rtsp_urls']:
+            self.switchon_procs('RTSP', rtsp_url=channel, sample_rate=1)    # 不提供cnt=x参数，缺省1个通道启1个进程
+            num = 3                                                         # AI比较慢，安排两个进程处理
+            self.switchon_procs('AI', cnt=num)
+            num = 2                                                         # MQTT比较慢，上传文件，安排两个进程处理
+            mqtt = cfg['mqtt_svrs'][0]
+            self.switchon_procs('MQTT', cnt=num,
+                                mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'], mqtt_topic=mqtt['mqtt_tp'])
+
     def stop_procs(self):
         msg = bus.EBUS_SPECIAL_MSG_STOP
         self.send_cmd(bus.EBUS_TOPIC_RTSP, msg)
         self.send_cmd(bus.EBUS_TOPIC_AI, msg)
         self.send_cmd(bus.EBUS_TOPIC_MQTT, msg)
-        self.send_cmd(bus.EBUS_TOPIC_REST, msg)
+        # self.send_cmd(bus.EBUS_TOPIC_REST, msg)                           # 微服务进程与主进程同时存在
 
         return True
+
+    def run(self, path2cfg):
+        self.cfg_ = config.load_json(path2cfg)                                          # 读取配置文件内容
+        api = self.cfg_['micro_service']
+        (ap, key, cer) = (api['http_port'], api['ssl_keyfile'], api['ssl_certfile'])    # 配置微服务
+        self.switchon_procs('REST', port=ap, ssl_keyfile=key, ssl_certfile=cer)         # 启动1个Rest进程，提供微服务调用
+        loop = True
+        while loop:
+            msg = self.recv_cmd(bus.EBUS_TOPIC_MAIN)
+            if msg:
+                self.log(msg)
+                if msg == 'stop':
+                    self.stop_procs()
+                elif msg == 'start':
+                    self.start_procs(self.cfg_)
+                else:
+                    pass
 
 
 # if __name__ == '__main__':
