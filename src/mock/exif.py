@@ -69,7 +69,7 @@ def call_indicator_freq(contents):
 
 app = FastAPI()
 
-# EIF4:REST/WS IOT 外部接口-物联网文件服务器/WS服务（针对实时上传的图片）
+# EIF4:REST IOT 外部接口-物联网文件服务器/WS服务（针对实时上传的图片）
 # iot图片文件服务
 app.mount('/viewport', StaticFiles(directory='upfiles'), name='local')
 app.mount('/ui', StaticFiles(directory='../ui'), name='ui')
@@ -151,7 +151,7 @@ async def indicator_frequency(upfile: UploadFile = File(...)):
 
 
 if __name__ == '__main__':
-    uvicorn.run(app,
+    uvicorn.run(app,                # noqa
                 host="0.0.0.0",
                 port=21900,
                 ssl_keyfile="cert.key",
