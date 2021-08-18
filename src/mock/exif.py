@@ -108,6 +108,48 @@ async def post_iot_files(files: List[UploadFile] = File(...)):
 
 
 # EIF5:REST PTZ CNTL 外部接口-视频调度管理软件
+@app.get("/api/ptz/streaminfo")
+async def stream_info():
+    """获取所有的视频通道列表"""
+    item = {'version': '1.0.0',
+            'channels': [
+                {'deviceid': '34020000001320000001', 'channelid': '34020000001310000001', 'desc': '605房间前门',
+                 'url': 'rtsp://127.0.0.1/live'},
+                {'deviceid': '34020000001320000001', 'channelid': '34020000001310000001', 'desc': '605大厅',
+                 'url': 'rtsp://127.0.0.1/live'},
+                {'deviceid': '34020000001420000001', 'channelid': '34020000001410000001', 'desc': '608停车区',
+                 'url': 'rtsp://127.0.0.1/live'}
+            ]}
+    return item
+
+
+@app.get("/api/ptz/streaminfo/{desc}")
+async def stream_info_by_desc(desc: str):
+    """按照对用户有意义的名称，获取视频通道列表"""
+    item = {'version': '1.0.0',
+            'channels': [
+                {'deviceid': '34020000001320000001', 'channelid': '34020000001310000001', 'desc': f'{desc}房间前门',
+                 'url': 'rtsp://127.0.0.1/live'},
+                {'deviceid': '34020000001420000001', 'channelid': '34020000001410000001', 'desc': f'{desc}大厅',
+                 'url': 'rtsp://127.0.0.1/live'}
+            ]}
+    return item
+
+
+@app.get("/api/ptz/front_end_command/{deviceid}/{channelid}")
+async def get_all_presets(deviceid: str, channelid: str):
+    """模拟视频调度的获取某路视频的所有预置点接口"""
+    item = {'version': '1.0.0',
+            'deviceid': f'{deviceid}',
+            'url': 'rtsp://127.0.0.1/live',
+            'presetlist': [
+                {'presetid': '1', 'presetname': '开机默认位置'},
+                {'presetid': '2', 'presetname': '看室内'},
+                {'presetid': '3', 'presetname': '看室外'}]
+            }
+    return item
+
+
 @app.post("/api/ptz/front_end_command/{deviceid}/{channelid}")
 async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(...)):
     """模拟视频调度的跳转到预置点接口"""

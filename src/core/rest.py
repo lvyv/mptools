@@ -35,6 +35,9 @@ from typing import Optional
 from pydantic import BaseModel
 from fastapi import FastAPI
 from fastapi_utils.tasks import repeat_every
+from fastapi.staticfiles import StaticFiles
+from os.path import isfile, join
+from os import listdir
 
 from utils import bus
 from core.procworker import ProcWorker
@@ -44,8 +47,38 @@ app_ = FastAPI(
     title="视频图像智能分析软件",
     description="视频图像智能分析软件对外发布的RESTful API接口",
     version="2.2.0", )
+
+# 全局变量
 rest_proc_ = None
 counter_ = 0
+
+baseurl_of_nvr_samples_ = '/viewport'
+localroot_of_nvr_samples_ = './nvr_samples/'
+
+# EIF3:REST V2V C&M 外部接口-提供UI前端配置V2V需要的截图
+# 本路由为前端ui的路径
+app_.mount('/ui', StaticFiles(directory='../src/ui'), name='ui')
+# 本路由为thumbnail预览图片保存位置，该位置下按nvr的deviceid建立文件夹，放置所有base64的采样图片
+app_.mount(baseurl_of_nvr_samples_, StaticFiles(directory=localroot_of_nvr_samples_), name='ui')
+
+
+@app_.get("/api/v2v/label/{deviceid}/{channelid}")
+async def label_picture(deviceid: str, channelid: str, refresh: bool = False):
+    """获取所有的视频通道列表"""
+    item = {'version': '1.0.0'}
+    try:
+        target = f'{localroot_of_nvr_samples_}{deviceid}/'
+        if refresh:
+            pass    # to be implemented
+            onlyfiles = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}' for f in listdir(target) if isfile(join(target, f))]
+            item['presets'] = onlyfiles
+        else:
+            onlyfiles = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}' for f in listdir(target) if isfile(join(target, f))]
+            item['presets'] = onlyfiles
+    except FileNotFoundError as fs:
+        rest_proc_.log(f'{fs}')  # noqa
+    finally:
+        return item
 
 
 class Item(BaseModel):
@@ -57,6 +90,7 @@ class Item(BaseModel):
 
 @app_.post("/items/")
 async def create_item(item: Item):
+    """前端调用某个视频通道"""
     rest_proc_.send_cmd(bus.EBUS_TOPIC_MAIN, 'hello from rest!') # noqa
     return item
 

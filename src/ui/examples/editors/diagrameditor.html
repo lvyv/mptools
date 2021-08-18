@@ -32,6 +32,41 @@
 	<script type="text/javascript" src="../../src/js/mxClient.js"></script>
 	<script type="text/javascript" src="js/app.js"></script>
 	<script type="text/javascript">
+		let current_video_channel_ = {"deviceid": null, "channelid": null};	// 外部程序需要通过init_preview函数调用初始化本页面的这个结构
+		function sleep(ms) {
+			return new Promise(resolve => setTimeout(resolve, ms));
+		};
+		// 本函数实现页面初始化的时候，更新预置点的thumbnail栏。
+		function init_preview(devid, channelid, refresh)
+		{
+			var onload = function(req)
+				{
+					sc = req.getStatus()
+					if(sc == 200) {
+						var container = document.querySelector("#viewports");
+						// var matches = container.querySelectorAll(".preview_img");
+						ps = JSON.parse(req.getText());
+						var iii;
+						for (idx in ps.presets) {
+							url = ps.presets[idx]
+							items = url.split('/')
+							presetid = items[items.length - 1]
+							nd = document.querySelector(`#${presetid}`)
+							if(nd) {
+								req = mxUtils.load(url)
+								base64 = 'data:image/png;base64, ' + req.getText();
+								nd.setAttribute('src', base64)
+							}
+						}
+					} 
+				}
+				var onerror = function(req)
+				{
+					mxUtils.alert('Error');
+				}
+				url = `/api/v2v/label/${devid}/${channelid}?refresh=${refresh}`;	
+				mxUtils.get(url, onload, onerror);
+		};
 		// Program starts here. The document.onLoad executes the
 		// createEditor function with a given configuration.
 		// In the config file, the mxEditor.onInit method is
@@ -99,24 +134,26 @@
 					sc = req.getStatus()
 					if(sc == 200) {
 						base64 = 'data:image/png;base64, ' + req.getText();
-						// img_url = '/viewport/needle.png'
-						nd.setAttribute('src', base64)	//缩略图
-						editor.graph.setBackgroundImage(new mxImage(base64, nd.naturalWidth, nd.naturalHeight));
+						nd.setAttribute('src', base64)		//缩略图
+						sleep(100).then(()=>{				//等待渲染获得图片真实大小
+							editor.graph.setBackgroundImage(new mxImage(base64, nd.naturalWidth, nd.naturalHeight));
+							editor.graph.view.validate();	//必须调用以刷新视图背景
+						});
+					} else {
+						nd.setAttribute('src', '/viewport/add-viewport.png');
+						editor.graph.setBackgroundImage(new mxImage('/viewport/add-viewport.png', 680, 480));
 						editor.graph.view.validate();	//必须调用以刷新视图背景
 					}
 				}
-
 				var onerror = function(req)
 				{
 					mxUtils.alert('Error');
 				}
 
-				url = `/viewport/${nd.id}`
-				
+				url = `/viewport/${current_video_channel_.deviceid}/${nd.id}?refresh=${true}`
 				mxUtils.get(url, onload, onerror, true);
 			};
 			editor.addAction('loadImage', funct);
-
 
 			// Defines a new action to switch between
 			// XML and graphical display
@@ -319,36 +356,16 @@
 			mxUtils.write(node, ', ');
 			mxUtils.linkAction(node, '适应窗口', editor, 'fit');
 			
-			// editor.graph.setBackgroundImage(new mxImage('/viewport/instruments.png', 1000, 750));	//必须取到图片的原始尺寸确保从左上角0，0平铺
-			// var parent = editor.graph.getDefaultParent();
-			// editor.graph.insertVertex(parent, null, 'First Line\nSecond Line', 20, 10, 80, 100, 'defaultVertex');
-			// var cell = editor.templates['rectangle'];
-			// cell = editor.graph.cloneCell(cell);
-			// editor.addVertex(null, cell, 300, 220);
-
+			viewports = document.getElementById('viewports')
+			if(viewports) {
+				current_video_channel_.deviceid = viewports.getAttribute('deviceid');
+				current_video_channel_.channelid = viewports.getAttribute('channelid');
+				init_preview(current_video_channel_.deviceid, current_video_channel_.channelid, true);
+			}
 		}
 
 		window.onbeforeunload = function() { return mxResources.get('changesLost'); };
 	</script>
-	<!-- <script>
-		function FlushImg(){
-			nd = document.getElementById('flush_img1');
-			nd.setAttribute('src', '/viewport/instruments.png')
-			// $('#flush_img1').attr('src', '/viewport/instruments.png')
-			// var xml = mxUtils.getXml(EditorUi.editor.getGraphXml());
-			// console.log('xml', xml);
-			// editor.graph.setBackgroundImage(new mxImage('/viewport/instruments.png', 1000, 750));	//必须取到图片的原始尺寸确保从左上角0，0平铺
-			// $.ajax({
-		 
-			// 	url:"/flush_img",
-			// 	type:'GET',
-			// 	success: function (data) {
-		 
-			// 		$('#flush_img').attr('src', data)
-			// 	},
-			// })
-		}
-	</script> -->
 </head>
 <body onload="createEditor('config/diagrameditor.xml');">
 	<div id="page">
@@ -382,9 +399,8 @@
 		</table>
 		
 		<div id="header">
-			<div id="viewports" style="overflow:hidden;">
-				<!-- <h1 id="title">Casicloud</h1> -->
-				<!-- <img id= "flush_img1" src="/viewport/add-viewport.png" onclick="FlushImg()" ></img> -->
+			<!--viewports这个标签比较重要，特别是deviceid和channelid两个节点需要外部调用程序给出正确的值-->
+			<div id="viewports" style="overflow:hidden;" deviceid='34020000001320000001', channelid='34020000001310000001'>
 				<img id= "preset1" src="/viewport/add-viewport.png" class="preview_img" style="position:relative;height:46px;width:66px;overflow:hidden;cursor:default;padding-left:40px;padding-top:20px;"></img>
 				<img id= "preset2" src="/viewport/add-viewport.png" class="preview_img"></img>
 				<img id= "preset3" src="/viewport/add-viewport.png" class="preview_img"></img>
