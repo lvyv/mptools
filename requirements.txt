@@ -13,3 +13,6 @@ pynng~=0.7.1
 aiofiles~=0.7.0
 python-multipart~=0.0.5
 fastapi-utils~=0.2.1
+
+zmq~=0.0.0
+pyzmq~=22.1.0

@@ -37,6 +37,8 @@ from time import time, sleep
 from utils import log
 # from core.procworker import ProcWorker
 
+import zmq
+import random
 import requests
 import cv2
 import io
@@ -151,6 +153,89 @@ def uploadfiles():
 
     resp = requests.post(rest, files=files, verify=False)  # data=image_data)
 
+# ----zmq-----
+
+
+address_ = f'tcp://*:5555'
+
+
+def center():
+    context = zmq.Context()
+    socket = context.socket(zmq.REP)
+    socket.bind(address_)
+    return socket
+    # while True:
+    #     #  Wait for next request from client
+    #     message = socket.recv()
+    #     print(f"Received request: {message}")
+    #
+    #     #  Do some 'work'
+    #     time.sleep(1)
+    #
+    #     #  Send reply back to client
+    #     socket.send_string("World")
+
+
+def beeper():
+    context = zmq.Context()
+
+    #  Socket to talk to server
+    print("Connecting to hello world server...")
+    socket = context.socket(zmq.REQ)
+    socket.connect('tcp://localhost:5555')
+    print('connected.')
+    return socket
+
+
+def svr(name, ts):
+    context = zmq.Context()
+    socket = context.socket(zmq.REP)
+    socket.bind(address_)
+    while True:
+        #  Wait for next request from client
+        print(f"{name}: waiting message...")
+
+        message = socket.recv()
+        print(f"{name}: Received request: {message}")
+
+        #  Do some 'work'
+        sleep(0.5)
+        print(f'begin sending reply...')
+        #  Send reply back to client
+        socket.send_string(f"{message}, World")
+        print(f'send.')
+
+
+def cli(name, ts):
+    context = zmq.Context()
+    #  Socket to talk to server
+    print("Connecting to hello world server...")
+    socket = context.socket(zmq.REQ)
+    socket.connect('tcp://localhost:5555')
+    print('connected.')
+    #  Do 10 requests, waiting each time for a response
+    for request in range(10):
+        print(f"{name}, Sending request {request} ...")
+        socket.send_string(f"send Hello({request}) ")
+
+        #  Get the reply.
+        message = socket.recv()
+        print(f"{name}, Received reply {request} [ {message} ]")
+
+
+def pools():
+    # cs = center()
+    # sleep(1)
+    # bbp = beeper()
+    p = Pool(2)
+    p.apply_async(svr, (f'Center', random.randint(1, 3)))
+    p.apply_async(cli, (f'beeper', random.randint(1, 3)))
+    while True:
+        sleep(0.5)
+        pass
+    p.close()
+    p.join()
+
 
 if __name__ == '__main__':
     # test_arg('a', 1, key3=3, key5=5, key4=4)
@@ -161,4 +246,6 @@ if __name__ == '__main__':
     # test_upload_img()
     # logging_guide.py
     # log.logger('he', 'hello')
-    uploadfiles()
+    # uploadfiles()
+    pools()
+
