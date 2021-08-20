@@ -134,7 +134,7 @@ class TestBus(unittest.TestCase, bus.IEventBusMixin):
         pool = multiprocessing.Pool(processes=2)
         pool.apply_async(proc_worker_wrapper, (ChildA, f'A', None))
 
-        sleep(0.5)  # FIXME: Have to wait for subprocess startup.
+        sleep(1)  # FIXME: Have to wait for subprocess startup.
 
         self.send_cmd('ChildA', 'hello')
         msg = None
