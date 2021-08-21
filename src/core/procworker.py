@@ -30,6 +30,7 @@ All common behaviors of sub process.
 # License: Apache Licence 2.0
 
 import functools
+import collections
 from utils import bus, log
 
 
@@ -74,14 +75,16 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
 
     def __init__(self, name, topic, dicts, **kwargs):
         super().__init__(name, dicts, **kwargs)
-        self.beeper_ = bus.IEventBusMixin.get_beeper()  # Event bus initialized.
+        self.beeper_ = bus.IEventBusMixin.get_beeper()              # req-rep客户端。
+        self.subscriber_ = bus.IEventBusMixin.get_subscriber(topic)      # pub-sub订阅端。
         self.bus_topic_ = topic
+
+    def call_rpc(self, method, param):
+        self.send_cmd(method, param)
+        ret = self.recv_cmd()
+        return ret
 
     def main_loop(self):
         while self.break_out_ is False:
-            evt = self.recv_cmd(self.bus_topic_)
-            if evt == bus.EBUS_SPECIAL_MSG_STOP:
-                self.break_out_ = True
-            else:
-                self.main_func(evt)
+            self.break_out_ = self.main_func()
         self.log("Leaving main_loop.")

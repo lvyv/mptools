@@ -28,16 +28,18 @@ unit test module
 
 # Author: Awen <26896225@qq.com>
 # License: MIT
-
+import os
 from multiprocessing import Pool
 from os import listdir
 from os.path import isfile, join
 from time import time, sleep
+from random import randrange
 # from utils import bus, comn, config
 from utils import log
 # from core.procworker import ProcWorker
 
 import zmq
+import sys
 import random
 import requests
 import cv2
@@ -153,38 +155,9 @@ def uploadfiles():
 
     resp = requests.post(rest, files=files, verify=False)  # data=image_data)
 
+
 # ----zmq-----
-
-
-address_ = f'tcp://*:5555'
-
-
-def center():
-    context = zmq.Context()
-    socket = context.socket(zmq.REP)
-    socket.bind(address_)
-    return socket
-    # while True:
-    #     #  Wait for next request from client
-    #     message = socket.recv()
-    #     print(f"Received request: {message}")
-    #
-    #     #  Do some 'work'
-    #     time.sleep(1)
-    #
-    #     #  Send reply back to client
-    #     socket.send_string("World")
-
-
-def beeper():
-    context = zmq.Context()
-
-    #  Socket to talk to server
-    print("Connecting to hello world server...")
-    socket = context.socket(zmq.REQ)
-    socket.connect('tcp://localhost:5555')
-    print('connected.')
-    return socket
+address_ = f'tcp://127.0.0.1:5555'
 
 
 def svr(name, ts):
@@ -211,13 +184,13 @@ def cli(name, ts):
     #  Socket to talk to server
     print("Connecting to hello world server...")
     socket = context.socket(zmq.REQ)
-    socket.connect('tcp://localhost:5555')
+    socket.connect(address_)
     print('connected.')
     #  Do 10 requests, waiting each time for a response
     for request in range(10):
         print(f"{name}, Sending request {request} ...")
         socket.send_string(f"send Hello({request}) ")
-
+        # socket.send_string(f"send hello twice")
         #  Get the reply.
         message = socket.recv()
         print(f"{name}, Received reply {request} [ {message} ]")
@@ -229,7 +202,57 @@ def pools():
     # bbp = beeper()
     p = Pool(2)
     p.apply_async(svr, (f'Center', random.randint(1, 3)))
-    p.apply_async(cli, (f'beeper', random.randint(1, 3)))
+    p.apply_async(cli, (f'beeper1', random.randint(1, 3)))
+    p.apply_async(cli, (f'beeper2', random.randint(1, 3)))
+
+    while True:
+        sleep(0.5)
+        pass
+    p.close()
+    p.join()
+
+
+def pub(name, ts):
+    print(f'{name}-{os.getpid()}')
+    context = zmq.Context()
+    socket = context.socket(zmq.PUB)
+    socket.bind("tcp://*:5556")
+    cnt = 0
+    while cnt < 1000:
+        sleep(0.1)
+        msg = f"中 国 {cnt} 中 {cnt}"
+        print(msg)
+        socket.send_string(msg)
+        cnt += 1
+    while True:
+        pass
+
+
+def sub(name, ts):
+    #  Socket to talk to server
+    print(f'{name}-{os.getpid()}')
+    context = zmq.Context()
+    socket = context.socket(zmq.SUB)
+
+    print("Collecting updates from weather server...")
+    socket.connect("tcp://localhost:5556")
+    strfilter = '中'
+    socket.setsockopt_string(zmq.SUBSCRIBE, strfilter)
+
+    while True:
+        st = socket.recv_string()
+        print(f'recv: {st}')
+
+
+def pub_sub_pools():
+    # cs = center()
+    # sleep(1)
+    # bbp = beeper()
+    p = Pool(5)
+    p.apply_async(pub, (f'pub', None))
+    p.apply_async(sub, (f'sub1', None))
+    p.apply_async(sub, (f'sub2', None))
+
     while True:
         sleep(0.5)
         pass
@@ -247,5 +270,5 @@ if __name__ == '__main__':
     # logging_guide.py
     # log.logger('he', 'hello')
     # uploadfiles()
-    pools()
-
+    # pools()
+    pub_sub_pools()
