@@ -100,7 +100,6 @@ class IEventBusMixin:
         """单例范式：响应远程调用"""
         bus = cls.center_
         msg = bus.recv().decode('utf-8')
-
         ret = cls.rpc_implemention(msg)
         bus.send_string(ret)
 
@@ -160,7 +159,8 @@ class IEventBusMixin:
             if self.subscriber_ is None:        # noqa
                 raise Exception("self.subscriber_ must be set.")
             bus = self.subscriber_              # noqa
-            msg = bus.recv_string()
+            # bus.setsockopt_string(zmq.SUBSCRIBE, topic)  # noqa
+            msg = bus.recv_string(flags=zmq.NOBLOCK)
             idx = msg.index(':') + 1
             ret = json.loads(msg[idx:])
         except json.decoder.JSONDecodeError:

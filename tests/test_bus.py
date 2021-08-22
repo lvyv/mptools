@@ -34,13 +34,10 @@ ChildA，ChildB，ChildC是独立子进程。
 # License: MIT
 
 import os
-import time
 import unittest
 import multiprocessing
 import functools
-import json
-
-# from time import sleep
+# import time
 from core.procworker import ProcWorker
 from utils import bus, log
 
@@ -57,7 +54,7 @@ class ChildA(ProcWorker, bus.IEventBusMixin):
     def __init__(self, name, dicts=None, **kwargs):
         super().__init__(name, 'ChildA', dicts, **kwargs)
 
-    def main_func(self, event=None, *args):
+    def main_func(self, event=None, **kwargs):
         # 返回False，继续循环，返回True，停止循环。
         retobj = self.call_rpc('TestBus', {'p1': 1, 'p2': 'hello'})
         self.log(f'{retobj}({ChildA.cnt_})')
@@ -74,13 +71,10 @@ class ChildB(ProcWorker, bus.IEventBusMixin):
         self.in_q_ = in_q
         self.out_q_ = out_q
 
-    def run(self, *kwargs):
+    def run(self, **kwargs):
         cnt = 3
         while cnt > 0:
-            # request and reply pattern
-            # self.log(f'Initializing the {cnt} call...')
-            msg = self.call_rpc('testbus', {'p1': 0, 'p2': 'hello'})
-            # self.log(f'call TestBus and got reply: {msg}')
+            self.call_rpc('testbus', {'p1': 0, 'p2': 'hello'})
             cnt -= 1
 
 
@@ -93,13 +87,17 @@ class ChildC(ProcWorker, bus.IEventBusMixin):
 
     def startup(self):
         self.log('startup called.')
+        self.call_rpc('gotchild', {'up': True})
 
     def main_func(self, event=None, *args):
         # 返回False，继续循环，返回True，停止循环。
         retobj = self.subscribe()
-        self.log(f'subscribed msg:{retobj}')
-        self.cnt_ += 1
-        if self.cnt_ < 3:
+        if retobj:
+            self.log(f'subscribed msg:{retobj}')
+            self.cnt_ += 1
+            if self.cnt_ < 3:
+                return False
+        else:
             return False
 
     def shutdown(self):
@@ -109,6 +107,7 @@ class ChildC(ProcWorker, bus.IEventBusMixin):
 class TestBus(unittest.TestCase, bus.IEventBusMixin):
     """Tests for `utils.bus` package."""
     bus_topic_ = 'TestBus'
+    children_ = 0
 
     @classmethod
     def init_svr(cls):
@@ -121,28 +120,21 @@ class TestBus(unittest.TestCase, bus.IEventBusMixin):
         self.log(params)
         return {'reply': True}
 
+    def callback_gotchild(self, params):
+        self.log(params)
+        TestBus.children_ += 1
+        return {'reply': True}
+
     def setUp(self):
         """Set up test fixtures, if any."""
         self.log = functools.partial(log.logger, TestBus.bus_topic_)
         self.bus_topic_ = 'TestBus'
         TestBus.init_svr()  # init as server
         TestBus.register('testbus', self.callback_testbus)
+        TestBus.register('gotchild', self.callback_gotchild)
 
     def tearDown(self):
         """Tear down test fixtures, if any."""
-        # self.beeper_.close()
-
-    # def test_Bus_BroadCastWithReply(self):
-    #     """Test bus."""
-    #     TestBus.pool_ = multiprocessing.Pool(processes=3)
-    #     TestBus.pool_.apply_async(proc_worker_wrapper, (ChildC, f'C', None))
-    #     sleep(1)    # wait for sub process starting up.
-    #     self.send_cmd(bus.EBUS_TOPIC_BROADCAST, 'Hello!')
-    #     msg1 = self.recv_cmd(TestBus.bus_topic_)
-    #     # msg2 = self.recv_cmd(TestBus.bus_topic_)
-    #     # self.assertIn('Fine', msg1, f'Fine is not in {msg1}')
-    #     # self.assertIn('Fine', msg2, f'Fine is not in {msg2}')
-    #     self.assertEqual(1, 1)
 
     def test_Bus_RPC(self):
         """Test receive: ChildB will send 3 messages to TestBus once it has started."""
@@ -196,38 +188,19 @@ class TestBus(unittest.TestCase, bus.IEventBusMixin):
         pool.apply_async(worker_wrapper, (ChildC, f'C1'))
         pool.apply_async(worker_wrapper, (ChildC, f'C2'))
         pool.apply_async(worker_wrapper, (ChildC, f'C3'))
-        time.sleep(1)   # 等待订阅进程都建立连接
-        callcounts = 3
-        cnt = 0
-        while cnt < callcounts:  # 响应三次调用
-            # time.sleep(0.1)
-            # waiting for some time
-            # time.sleep(2)
-            TestBus.broadcast('CTOPIC', {'msg': f'{cnt}'})
-            cnt += 1
+        # time.sleep(1)   # 等待订阅进程都建立连接
+        while True:
+            TestBus.rpc_service()                               # rpc远程调用服务启动，阻塞等待外部事件出发状态改变
+            if TestBus.children_ == 3:                          # ChildC每个子进程启动会调用rpc通知主进程一次
+                # 3个子进程都连接上了，可以接收广播消息了
+                TestBus.broadcast('CTOPIC', {'msg': 1})
+                TestBus.broadcast('CTOPIC', {'msg': 2})
+                TestBus.broadcast('CTOPIC', {'msg': 3})
+                break
 
         pool.close()
         pool.join()
-        self.assertEqual(cnt, callcounts)
-
-    #
-    # def test_Bus_OnOffAll(self):
-    #     """Test shutdown subprocesses one by one."""
-    #
-    #     pool = multiprocessing.Pool(processes=3)
-    #     # TestBus.pool_.starmap_async(proc_worker_wrapper, [(ChildA, f'A', None) for idx in range(1)])
-    #     pool.starmap_async(proc_worker_wrapper, [(ChildB, f'B({idx})', None) for idx in range(1, 2)])
-    #     pool.apply_async(proc_worker_wrapper, (ChildC, f'C', None))
-    #
-    #     sleep(1)  # wait for sub process starting up.
-    #
-    #     # self.send_cmd('ChildA', bus.EBUS_SPECIAL_MSG_STOP)
-    #     # self.send_cmd('ChildB', bus.EBUS_SPECIAL_MSG_STOP)    # B goes down automately.
-    #     self.send_cmd('ChildC', bus.EBUS_SPECIAL_MSG_STOP)
-    #     pool.close()
-    #     pool.join()
-    #
-    #     self.assertEqual(1, 1)
+        self.assertEqual(1, 1)
 
 
 if __name__ == "__main__":
