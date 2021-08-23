@@ -195,7 +195,7 @@ async def indicator_frequency(upfile: UploadFile = File(...)):
 if __name__ == '__main__':
     uvicorn.run(app,                # noqa
                 host="0.0.0.0",
-                port=21900,
+                port=7080,
                 ssl_keyfile="cert.key",
                 ssl_certfile="cert.cer"
                 )
