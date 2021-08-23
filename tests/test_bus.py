@@ -37,7 +37,7 @@ import os
 import unittest
 import multiprocessing
 import functools
-# import time
+import time
 from core.procworker import ProcWorker
 from utils import bus, log
 
@@ -91,9 +91,9 @@ class ChildC(ProcWorker, bus.IEventBusMixin):
 
     def main_func(self, event=None, *args):
         # 返回False，继续循环，返回True，停止循环。
-        retobj = self.subscribe()
-        if retobj:
-            self.log(f'subscribed msg:{retobj}')
+        # retobj = self.subscribe()
+        if event:
+            self.log(f'subscribed msg:{event}')
             self.cnt_ += 1
             if self.cnt_ < 3:
                 return False
