@@ -39,7 +39,7 @@ from imutils.video import VideoStream
 
 class RtspWorker(ProcWorker):
     def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
-        super().__init__(name, bus.EBUS_TOPIC_RTSP, dicts, **kwargs)
+        super().__init__(name, bus.EBUS_TOPIC_BROADCAST, dicts, **kwargs)
         self.in_q_ = in_q
         self.out_q_ = out_q
         self.vs_ = None
@@ -69,7 +69,7 @@ class RtspWorker(ProcWorker):
             扩展参数。
         Returns
         -------
-            无返回值。
+            返回True，退出循环，返回False，继续循环。
         """
         # 1.按参数设置摄像头到预置点，因为预置点有多个，所以要轮流执行
         # 2.等待摄像头执行到预置点位
@@ -98,6 +98,8 @@ class RtspWorker(ProcWorker):
                     self.log(f'采用第{cnt}帧.--du:{duration}--, delta:{delta}.')
                     cnt = cnt + 1
                 delta = time() - st                             # 消耗的时间（秒）
+
+        return False
 
     def shutdown(self):
         cv2.destroyAllWindows()

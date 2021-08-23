@@ -75,9 +75,9 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
 
     def __init__(self, name, topic, dicts, **kwargs):
         super().__init__(name, dicts, **kwargs)
-        self.beeper_ = bus.IEventBusMixin.get_beeper()              # req-rep客户端。
+        self.beeper_ = bus.IEventBusMixin.get_beeper()                   # req-rep客户端。
         self.subscriber_ = bus.IEventBusMixin.get_subscriber(topic)      # pub-sub订阅端。
-        self.bus_topic_ = topic
+        # self.bus_topic_ = topic
 
     def call_rpc(self, method, param):
         self.send_cmd(method, param)
@@ -86,5 +86,8 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
 
     def main_loop(self):
         while self.break_out_ is False:
-            self.break_out_ = self.main_func()
+            evt = self.subscribe()
+            if evt == bus.EBUS_SPECIAL_MSG_STOP:
+                break
+            self.break_out_ = self.main_func(evt)
         self.log("Leaving main_loop.")

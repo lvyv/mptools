@@ -99,10 +99,27 @@ class MainContext(bus.IEventBusMixin):
 
     NUMBER_OF_PROCESSES = 20
 
-    def __init__(self, bustopic=bus.EBUS_TOPIC_MAIN):
+    def callback_start_pipeline(self, params):
+        self.log(params)
+        self.start_procs(self.cfg_)
+        return {'reply': True}
+
+    def callback_stop_pipeline(self, params):
+        self.log(params)
+        self.stop_procs()
+        return {'reply': True}
+
+    def __init__(self, bustopic=bus.EBUS_TOPIC_BROADCAST):
         self.log = functools.partial(log.logger, f'MAIN')
-        self.beeper_ = bus.IEventBusMixin.get_center(rtimeout=1)    # 不设置将是阻塞工作模式
-        self.bus_topic_ = bustopic                                  # 事件总线收件主题
+        if MainContext.center_ is None:
+            MainContext.center_ = bus.IEventBusMixin.get_center()
+        if MainContext.broadcaster_ is None:
+            MainContext.broadcaster_ = bus.IEventBusMixin.get_broadcaster()
+        # call_rpc回调注册
+        MainContext.register(bus.CB_STARTUP_PPL, self.callback_start_pipeline)
+        MainContext.register(bus.CB_STOP_PPL, self.callback_stop_pipeline)
+
+        # self.bus_topic_ = bustopic                                  # 事件总线收件主题
         self.cfg_ = None                                            # 配置文件内容
 
         self.pic_q_ = multiprocessing.Manager().Queue()  # Is JoinableQueue better?
@@ -177,9 +194,10 @@ class MainContext(bus.IEventBusMixin):
 
     def stop_procs(self):
         msg = bus.EBUS_SPECIAL_MSG_STOP
-        self.send_cmd(bus.EBUS_TOPIC_RTSP, msg)
-        self.send_cmd(bus.EBUS_TOPIC_AI, msg)
-        self.send_cmd(bus.EBUS_TOPIC_MQTT, msg)
+        self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)
+        # self.send_cmd(bus.EBUS_TOPIC_RTSP, msg)
+        # self.send_cmd(bus.EBUS_TOPIC_AI, msg)
+        # self.send_cmd(bus.EBUS_TOPIC_MQTT, msg)
         # self.send_cmd(bus.EBUS_TOPIC_REST, msg)                           # 微服务进程与主进程同时存在
 
         return True
@@ -191,15 +209,17 @@ class MainContext(bus.IEventBusMixin):
         self.switchon_procs('REST', port=ap, ssl_keyfile=key, ssl_certfile=cer)         # 启动1个Rest进程，提供微服务调用
         loop = True
         while loop:
-            msg = self.recv_cmd(bus.EBUS_TOPIC_MAIN)
-            if msg:
-                self.log(msg)
-                if msg == 'stop':
-                    self.stop_procs()
-                elif msg == 'start':
-                    self.start_procs(self.cfg_)
-                else:
-                    pass
+            # msg = self.recv_cmd(bus.EBUS_TOPIC_MAIN)
+            MainContext.rpc_service()                               # rpc远程调用服务启动，阻塞等待外部事件出发状态改变
+
+            # if msg:
+            #     self.log(msg)
+            #     if msg == 'stop':
+            #         self.stop_procs()
+            #     elif msg == 'start':
+            #         self.start_procs(self.cfg_)
+            #     else:
+            #         pass
 
 
 # if __name__ == '__main__':

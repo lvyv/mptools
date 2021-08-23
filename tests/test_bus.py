@@ -106,7 +106,7 @@ class ChildC(ProcWorker, bus.IEventBusMixin):
 
 class TestBus(unittest.TestCase, bus.IEventBusMixin):
     """Tests for `utils.bus` package."""
-    bus_topic_ = 'TestBus'
+    # bus_topic_ = 'TestBus'
     children_ = 0
 
     @classmethod
@@ -127,8 +127,8 @@ class TestBus(unittest.TestCase, bus.IEventBusMixin):
 
     def setUp(self):
         """Set up test fixtures, if any."""
-        self.log = functools.partial(log.logger, TestBus.bus_topic_)
-        self.bus_topic_ = 'TestBus'
+        self.log = functools.partial(log.logger, 'TestBus')
+        # self.bus_topic_ = 'TestBus'
         TestBus.init_svr()  # init as server
         TestBus.register('testbus', self.callback_testbus)
         TestBus.register('gotchild', self.callback_gotchild)

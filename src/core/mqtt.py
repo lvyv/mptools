@@ -36,7 +36,7 @@ from core.procworker import ProcWorker
 
 class MqttWorker(ProcWorker):
     def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
-        super().__init__(name, bus.EBUS_TOPIC_MQTT, dicts, **kwargs)
+        super().__init__(name, bus.EBUS_TOPIC_BROADCAST, dicts, **kwargs)
         self.in_q_ = in_q
         self.out_q_ = out_q
         self.mqtt_cid_ = name   # 这个名字无所谓，在网关处会重新mapping key-value到正确的设备号
@@ -66,6 +66,8 @@ class MqttWorker(ProcWorker):
         vec = self.in_q_.get()
         self.client_.publish(self.mqtt_topic_, vec, 1)
         self.log(vec)
+
+        return False
 
     def shutdown(self):
         self.client_.loop_stop()

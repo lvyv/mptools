@@ -41,6 +41,7 @@ from os import listdir
 
 from utils import bus
 from core.procworker import ProcWorker
+# from core.main import MainContext
 
 
 app_ = FastAPI(
@@ -81,18 +82,26 @@ async def label_picture(deviceid: str, channelid: str, refresh: bool = False):
         return item
 
 
-class Item(BaseModel):
-    name: str
-    description: Optional[str] = None
-    price: float
-    tax: Optional[float] = None
-
-
-@app_.post("/items/")
-async def create_item(item: Item):
-    """前端调用某个视频通道"""
-    rest_proc_.send_cmd(bus.EBUS_TOPIC_MAIN, 'hello from rest!') # noqa
-    return item
+# class Item(BaseModel):
+#     name: str
+#     description: Optional[str] = None
+#     price: float
+#     tax: Optional[float] = None
+#
+#
+# @app_.post("/items/")
+# async def create_item(item: Item):
+#     """前端调用某个视频通道"""
+#     cmd = item['cmd']
+#     if cmd == 'start':
+#         ret = rest_proc_.call_rpc(bus.CB_STARTUP_PPL, {})
+#     elif cmd == 'stop':
+#         ret = rest_proc_.call_rpc(bus.CB_STOP_PPL, {})
+#     else:
+#         ret = {'reply': 'unrecognized command.'}
+#     rest_proc_.log(f'-------{ret}') # noqa
+#
+#     return ret
 
 
 class Switch(BaseModel):
@@ -104,8 +113,14 @@ async def create_item(item: Switch):
     """统一关闭或启动rtsp，ai，mqtt子进程"""
     cmds = ['start', 'stop']
     if item.cmd in cmds:
-        rest_proc_.send_cmd(bus.EBUS_TOPIC_MAIN, item.cmd) # noqa
-    return item
+        # rest_proc_.send_cmd(bus.EBUS_TOPIC_MAIN, item.cmd) # noqa
+        if item.cmd == 'start':
+            ret = rest_proc_.call_rpc(bus.CB_STARTUP_PPL, {'cmd': item.cmd})
+        else:
+            ret = rest_proc_.call_rpc(bus.CB_STOP_PPL, {'cmd': item.cmd})
+    else:
+        ret = {'reply': 'unrecognized command.'}
+    return ret
 
 
 @app_.on_event("startup")
