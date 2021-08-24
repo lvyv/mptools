@@ -49,6 +49,7 @@ EBUS_SPECIAL_MSG_STOP = {'code': 0, 'desc': 'END'}  # 在基类实现的特殊�
 # 特殊的call_rpc远程方法
 CB_STARTUP_PPL = 'start'
 CB_STOP_PPL = 'stop'
+CB_GET_CFG = 'get_cfg'
 
 
 class IEventBusMixin:

@@ -49,6 +49,12 @@ from utils import bus, log, config
 
 
 # -- Process Wrapper
+def daemon_wrapper(proc_worker_class, name, **kwargs):
+    pid = os.getpid()
+    proc_worker = proc_worker_class(f'{name}-{pid}', None, None, kwargs)
+    return proc_worker.run()
+
+
 def proc_worker_wrapper(proc_worker_class, name, in_q=None, out_q=None, dicts=None, **kwargs):
     """
     子进程的入口点。
@@ -72,6 +78,7 @@ class ProcSimpleFactory:
     设置proc_worker_wrapper函数，作为所有子进程的入口。
     子进程分别在该函数中实例化进程对象，并启动主循环。
     """
+    rest_ = None    # rest 进程句柄
 
     def __init__(self, nop):
         self.log = functools.partial(log.logger, f'ProcSimpleFactory')
@@ -89,6 +96,36 @@ class ProcSimpleFactory:
                                         for idx in range(default_cnt)])
         return res
 
+    @classmethod
+    def create_daemon(cls, worker_class, name, **kwargs):
+        if cls.rest_ is None:
+            dp = multiprocessing.Process(target=daemon_wrapper, args=(worker_class, name), kwargs=kwargs)
+            dp.daemon = True
+            dp.start()
+            cls.rest_ = dp
+        return cls.rest_
+
+
+class FSM:
+    """
+    描述程序内部状态的有限状态机
+    """
+    STATUS_INITIAL = 0
+    STATUS_FULL_SPEED = 1
+    STATUS_ERROR = 2
+
+    current_state_ = None
+
+    def __init__(self):
+        self.current_state_ = self.STATUS_INITIAL
+
+    def test_status(self, criterion):
+        return self.current_state_ == criterion
+
+    def set_status(self, status):
+        if status in [getattr(FSM, y) for y in [x for x in dir(self) if x.find('STATUS') == 0]]:
+            self.current_state_ = status
+
 
 class MainContext(bus.IEventBusMixin):
     """封装主进程模块类.
@@ -101,13 +138,28 @@ class MainContext(bus.IEventBusMixin):
 
     def callback_start_pipeline(self, params):
         self.log(params)
-        self.start_procs(self.cfg_)
-        return {'reply': True}
+        if self.status_.test_status(FSM.STATUS_INITIAL):
+            self.start_procs(self.cfg_)
+            self.status_.set_status(FSM.STATUS_FULL_SPEED)
+            return {'reply': True}
+        else:
+            return {'reply': False}
 
     def callback_stop_pipeline(self, params):
         self.log(params)
-        self.stop_procs()
-        return {'reply': True}
+        if self.status_.test_status(FSM.STATUS_FULL_SPEED):
+            self.stop_procs()
+            self.status_.set_status(FSM.STATUS_INITIAL)
+            return {'reply': True}
+        else:
+            return {'reply': False}
+
+    def callback_get_cfg(self, params):
+        self.log(params)
+        if self.cfg_:
+            return self.cfg_
+        else:
+            return {'reply: False'}
 
     def __init__(self, bustopic=bus.EBUS_TOPIC_BROADCAST):
         self.log = functools.partial(log.logger, f'MAIN')
@@ -118,10 +170,9 @@ class MainContext(bus.IEventBusMixin):
         # call_rpc回调注册
         MainContext.register(bus.CB_STARTUP_PPL, self.callback_start_pipeline)
         MainContext.register(bus.CB_STOP_PPL, self.callback_stop_pipeline)
+        MainContext.register(bus.CB_GET_CFG, self.callback_get_cfg)
 
-        # self.bus_topic_ = bustopic                                  # 事件总线收件主题
         self.cfg_ = None                                            # 配置文件内容
-
         self.pic_q_ = multiprocessing.Manager().Queue()  # Is JoinableQueue better?
         self.vec_q_ = multiprocessing.Manager().Queue()
 
@@ -130,6 +181,7 @@ class MainContext(bus.IEventBusMixin):
         self.queues_.append(self.vec_q_)        # 识别结果
 
         self.factory_ = ProcSimpleFactory(self.NUMBER_OF_PROCESSES)
+        self.status_ = FSM()
 
     def __enter__(self):
         self.log('********************  CASICLOUD AI METER services  ********************')
@@ -138,12 +190,29 @@ class MainContext(bus.IEventBusMixin):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type:
             self.log(f"Exception: {exc_val}", level=log.LOG_LVL_ERRO, exc_info=(exc_type, exc_val, exc_tb))
-
-        # self._stopped_procs_result = self.stop_procs()
-        # self._stopped_queues_result = self.stop_queues()
-
         # -- Don't eat exceptions that reach here.
         return not exc_type
+
+    def rest_api(self, **kwargs):
+        """
+        本函数调用工厂类在主进程上下文环境启动rest子进程。
+        rest子进程与其它子进程不一样，它与主进程是同生同死的，属于daemon子进程。
+
+        Parameters
+        ----------
+        *kwargs:  port, ssl_keyfile, ssl_certfile。
+            指定创建rest进程的端口，https。
+        Returns
+        -------
+        List
+            该进程池所有进程执行完成的结果构成的列表。
+        Raises
+        ----------
+        RuntimeError
+            待定.
+        """
+        res = self.factory_.create_daemon(RestWorker, 'REST', **kwargs)
+        return res
 
     def switchon_procs(self, name, **kwargs):
         """
@@ -154,7 +223,7 @@ class MainContext(bus.IEventBusMixin):
         Parameters
         ----------
         name : 区别不同子进程的名称。
-            包括：RTSP，REST，AI，MQTT。
+            包括：RTSP，AI，MQTT。
         *kwargs: dict, None
             指定创建进程的数量，比如cnt=3, 表示创建和启动包含3个进程的进程池。
         Returns
@@ -168,8 +237,6 @@ class MainContext(bus.IEventBusMixin):
         """
         if 'RTSP' == name:
             res = self.factory_.create(RtspWorker, name, None, self.pic_q_, **kwargs)
-        elif 'REST' == name:
-            res = self.factory_.create(RestWorker, name, None, None, **kwargs)
         elif 'AI' == name:
             res = self.factory_.create(AiWorker, name, self.pic_q_, self.vec_q_, **kwargs)
         elif 'MQTT' == name:
@@ -194,11 +261,7 @@ class MainContext(bus.IEventBusMixin):
 
     def stop_procs(self):
         msg = bus.EBUS_SPECIAL_MSG_STOP
-        self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)
-        # self.send_cmd(bus.EBUS_TOPIC_RTSP, msg)
-        # self.send_cmd(bus.EBUS_TOPIC_AI, msg)
-        # self.send_cmd(bus.EBUS_TOPIC_MQTT, msg)
-        # self.send_cmd(bus.EBUS_TOPIC_REST, msg)                           # 微服务进程与主进程同时存在
+        self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)   # 微服务进程与主进程同时存在，不会停
 
         return True
 
@@ -206,47 +269,9 @@ class MainContext(bus.IEventBusMixin):
         self.cfg_ = config.load_json(path2cfg)                                          # 读取配置文件内容
         api = self.cfg_['micro_service']
         (ap, key, cer) = (api['http_port'], api['ssl_keyfile'], api['ssl_certfile'])    # 配置微服务
-        self.switchon_procs('REST', port=ap, ssl_keyfile=key, ssl_certfile=cer)         # 启动1个Rest进程，提供微服务调用
+        self.rest_api(port=ap, ssl_keyfile=key, ssl_certfile=cer)                       # 启动1个Rest进程，提供微服务调用
+
         loop = True
         while loop:
             # msg = self.recv_cmd(bus.EBUS_TOPIC_MAIN)
             MainContext.rpc_service()                               # rpc远程调用服务启动，阻塞等待外部事件出发状态改变
-
-            # if msg:
-            #     self.log(msg)
-            #     if msg == 'stop':
-            #         self.stop_procs()
-            #     elif msg == 'start':
-            #         self.start_procs(self.cfg_)
-            #     else:
-            #         pass
-
-
-# if __name__ == '__main__':
-#
-#     INTERVAL = 1
-#     PROC_RTSP_CNT = 3
-#     PROC_AI_CNT = 2
-#
-#     mgr = multiprocessing.Manager()
-#     pic_que = mgr.Queue()  # Is JoinableQueue better?
-#     vec_que = mgr.Queue()
-#     ebs = mgr.dict()
-#
-#     pool_rtsp = multiprocessing.Pool(processes=PROC_RTSP_CNT)
-#     pool_rtsp.starmap_async(proc_rtsp, [(1, ebs, None, pic_que), (2, ebs, None, pic_que)])
-#
-#     pool_ai = multiprocessing.Pool(processes=PROC_AI_CNT)
-#     pool_ai.starmap_async(proc_ai, [(1, ebs, pic_que, vec_que), (2, ebs, pic_que, vec_que)])
-#
-#     while True:
-#         sleep(INTERVAL - time() % INTERVAL)
-#         numb = random.randrange(1, 4)
-#         bus.send_cmd(ebs, bus.EBUS_TOPIC_RTSP, numb)
-#         log.logger(os.getpid(), f'messages in event bus: {len(ebs)}', log.LOG_LVL_INFO)
-#         log.logger(os.getpid(), f'pictures in pic_que: {pic_que.qsize()}', log.LOG_LVL_INFO)
-
-    # pool_rtsp.close()
-    # pool_ai.close()
-    # pool_rtsp.join()
-    # pool_ai.join()

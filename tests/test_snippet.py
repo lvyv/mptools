@@ -33,13 +33,13 @@ from multiprocessing import Pool
 from os import listdir
 from os.path import isfile, join
 from time import time, sleep
-from random import randrange
+# from random import randrange
 # from utils import bus, comn, config
-from utils import log
+# from utils import log
 # from core.procworker import ProcWorker
 
 import zmq
-import sys
+# import sys
 import random
 import requests
 import cv2
@@ -47,6 +47,7 @@ import io
 import imutils
 from imutils.video import VideoStream
 from matplotlib import pyplot as plt
+# import json
 
 # ----fastapi-----
 
@@ -139,21 +140,33 @@ def test_upload_img():
         if key == ord('q'):
             break
 
-    # vp = pic['channel']
-    # name = vp['name']
-    # rest = vp['micro_service']
-    # files = {'upfile': (name, image_data, 'image/png')}
-    # resp = requests.post(rest, files=files, verify=False)  # data=image_data)
-    # self.out_q_.put(resp.content)
-
 
 def uploadfiles():
-    rest = 'https://127.0.0.1:21900/api/v1/uploadfiles'
+    rest = 'https://127.0.0.1:7180/api/v1/uploadfiles'
     mypath = '../src/mock/local/'
     onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
     files = [('files', (replace_non_ascii(name), open(f'{mypath}{name}', 'rb'))) for name in onlyfiles]
+    requests.post(rest, files=files, verify=False)  # data=image_data)
 
-    resp = requests.post(rest, files=files, verify=False)  # data=image_data)
+
+def uploadfile_withparams():
+    rest = 'https://127.0.0.1:7180/api/v1/uploadfile_with_params'
+    mypath = '../src/mock/local/'
+    onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
+    files = {
+        'jso': (None, '{"key1":"value1"}', 'application/json'),
+        'file': (onlyfiles[0], open(f'{mypath}{onlyfiles[0]}', 'rb'), 'application/octet-stream')
+    }
+    requests.post(rest, files=files, verify=False)  # data=image_data)
+
+
+def uploadfiles_withparams():
+    rest = 'https://127.0.0.1:7180/api/v1/uploadfiles_with_params'
+    mypath = '../src/mock/local/'
+    onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
+    files = [('files', (replace_non_ascii(name), open(f'{mypath}{name}', 'rb'))) for name in onlyfiles]
+    payload = {'jsos': '{"key1":1, "key2":2}'}
+    requests.post(rest, files=files, data=payload, verify=False)  # data=image_data)
 
 
 # ----zmq-----
@@ -161,6 +174,7 @@ address_ = f'tcp://127.0.0.1:5555'
 
 
 def svr(name, ts):
+    print(ts)
     context = zmq.Context()
     socket = context.socket(zmq.REP)
     socket.bind(address_)
@@ -175,11 +189,12 @@ def svr(name, ts):
         sleep(0.5)
         print(f'begin sending reply...')
         #  Send reply back to client
-        socket.send_string(f"{message}, World")
+        socket.send_string(f"{message}, World")     # noqa
         print(f'send.')
 
 
 def cli(name, ts):
+    print(ts)
     context = zmq.Context()
     #  Socket to talk to server
     print("Connecting to hello world server...")
@@ -189,7 +204,7 @@ def cli(name, ts):
     #  Do 10 requests, waiting each time for a response
     for request in range(10):
         print(f"{name}, Sending request {request} ...")
-        socket.send_string(f"send Hello({request}) ")
+        socket.send_string(f"send Hello({request}) ")   # noqa
         # socket.send_string(f"send hello twice")
         #  Get the reply.
         message = socket.recv()
@@ -208,11 +223,12 @@ def pools():
     while True:
         sleep(0.5)
         pass
-    p.close()
-    p.join()
+    # p.close()
+    # p.join()
 
 
 def pub(name, ts):
+    print(ts)
     print(f'{name}-{os.getpid()}')
     context = zmq.Context()
     socket = context.socket(zmq.PUB)
@@ -222,7 +238,7 @@ def pub(name, ts):
         sleep(0.1)
         msg = f"中 国 {cnt} 中 {cnt}"
         print(msg)
-        socket.send_string(msg)
+        socket.send_string(msg)     # noqa
         cnt += 1
     while True:
         pass
@@ -230,6 +246,7 @@ def pub(name, ts):
 
 def sub(name, ts):
     #  Socket to talk to server
+    print(ts)
     print(f'{name}-{os.getpid()}')
     context = zmq.Context()
     socket = context.socket(zmq.SUB)
@@ -237,10 +254,10 @@ def sub(name, ts):
     print("Collecting updates from weather server...")
     socket.connect("tcp://localhost:5556")
     strfilter = '中'
-    socket.setsockopt_string(zmq.SUBSCRIBE, strfilter)
+    socket.setsockopt_string(zmq.SUBSCRIBE, strfilter)  # noqa
 
     while True:
-        st = socket.recv_string()
+        st = socket.recv_string()   # noqa
         print(f'recv: {st}')
 
 
@@ -256,8 +273,29 @@ def pub_sub_pools():
     while True:
         sleep(0.5)
         pass
-    p.close()
-    p.join()
+    # p.close()
+    # p.join()
+
+
+class FSM:
+    """
+    描述程序内部状态的有限状态机
+    """
+    STATUS_INITIAL = 0
+    STATUS_FULL_SPEED = 1
+    STATUS_ERROR = 2
+
+    current_state_ = None
+
+    def __init__(self):
+        self.current_state_ = self.STATUS_INITIAL
+
+    def test_status(self, criterion):
+        return self.current_state_ == criterion
+
+    def set_status(self, status):
+        if status in [getattr(FSM, y) for y in [x for x in dir(self) if x.find('STATUS') == 0]]:
+            self.current_state_ = status
 
 
 if __name__ == '__main__':
@@ -270,5 +308,10 @@ if __name__ == '__main__':
     # logging_guide.py
     # log.logger('he', 'hello')
     # uploadfiles()
+    # uploadfile_withparams()
+    uploadfiles_withparams()
     # pools()
-    pub_sub_pools()
+    # pub_sub_pools()
+    # fsm = FSM()
+    # fsm.set_status(2)
+    # print(fsm.current_state_)

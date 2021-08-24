@@ -30,6 +30,7 @@ Some common function and tools of the project.
 # License: Apache Licence 2.0
 
 import requests
+import json
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -39,11 +40,40 @@ def replace_non_ascii(x): return ''.join(i if ord(i) < 128 else '_' for i in x)
 
 
 def run_to_viewpoints(devid, channelid, presetid):
-    resp = None
+    ret = None
     try:
         payload = {'viewpoint': presetid}
-        resp = requests.post(f'https://127.0.0.1:21900/api/ptz/front_end_command/{devid}/{channelid}',
+        resp = requests.post(f'https://127.0.0.1:7180/api/ptz/front_end_command/{devid}/{channelid}',
                              data=payload, verify=False)
+        if resp.status_code == 200:
+            ret = True
+    except KeyError:
+        pass
+    finally:
+        return ret
+
+
+def get_url(devid, channelid):
+    resp = None
+    try:
+        url = f'https://127.0.0.1:7180/api/ptz/streaminfo'
+        resp = requests.get(url, verify=False)
+        resp = json.loads(resp.content)['channels']
+        for item in resp:
+            if item['deviceid'] == devid and item['channelid'] == channelid:
+                resp = item['url']
+    except KeyError:
+        pass
+    finally:
+        return resp
+
+
+def get_presets(devid, channelid):
+    resp = None
+    try:
+        url = f'https://127.0.0.1:7180/api/ptz/front_end_command/{devid}/{channelid}'
+        resp = requests.get(url, verify=False)
+        resp = json.loads(resp.content)['presetlist']
     except KeyError:
         pass
     finally:

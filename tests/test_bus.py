@@ -37,7 +37,7 @@ import os
 import unittest
 import multiprocessing
 import functools
-import time
+# import time
 from core.procworker import ProcWorker
 from utils import bus, log
 
@@ -97,6 +97,8 @@ class ChildC(ProcWorker, bus.IEventBusMixin):
             self.cnt_ += 1
             if self.cnt_ < 3:
                 return False
+            else:
+                return True
         else:
             return False
 

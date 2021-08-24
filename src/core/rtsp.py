@@ -31,10 +31,10 @@ Pull av stream from nvr and decode pictures from the streams.
 
 import cv2
 import imutils
+from imutils.video import VideoStream
 from time import time, sleep
 from utils import bus, comn
 from core.procworker import ProcWorker
-from imutils.video import VideoStream
 
 
 class RtspWorker(ProcWorker):
@@ -89,10 +89,10 @@ class RtspWorker(ProcWorker):
                 frame = self.vs_.read()
                 if frame is not None:
                     frame = imutils.resize(frame, width=1200)   # size changed from 6MB to 2MB
-                    cv2.imshow('NVR realtime', frame)
-                    key = cv2.waitKey(1) & 0xFF
-                    if key == ord('q'):
-                        break
+                    # cv2.imshow('NVR realtime', frame)
+                    # key = cv2.waitKey(1) & 0xFF
+                    # if key == ord('q'):
+                    #     break
                     pic = {'channel': vp, 'frame': frame}       # 把模型微服务参数等通过队列传给后续进程
                     self.out_q_.put(pic)
                     self.log(f'采用第{cnt}帧.--du:{duration}--, delta:{delta}.')
