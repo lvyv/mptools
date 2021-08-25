@@ -31,7 +31,7 @@ unit test module
 
 import unittest
 from core.main import MainContext
-from utils import config, bus
+# from utils import config, bus
 
 
 class TestMain(unittest.TestCase):
@@ -51,7 +51,7 @@ class TestMain(unittest.TestCase):
     def test_MainContext(self):
         """Test core.main.MainContext."""
         p2c = 'v2v.cfg'
-        with MainContext(bus.EBUS_TOPIC_MAIN) as main_ctx:
+        with MainContext() as main_ctx:
             main_ctx.run(p2c)
 
 

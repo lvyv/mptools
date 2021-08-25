@@ -21,12 +21,18 @@ V2V测试联调指南
 (v2v) bda@c3daace9a16d:~/work/tests$ cd ../src/mock
 (v2v) bda@c3daace9a16d:~/work/v2v/src/mock$ python exif.py
 ```
-第二、启动推流
+第二、启动推流（本地自己调建议自建一个RTSP流媒体服务器OBS+RTSP Server插件，模仿NVR提供流）
 ```
 $ ffmpeg.exe -re -i /stream/main.ts -rtsp_transport tcp -vcodec copy -f rtsp rtsp://10.128.19.91:7554/meter
 $ ffmpeg.exe -re -i /stream/plc.ts -rtsp_transport tcp -vcodec copy -f rtsp rtsp://10.128.19.91:7554/plc
 ```
 第三、配置tests目录下的v2v.cfg，设置对应的流媒体路径与上面的推流地址匹配
+
+
+第四、在代码的tests路径下启动v2v服务
+```
+(v2v) bda@c3daace9a16d:~/work/tests$ python test_main.py
+```
 
 3.缺省通过浏览器访问
 https://127.0.0.1:7080/ui/index.html
@@ -40,6 +46,7 @@ https://127.0.0.1:7080/ui/index.html
 代办事项
 --------
 
+- POOL在ctrl+C退出卡死的问题。
 - UI美化。 
 - 文档内容和安装发布的完善。
 

@@ -32,6 +32,7 @@ Entry point of the project.
 import multiprocessing
 import functools
 import os
+import signal
 
 from core.rtsp import RtspWorker
 from core.ai import AiWorker
@@ -39,6 +40,7 @@ from core.mqtt import MqttWorker
 from core.rest import RestWorker
 from utils import bus, log
 from utils.config import ConfigSet
+
 
 # class RestWorker:
 #     def __init__(self, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
@@ -79,11 +81,13 @@ class ProcSimpleFactory:
     设置proc_worker_wrapper函数，作为所有子进程的入口。
     子进程分别在该函数中实例化进程对象，并启动主循环。
     """
-    rest_ = None    # rest 进程句柄
+    rest_ = None  # rest 进程句柄
 
     def __init__(self, nop):
         self.log = functools.partial(log.logger, f'ProcSimpleFactory')
+        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
         self.pool_ = multiprocessing.Pool(processes=nop)
+        signal.signal(signal.SIGINT, original_sigint_handler)
 
     def create(self, worker_class, name, in_q=None, out_q=None, **kwargs):
         default_cnt = 1
@@ -96,6 +100,15 @@ class ProcSimpleFactory:
                                        [(worker_class, f'{name}({idx})', in_q, out_q, kwargs)
                                         for idx in range(default_cnt)])
         return res
+
+    def terminate(self):
+        self.pool_.terminate()
+
+    def close(self):
+        self.pool_.close()
+
+    def join(self):
+        self.pool_.join()
 
     @classmethod
     def create_daemon(cls, worker_class, name, **kwargs):
@@ -162,7 +175,7 @@ class MainContext(bus.IEventBusMixin):
         else:
             return {'reply: False'}
 
-    def __init__(self, bustopic=bus.EBUS_TOPIC_BROADCAST):
+    def __init__(self):
         self.log = functools.partial(log.logger, f'MAIN')
         if MainContext.center_ is None:
             MainContext.center_ = bus.IEventBusMixin.get_center()
@@ -173,13 +186,15 @@ class MainContext(bus.IEventBusMixin):
         MainContext.register(bus.CB_STOP_PPL, self.callback_stop_pipeline)
         MainContext.register(bus.CB_GET_CFG, self.callback_get_cfg)
 
-        self.cfg_ = None                                            # 配置文件内容
+        self.cfg_ = None  # 配置文件内容
         self.pic_q_ = multiprocessing.Manager().Queue()  # Is JoinableQueue better?
         self.vec_q_ = multiprocessing.Manager().Queue()
+        # self.pic_q_ = None
+        # self.vec_q_ = None
 
-        self.queues_ = []                       # 子进程间数据传递队列
-        self.queues_.append(self.pic_q_)        # 图片
-        self.queues_.append(self.vec_q_)        # 识别结果
+        self.queues_ = []  # 子进程间数据传递队列
+        self.queues_.append(self.pic_q_)  # 图片
+        self.queues_.append(self.vec_q_)  # 识别结果
 
         self.factory_ = ProcSimpleFactory(self.NUMBER_OF_PROCESSES)
         self.status_ = FSM()
@@ -248,31 +263,37 @@ class MainContext(bus.IEventBusMixin):
         return res
 
     def start_procs(self, cfg):
-        # 'rtsp://admin:admin123@192.168.101.114:554/cam/realmonitor?channel=1&subtype=0'
-        # 'rtsp://admin:admin123@192.168.101.114:554/cam/playback?channel=1&subtype=0&starttime=2021_08_03_11_50_00'
         # 启动进程
         for channel in cfg['rtsp_urls']:
-            self.switchon_procs('RTSP', rtsp_url=channel, sample_rate=1)    # 不提供cnt=x参数，缺省1个通道启1个进程
-            num = 3                                                         # AI比较慢，安排两个进程处理
+            self.switchon_procs('RTSP', rtsp_url=channel, sample_rate=1)  # 不提供cnt=x参数，缺省1个通道启1个进程
+            num = 3  # AI比较慢，安排两个进程处理
             self.switchon_procs('AI', cnt=num)
-            num = 2                                                         # MQTT比较慢，上传文件，安排两个进程处理
+            num = 2  # MQTT比较慢，上传文件，安排两个进程处理
             mqtt = cfg['mqtt_svrs'][0]
             self.switchon_procs('MQTT', cnt=num,
                                 mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'], mqtt_topic=mqtt['mqtt_tp'])
 
     def stop_procs(self):
         msg = bus.EBUS_SPECIAL_MSG_STOP
-        self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)   # 微服务进程与主进程同时存在，不会停
+        self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)  # 微服务进程与主进程同时存在，不会停
 
         return True
 
     def run(self, path2cfg):
-        self.cfg_ = ConfigSet.get_cfg(path2cfg)                                         # 读取配置文件内容
-        api = self.cfg_['micro_service']
-        (ap, key, cer) = (api['http_port'], api['ssl_keyfile'], api['ssl_certfile'])    # 配置微服务
-        self.rest_api(port=ap, ssl_keyfile=key, ssl_certfile=cer)                       # 启动1个Rest进程，提供微服务调用
+        try:
+            self.cfg_ = ConfigSet.get_cfg(path2cfg)  # 读取配置文件内容
+            api = self.cfg_['micro_service']
+            (ap, key, cer) = (api['http_port'], api['ssl_keyfile'], api['ssl_certfile'])  # 配置微服务
+            self.rest_api(port=ap, ssl_keyfile=key, ssl_certfile=cer)                       # 启动1个Rest进程，提供微服务调用
 
-        loop = True
-        while loop:
-            # msg = self.recv_cmd(bus.EBUS_TOPIC_MAIN)
-            MainContext.rpc_service()                               # rpc远程调用服务启动，阻塞等待外部事件出发状态改变
+            loop = True
+            while loop:
+                # msg = self.recv_cmd(bus.EBUS_TOPIC_MAIN)
+                MainContext.rpc_service()  # rpc远程调用服务启动，阻塞等待外部事件出发状态改变
+        except KeyboardInterrupt:
+            print("Caught KeyboardInterrupt, terminating workers")
+            self.factory_.terminate()
+        else:
+            print("Normal termination")
+            self.factory_.close()
+        self.factory_.join()

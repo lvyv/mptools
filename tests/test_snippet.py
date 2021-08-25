@@ -29,6 +29,7 @@ unit test module
 # Author: Awen <26896225@qq.com>
 # License: MIT
 import os
+import signal
 from multiprocessing import Pool
 from os import listdir
 from os.path import isfile, join
@@ -38,8 +39,9 @@ from time import time, sleep
 # from utils import log
 # from core.procworker import ProcWorker
 
-import zmq
 # import sys
+# import json
+import zmq
 import random
 import requests
 import cv2
@@ -47,7 +49,7 @@ import io
 import imutils
 from imutils.video import VideoStream
 from matplotlib import pyplot as plt
-# import json
+
 
 # ----fastapi-----
 
@@ -212,19 +214,29 @@ def cli(name, ts):
 
 
 def pools():
-    # cs = center()
-    # sleep(1)
-    # bbp = beeper()
-    p = Pool(2)
-    p.apply_async(svr, (f'Center', random.randint(1, 3)))
-    p.apply_async(cli, (f'beeper1', random.randint(1, 3)))
-    p.apply_async(cli, (f'beeper2', random.randint(1, 3)))
+    try:
+        # cs = center()
+        # sleep(1)
+        # bbp = beeper()
+        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        p = Pool(2)
+        signal.signal(signal.SIGINT, original_sigint_handler)
 
-    while True:
-        sleep(0.5)
-        pass
-    # p.close()
-    # p.join()
+        p.apply_async(svr, (f'Center', random.randint(1, 3)))
+        p.apply_async(cli, (f'beeper1', random.randint(1, 3)))
+        p.apply_async(cli, (f'beeper2', random.randint(1, 3)))
+
+        while True:
+            sleep(0.5)
+            pass
+
+    except KeyboardInterrupt:
+        print("Caught KeyboardInterrupt, terminating workers")
+        p.terminate()
+
+    else:
+        p.close()
+        p.join()
 
 
 def pub(name, ts):
@@ -298,6 +310,39 @@ class FSM:
             self.current_state_ = status
 
 
+def svr2(name, ts):
+    print(ts)
+    while True:
+        #  Wait for next request from client
+        print(f'{name} begin sleeping...')
+        sleep(ts)
+        print(f'{name} wakeup.')
+
+
+def cli2(name, ts):
+    for request in range(10):
+        print(f"{name}, Sending request {request} ...")
+        sleep(ts)
+        print(f"{name}, Received reply {request} [ {'ccccc'} ]")
+
+
+def keyboard_interrupt():
+    try:
+        p = Pool(3)
+        p.apply_async(svr2, (f'Center', random.randint(1, 1)))
+        p.apply_async(cli2, (f'beeper1', random.randint(1, 1)))
+        p.apply_async(cli2, (f'beeper2', random.randint(1, 1)))
+        while True:
+            sleep(0.5)
+            pass
+    except KeyboardInterrupt:
+        print("Caught KeyboardInterrupt, terminating workers")
+        p.terminate()
+    else:
+        p.close()
+        p.join()
+
+
 if __name__ == '__main__':
     # test_arg('a', 1, key3=3, key5=5, key4=4)
     # pool_handler()
@@ -309,9 +354,10 @@ if __name__ == '__main__':
     # log.logger('he', 'hello')
     # uploadfiles()
     # uploadfile_withparams()
-    uploadfiles_withparams()
+    # uploadfiles_withparams()
     # pools()
     # pub_sub_pools()
     # fsm = FSM()
     # fsm.set_status(2)
     # print(fsm.current_state_)
+    keyboard_interrupt()

@@ -51,7 +51,7 @@ class AiWorker(ProcWorker):
         image_data = buf.getvalue()
         vp = pic['channel']
         name = vp['name']
-        rest = vp['micro_service']
+        rest = vp['ai_service']
         files = {'upfile': (comn.replace_non_ascii(name), image_data, 'image/png')}
         resp = requests.post(rest, files=files, verify=False)  # data=image_data)
         self.out_q_.put(resp.content)
