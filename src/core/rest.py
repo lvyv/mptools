@@ -31,9 +31,10 @@ Provide web api access points.
 
 
 import uvicorn
-import cv2
+# import cv2
 import imutils
 import io
+import base64
 from matplotlib import pyplot as plt
 from imutils.video import VideoStream
 # from typing import Optional
@@ -46,7 +47,9 @@ from os.path import isfile, join
 from os import listdir
 
 from utils import bus, comn
+from utils.config import ConfigSet
 from core.procworker import ProcWorker
+
 # from core.main import MainContext
 
 
@@ -70,7 +73,7 @@ rest_proc_ = None
 counter_ = 0
 cfg_ = None
 baseurl_of_nvr_samples_ = '/viewport'
-localroot_of_nvr_samples_ = './nvr_samples/'
+localroot_of_nvr_samples_ = ConfigSet.get_cfg()['nvr_samples']
 
 # EIF3:REST V2V C&M 外部接口-提供UI前端配置V2V需要的截图
 # 本路由为前端ui的路径
@@ -79,7 +82,7 @@ app_.mount('/ui', StaticFiles(directory='../src/ui'), name='ui')
 app_.mount(baseurl_of_nvr_samples_, StaticFiles(directory=localroot_of_nvr_samples_), name='nvr')
 
 
-@app_.get("/api/v2v/label/{deviceid}/{channelid}")
+@app_.get("/api/v1/v2v/presets/{deviceid}/{channelid}")
 async def label_picture(deviceid: str, channelid: str, refresh: bool = False):
     """获取该视频通道所有预置点，然后逐个预置点取图，保存为base64"""
     item = {'version': '1.0.0'}
@@ -90,19 +93,21 @@ async def label_picture(deviceid: str, channelid: str, refresh: bool = False):
             url = comn.get_url(deviceid, channelid)
             presets = comn.get_presets(deviceid, channelid)
             if url and presets:
+                vs = VideoStream(src=url).start()
                 for prs in presets:
-                    vs = VideoStream(src=url).start()
                     ret = comn.run_to_viewpoints(deviceid, channelid, prs['presetid'])
                     if ret:
                         frame = vs.read()
-                        frame = imutils.resize(frame, width=1200)
+                        frame = imutils.resize(frame, width=680)
                         buf = io.BytesIO()
                         plt.imsave(buf, frame, format='png')
                         image_data = buf.getvalue()
-                        outfile = open(f'd:/temp/{prs["presetid"]}', 'wb')
+                        image_data = base64.b64encode(image_data)
+                        outfile = open(f'{target}{prs["presetid"]}', 'wb')
                         outfile.write(image_data)
                         outfile.close()
-
+                # vs.stop()
+                # vs.release()
         onlyfiles = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}' for f in listdir(target) if isfile(join(target, f))]
         item['presets'] = onlyfiles
     except FileNotFoundError as fs:
@@ -115,16 +120,16 @@ class Switch(BaseModel):
     cmd: str = 'start'
 
 
-@app_.post("/subprocess/")
+@app_.post("/api/v1/v2v/pipeline/")
 async def create_item(item: Switch):
     """统一关闭或启动rtsp，ai，mqtt子进程"""
     cmds = ['start', 'stop']
     if item.cmd in cmds:
         # rest_proc_.send_cmd(bus.EBUS_TOPIC_MAIN, item.cmd) # noqa
         if item.cmd == 'start':
-            ret = rest_proc_.call_rpc(bus.CB_STARTUP_PPL, {'cmd': item.cmd})
+            ret = rest_proc_.call_rpc(bus.CB_STARTUP_PPL, {'cmd': item.cmd})  # noqa
         else:
-            ret = rest_proc_.call_rpc(bus.CB_STOP_PPL, {'cmd': item.cmd})
+            ret = rest_proc_.call_rpc(bus.CB_STOP_PPL, {'cmd': item.cmd})  # noqa
     else:
         ret = {'reply': 'unrecognized command.'}
     return ret
@@ -144,7 +149,6 @@ def periodic():
     """周期性任务，用于读取系统状态和实现探针程序数据来源的提取"""
     global counter_
     counter_ += 1
-    # rest_proc_.log(f'{counter_}') # noqa
 
 
 class RestWorker(ProcWorker):
@@ -168,7 +172,7 @@ class RestWorker(ProcWorker):
     def run(self, *kwargs):
         global rest_proc_
         rest_proc_ = self
-        uvicorn.run(app_,       # noqa 标准用法
+        uvicorn.run(app_,  # noqa 标准用法
                     host="0.0.0.0",
                     port=self.port_,
                     ssl_keyfile=self.ssl_keyfile_,

@@ -64,7 +64,7 @@
 				{
 					mxUtils.alert('Error');
 				}
-				url = `/api/v2v/label/${devid}/${channelid}?refresh=${refresh}`;	
+				url = `/api/v1/v2v/presets/${devid}/${channelid}?refresh=${refresh}`;	
 				mxUtils.get(url, onload, onerror);
 		};
 		// Program starts here. The document.onLoad executes the
@@ -358,9 +358,11 @@
 			
 			viewports = document.getElementById('viewports')
 			if(viewports) {
+				// viewports.style.cursor = 'wait'
 				current_video_channel_.deviceid = viewports.getAttribute('deviceid');
 				current_video_channel_.channelid = viewports.getAttribute('channelid');
 				init_preview(current_video_channel_.deviceid, current_video_channel_.channelid, true);
+				// cur = editor.graph.getCursor()
 			}
 		}
 

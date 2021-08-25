@@ -88,7 +88,7 @@ app.mount('/docs', StaticFiles(directory='../../docs'), name='docs')
 
 
 # iot登录
-@app.post("/api/auth/login")
+@app.post("/api/v1/auth/login")
 async def post_iot_login():
     """模拟物联网登录获取访问令牌接口，有物联网服务器，暂未实现"""
     pass
@@ -131,7 +131,7 @@ async def uploadfiles_with_params(files: List[UploadFile] = File(...), jsos: str
 
 
 # EIF5:REST PTZ CNTL 外部接口-视频调度管理软件
-@app.get("/api/ptz/streaminfo")
+@app.get("/api/v1/ptz/streaminfo")
 async def stream_info():
     """获取所有的视频通道列表"""
     item = {'version': '1.0.0',
@@ -146,7 +146,7 @@ async def stream_info():
     return item
 
 
-@app.get("/api/ptz/streaminfo/{desc}")
+@app.get("/api/v1/ptz/streaminfo/{desc}")
 async def stream_info_by_desc(desc: str):
     """按照对用户有意义的名称，获取视频通道列表"""
     item = {'version': '1.0.0',
@@ -159,21 +159,21 @@ async def stream_info_by_desc(desc: str):
     return item
 
 
-@app.get("/api/ptz/front_end_command/{deviceid}/{channelid}")
+@app.get("/api/v1/ptz/front_end_command/{deviceid}/{channelid}")
 async def get_all_presets(deviceid: str, channelid: str):
     """模拟视频调度的获取某路视频的所有预置点接口"""
     item = {'version': '1.0.0',
             'deviceid': f'{deviceid}',
             'url': 'rtsp://127.0.0.1/live',
             'presetlist': [
-                {'presetid': 'preset1', 'presetname': '开机默认位置'},
-                {'presetid': 'preset2', 'presetname': '看室内'},
-                {'presetid': 'preset3', 'presetname': '看室外'}]
+                {'presetid': 'preset4', 'presetname': '开机默认位置'},
+                {'presetid': 'preset5', 'presetname': '看室内'},
+                {'presetid': 'preset7', 'presetname': '看室外'}]
             }
     return item
 
 
-@app.post("/api/ptz/front_end_command/{deviceid}/{channelid}")
+@app.post("/api/v1/ptz/front_end_command/{deviceid}/{channelid}")
 async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(...)):
     """模拟视频调度的跳转到预置点接口"""
     item = {"deviceid": deviceid, "channelid": channelid, "cmdCode": 130, "parameter1": 0, "parameter2": viewpoint}

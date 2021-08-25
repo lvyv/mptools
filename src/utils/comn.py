@@ -34,6 +34,7 @@ import json
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+baseurl_ = 'https://127.0.0.1:7180'
 
 
 def replace_non_ascii(x): return ''.join(i if ord(i) < 128 else '_' for i in x)
@@ -43,7 +44,7 @@ def run_to_viewpoints(devid, channelid, presetid):
     ret = None
     try:
         payload = {'viewpoint': presetid}
-        resp = requests.post(f'https://127.0.0.1:7180/api/ptz/front_end_command/{devid}/{channelid}',
+        resp = requests.post(f'{baseurl_}/api/v1/ptz/front_end_command/{devid}/{channelid}',
                              data=payload, verify=False)
         if resp.status_code == 200:
             ret = True
@@ -56,7 +57,7 @@ def run_to_viewpoints(devid, channelid, presetid):
 def get_url(devid, channelid):
     resp = None
     try:
-        url = f'https://127.0.0.1:7180/api/ptz/streaminfo'
+        url = f'{baseurl_}/api/v1/ptz/streaminfo'
         resp = requests.get(url, verify=False)
         resp = json.loads(resp.content)['channels']
         for item in resp:
@@ -71,7 +72,7 @@ def get_url(devid, channelid):
 def get_presets(devid, channelid):
     resp = None
     try:
-        url = f'https://127.0.0.1:7180/api/ptz/front_end_command/{devid}/{channelid}'
+        url = f'{baseurl_}/api/v1/ptz/front_end_command/{devid}/{channelid}'
         resp = requests.get(url, verify=False)
         resp = json.loads(resp.content)['presetlist']
     except KeyError:

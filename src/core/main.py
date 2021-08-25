@@ -32,12 +32,13 @@ Entry point of the project.
 import multiprocessing
 import functools
 import os
+
 from core.rtsp import RtspWorker
 from core.ai import AiWorker
 from core.mqtt import MqttWorker
 from core.rest import RestWorker
-from utils import bus, log, config
-
+from utils import bus, log
+from utils.config import ConfigSet
 
 # class RestWorker:
 #     def __init__(self, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
@@ -266,7 +267,7 @@ class MainContext(bus.IEventBusMixin):
         return True
 
     def run(self, path2cfg):
-        self.cfg_ = config.load_json(path2cfg)                                          # 读取配置文件内容
+        self.cfg_ = ConfigSet.get_cfg(path2cfg)                                         # 读取配置文件内容
         api = self.cfg_['micro_service']
         (ap, key, cer) = (api['http_port'], api['ssl_keyfile'], api['ssl_certfile'])    # 配置微服务
         self.rest_api(port=ap, ssl_keyfile=key, ssl_certfile=cer)                       # 启动1个Rest进程，提供微服务调用

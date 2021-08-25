@@ -35,12 +35,23 @@ Configuration related stuff here.
 import json
 
 
-def load_json(fp):
-    try:
-        load_dict = None
-        with open(fp, 'r', encoding='UTF-8') as load_f:
-            load_dict = json.load(load_f)
-            load_f.close()
-    finally:
-        return load_dict
+class ConfigSet:
+    cfg_ = None
+
+    @classmethod
+    def load_json(cls, fp):
+        try:
+            load_dict = None
+            with open(fp, 'r', encoding='UTF-8') as load_f:
+                load_dict = json.load(load_f)
+                load_f.close()
+        finally:
+            return load_dict
+
+    @classmethod
+    def get_cfg(cls, pathtocfg='v2v.cfg'):
+        if cls.cfg_ is None:
+            cls.cfg_ = cls.load_json(pathtocfg)
+        return cls.cfg_
+
 
