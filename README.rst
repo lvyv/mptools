@@ -8,7 +8,8 @@ rootbdahtyw!@#bda
 2.在Chrome浏览器中输入以下地址，密码是htyw
 http://10.128.19.91:7888/lab/workspaces/work
 
-3.在界面上创建一个Terminal终端，进行单元测试
+3.在界面上创建一个Terminal终端，进行单元测试(本步骤在集成时，可以忽略)
+
 (base) bda@c3daace9a16d:~$ cd work
 (base) bda@c3daace9a16d:~/work$ conda activate v2v
 (v2v) bda@c3daace9a16d:~/work$ cd v2v (如果是第一次，需要下载代码，git clone https://gitee.com/iovVis/v2v.git v2v)
