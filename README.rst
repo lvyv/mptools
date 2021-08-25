@@ -5,7 +5,7 @@ rootbdahtyw!@#bda
 
 1.首先需要easyconnect，通过vpn连接到测试环境
 
-2.在Chrome浏览器中输入以下地址，密码是htyw
+2.在Chrome浏览器中输入以下地址，密码是缺省密码
 http://10.128.19.91:7888/lab/workspaces/work
 
 3.在界面上创建一个Terminal终端，进行单元测试(本步骤在集成时，可以忽略)
