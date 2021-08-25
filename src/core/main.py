@@ -31,7 +31,6 @@ Entry point of the project.
 
 import multiprocessing
 import functools
-import os
 import signal
 
 from core.rtsp import RtspWorker
@@ -40,39 +39,7 @@ from core.mqtt import MqttWorker
 from core.rest import RestWorker
 from utils import bus, log
 from utils.config import ConfigSet
-
-
-# class RestWorker:
-#     def __init__(self, name, evt_bus, in_q=None, out_q=None, up_evt=None, down_evt=None, **kwargs):
-#         self.log = functools.partial(log.logger, f'{name}')
-#
-#     def run(self):
-#         self.log(f'running...')
-#         return 0
-
-
-# -- Process Wrapper
-def daemon_wrapper(proc_worker_class, name, **kwargs):
-    pid = os.getpid()
-    proc_worker = proc_worker_class(f'{name}-{pid}', None, None, kwargs)
-    return proc_worker.run()
-
-
-def proc_worker_wrapper(proc_worker_class, name, in_q=None, out_q=None, dicts=None, **kwargs):
-    """
-    子进程的入口点。
-
-    :param proc_worker_class: 类名。
-    :param name: 对象名。
-    :param in_q: 输入数据队列，子进程之间数据通道。
-    :param out_q: 输出数据队列，子进程之间数据通道。
-    :param dicts: 额外参数。
-    :param kwargs: 其它参数。
-    :return: 子进程退出码：0为正常，-1为错误。
-    """
-    pid = os.getpid()
-    proc_worker = proc_worker_class(f'{name}-{pid}', in_q, out_q, dicts, **kwargs)
-    return proc_worker.run()
+from utils.wrapper import proc_worker_wrapper, daemon_wrapper
 
 
 class ProcSimpleFactory:
@@ -81,15 +48,19 @@ class ProcSimpleFactory:
     设置proc_worker_wrapper函数，作为所有子进程的入口。
     子进程分别在该函数中实例化进程对象，并启动主循环。
     """
-    rest_ = None  # rest 进程句柄
+    rest_ = None    # rest 进程句柄
+    pool_ = None    # rtsp,ai,mqtt 进程池句柄
 
     def __init__(self, nop):
         self.log = functools.partial(log.logger, f'ProcSimpleFactory')
-        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
-        self.pool_ = multiprocessing.Pool(processes=nop)
-        signal.signal(signal.SIGINT, original_sigint_handler)
+        self.poolsize_ = nop
 
     def create(self, worker_class, name, in_q=None, out_q=None, **kwargs):
+        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        if self.pool_ is None:
+            self.pool_ = multiprocessing.Pool(processes=self.poolsize_)
+        signal.signal(signal.SIGINT, original_sigint_handler)
+
         default_cnt = 1
         for key, value in kwargs.items():
             if key == 'cnt':
@@ -99,16 +70,25 @@ class ProcSimpleFactory:
         res = self.pool_.starmap_async(proc_worker_wrapper,
                                        [(worker_class, f'{name}({idx})', in_q, out_q, kwargs)
                                         for idx in range(default_cnt)])
+        # res.get(60)
         return res
 
-    def terminate(self):
-        self.pool_.terminate()
+    @classmethod
+    def teminate_rest(cls):
+        cls.rest_.terminate()
+        cls.rest_.join()
 
-    def close(self):
-        self.pool_.close()
+    @classmethod
+    def terminate(cls):
+        cls.pool_.terminate()
 
-    def join(self):
-        self.pool_.join()
+    @classmethod
+    def close(cls):
+        cls.pool_.close()
+
+    @classmethod
+    def join(cls):
+        cls.pool_.join()
 
     @classmethod
     def create_daemon(cls, worker_class, name, **kwargs):
@@ -148,7 +128,7 @@ class MainContext(bus.IEventBusMixin):
     完成对所有运行子进程的下发配置和查询状态（主要是事件总线和图片及向量队列）。
     """
 
-    NUMBER_OF_PROCESSES = 20
+    NUMBER_OF_PROCESSES = 12
 
     def callback_start_pipeline(self, params):
         self.log(params)
@@ -189,8 +169,6 @@ class MainContext(bus.IEventBusMixin):
         self.cfg_ = None  # 配置文件内容
         self.pic_q_ = multiprocessing.Manager().Queue()  # Is JoinableQueue better?
         self.vec_q_ = multiprocessing.Manager().Queue()
-        # self.pic_q_ = None
-        # self.vec_q_ = None
 
         self.queues_ = []  # 子进程间数据传递队列
         self.queues_.append(self.pic_q_)  # 图片
@@ -292,8 +270,12 @@ class MainContext(bus.IEventBusMixin):
                 MainContext.rpc_service()  # rpc远程调用服务启动，阻塞等待外部事件出发状态改变
         except KeyboardInterrupt:
             print("Caught KeyboardInterrupt, terminating workers")
+            self.factory_.teminate_rest()
             self.factory_.terminate()
         else:
             print("Normal termination")
             self.factory_.close()
+            self.factory_.teminate_rest()
+        self.factory_.close()
         self.factory_.join()
+

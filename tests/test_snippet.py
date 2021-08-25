@@ -28,19 +28,22 @@ unit test module
 
 # Author: Awen <26896225@qq.com>
 # License: MIT
+from __future__ import print_function
+import unittest
+
 import os
 import signal
 from multiprocessing import Pool
 from os import listdir
 from os.path import isfile, join
 from time import time, sleep
-# from random import randrange
-# from utils import bus, comn, config
-# from utils import log
-# from core.procworker import ProcWorker
+from random import randrange
+from utils import bus, comn, config
+from utils import log
+from core.procworker import ProcWorker
 
-# import sys
-# import json
+import sys
+import json
 import zmq
 import random
 import requests
@@ -54,7 +57,7 @@ from matplotlib import pyplot as plt
 # ----fastapi-----
 
 from fastapi import FastAPI, File, UploadFile
-# import uvicorn
+import uvicorn
 
 
 app = FastAPI()
@@ -240,53 +243,83 @@ def pools():
 
 
 def pub(name, ts):
-    print(ts)
-    print(f'{name}-{os.getpid()}')
-    context = zmq.Context()
-    socket = context.socket(zmq.PUB)
-    socket.bind("tcp://*:5556")
-    cnt = 0
-    while cnt < 1000:
-        sleep(0.1)
-        msg = f"中 国 {cnt} 中 {cnt}"
-        print(msg)
-        socket.send_string(msg)     # noqa
-        cnt += 1
-    while True:
-        pass
+    try:
+        print(ts)
+        print(f'{name}-{os.getpid()}')
+        context = zmq.Context()
+        socket = context.socket(zmq.PUB)
+        socket.bind("tcp://*:5556")
+        cnt = 0
+        while cnt < 1000:
+            sleep(0.1)
+            msg = f"中 国 {cnt} 中 {cnt}"
+            print(msg)
+            socket.send_string(msg)     # noqa
+            cnt += 1
+        while True:
+            pass
+    except KeyboardInterrupt:
+        print("------------pub-------Caught KeyboardInterrupt, terminating workers-----------------")
 
 
 def sub(name, ts):
-    #  Socket to talk to server
-    print(ts)
-    print(f'{name}-{os.getpid()}')
-    context = zmq.Context()
-    socket = context.socket(zmq.SUB)
+    try:
+        #  Socket to talk to server
+        print(ts)
+        print(f'{name}-{os.getpid()}')
+        context = zmq.Context()
+        socket = context.socket(zmq.SUB)
 
-    print("Collecting updates from weather server...")
-    socket.connect("tcp://localhost:5556")
-    strfilter = '中'
-    socket.setsockopt_string(zmq.SUBSCRIBE, strfilter)  # noqa
+        print("Collecting updates from weather server...")
+        socket.connect("tcp://localhost:5556")
+        strfilter = '中'
+        socket.setsockopt_string(zmq.SUBSCRIBE, strfilter)  # noqa
 
-    while True:
-        st = socket.recv_string()   # noqa
-        print(f'recv: {st}')
+        while True:
+            st = socket.recv_string()   # noqa
+            print(f'recv: {st}')
+    except KeyboardInterrupt:
+        print("-----------sub--------Caught KeyboardInterrupt, terminating workers-----------------")
+
+# def pub11(name, delay):
+#     try:
+#         print("In a worker process", os.getpid())
+#         time.sleep(delay)
+#     except KeyboardInterrupt:
+#         print("-------------------Caught KeyboardInterrupt, terminating workers-----------------")
+#         # pool.terminate()
+#
+#
+# def sub11(name, delay):
+#     try:
+#         print("In a worker process", os.getpid())
+#         time.sleep(delay)
+#     except KeyboardInterrupt:
+#         print("-------------------Caught KeyboardInterrupt, terminating workers-----------------")
+#         # pool.terminate()
 
 
 def pub_sub_pools():
-    # cs = center()
-    # sleep(1)
-    # bbp = beeper()
-    p = Pool(5)
-    p.apply_async(pub, (f'pub', None))
-    p.apply_async(sub, (f'sub1', None))
-    p.apply_async(sub, (f'sub2', None))
-
-    while True:
-        sleep(0.5)
-        pass
-    # p.close()
-    # p.join()
+    p = Pool(3)
+    try:
+        res1 = p.apply_async(pub, (f'pub', 3))
+        res2 = p.apply_async(sub, (f'sub1', 3))
+        res3 = p.apply_async(sub, (f'sub2', 3))
+        # res1.get(60)
+        # res2.get(60)
+        # res3.get(60)
+        # print('--------------------------------')
+        # p.close()
+        while True:
+            pass
+    except KeyboardInterrupt:
+        print('ctrl+C<<<')
+        p.terminate()
+    else:
+        p.close()
+        print("Normal termination")
+    p.close()
+    p.join()
 
 
 class FSM:
@@ -327,20 +360,100 @@ def cli2(name, ts):
 
 
 def keyboard_interrupt():
+    p = Pool(3)
     try:
-        p = Pool(3)
         p.apply_async(svr2, (f'Center', random.randint(1, 1)))
         p.apply_async(cli2, (f'beeper1', random.randint(1, 1)))
-        p.apply_async(cli2, (f'beeper2', random.randint(1, 1)))
-        while True:
-            sleep(0.5)
-            pass
+        res = p.apply_async(cli2, (f'beeper2', random.randint(1, 1)))
+        res.get(60)
     except KeyboardInterrupt:
         print("Caught KeyboardInterrupt, terminating workers")
         p.terminate()
     else:
         p.close()
-        p.join()
+    p.join()
+
+
+#!/bin/env python
+
+
+import multiprocessing
+import os
+import signal
+import time
+
+
+def run_worker(name, delay):
+    try:
+        print("In a worker process", os.getpid())
+        time.sleep(delay)
+    except KeyboardInterrupt:
+        print("-------------------Caught KeyboardInterrupt, terminating workers-----------------")
+        # pool.terminate()
+
+
+def main():
+    print("Initializng 2 workers")
+    vec_q_ = multiprocessing.Manager().Queue()
+    # original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    # original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    pool = multiprocessing.Pool(2)
+    # signal.signal(signal.SIGINT, original_sigint_handler)
+    try:
+        print("Starting 2 jobs of 5 seconds each")
+        res = pool.starmap_async(run_worker, [('a', 15), ('b', 16)])
+        print("Waiting for results")
+
+        res.get(60)  # Without the timeout this blocking call ignores all signals.
+        print('-------------------OK--------------------------')
+    except KeyboardInterrupt:
+        print("-------------------Caught KeyboardInterrupt, terminating workers-----------------")
+        pool.terminate()
+    else:
+        print("Normal termination")
+        pool.close()
+    pool.join()
+
+
+def run_fastapi(name):
+    uvicorn.run(app, host="0.0.0.0", port=21800)
+    pass
+
+
+def fastapi_main():
+    dp = multiprocessing.Process(target=run_fastapi, args=('fastapi', ))
+    dp.daemon = True
+    dp.start()
+    return dp
+
+
+class TestMain(unittest.TestCase):
+    """
+    Tests for `v2v` entrypoint.
+    本测试案例启动整个v2v程序（前提需要启动Mock提供仿真接口，并启动obs的rtsp服务器）
+    访问运行本案例的URL：
+    https://IP:29080/docs，执行POST /subprocess，发送start/stop命令启停视频识别流水线。
+    注意
+    """
+    def setUp(self):
+        """Set up test fixtures, if any."""
+
+    def tearDown(self):
+        """Tear down test fixtures, if any."""
+
+    def test_MainContext(self):
+        """Test core.main.MainContext."""
+        # main()
+        # pub_sub_pools()
+        try:
+            dp = fastapi_main()
+            while True:
+                pass
+        except KeyboardInterrupt:
+            dp.terminate()
+        else:
+            dp.terminate()
+
 
 
 if __name__ == '__main__':
@@ -360,4 +473,6 @@ if __name__ == '__main__':
     # fsm = FSM()
     # fsm.set_status(2)
     # print(fsm.current_state_)
-    keyboard_interrupt()
+    # keyboard_interrupt()
+    # main()
+    unittest.main()

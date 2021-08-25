@@ -30,7 +30,7 @@ All common behaviors of sub process.
 # License: Apache Licence 2.0
 
 import functools
-import collections
+# import collections
 from utils import bus, log
 
 
@@ -64,9 +64,11 @@ class BaseProcWorker:
             self.startup()
             self.main_loop()
             return 0
+        except KeyboardInterrupt:
+            self.log("----Caught KeyboardInterrupt----", level=log.LOG_LVL_ERRO)
         except BaseException as exc:
             # -- Catch ALL exceptions, even Terminate and Keyboard interrupt
-            self.log(f"Exception Shutdown: {exc}", exc_info=True)
+            self.log(f"Exception Shutdown: {exc}", exc_info=True, level=log.LOG_LVL_ERRO)
         finally:
             self.shutdown()
 
