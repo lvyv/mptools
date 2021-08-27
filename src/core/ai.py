@@ -31,9 +31,11 @@ Feed AI meter picture one by one and get recognized results.
 
 import io
 import requests
+import json
 from matplotlib import pyplot as plt
 from utils import bus, comn
 from core.procworker import ProcWorker
+
 
 
 class AiWorker(ProcWorker):
@@ -47,13 +49,17 @@ class AiWorker(ProcWorker):
         # 全速
         pic = self.in_q_.get()
         buf = io.BytesIO()
-        plt.imsave(buf, pic['frame'], format='png')
+        plt.imsave(buf, pic['frame'], format='jpg')
         image_data = buf.getvalue()
         vp = pic['channel']
         name = vp['name']
         rest = vp['ai_service']
-        files = {'upfile': (comn.replace_non_ascii(name), image_data, 'image/png')}
+        files = {'upload_file': (comn.replace_non_ascii(name), image_data, 'image/jpg')}
+        self.log(rest)
         resp = requests.post(rest, files=files, verify=False)  # data=image_data)
+        result = resp.content.decode('utf-8')
+        result = json.loads(result)
+        self.log(f'{result["statistics"]}-{result}')
         self.out_q_.put(resp.content)
 
         return False

@@ -310,4 +310,3 @@ class MainContext(bus.IEventBusMixin):
             self.log('pools of rtsp/ai/mqtt close...')
             self.factory_.close()
             self.factory_.join()
-
