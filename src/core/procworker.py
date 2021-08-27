@@ -60,17 +60,9 @@ class BaseProcWorker:
         raise NotImplementedError(f"{self.__class__.__name__}.main_func is not implemented")
 
     def run(self):
-        try:
-            self.startup()
-            self.main_loop()
-            return 0
-        except KeyboardInterrupt:
-            self.log("----Caught KeyboardInterrupt----", level=log.LOG_LVL_ERRO)
-        except BaseException as exc:
-            # -- Catch ALL exceptions, even Terminate and Keyboard interrupt
-            self.log(f"Exception Shutdown: {exc}", exc_info=True, level=log.LOG_LVL_ERRO)
-        finally:
-            self.shutdown()
+        self.startup()
+        self.main_loop()
+        self.shutdown()
 
 
 class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
@@ -87,9 +79,16 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
         return ret
 
     def main_loop(self):
-        while self.break_out_ is False:
-            evt = self.subscribe()
-            if evt == bus.EBUS_SPECIAL_MSG_STOP:
-                break
-            self.break_out_ = self.main_func(evt)
-        self.log("Leaving main_loop.")
+        try:
+            while self.break_out_ is False:
+                evt = self.subscribe()
+                if evt == bus.EBUS_SPECIAL_MSG_STOP:
+                    break
+                self.break_out_ = self.main_func(evt)
+            self.log("Leaving main_loop.")
+        except KeyboardInterrupt:
+            self.log("----Caught KeyboardInterrupt----", level=log.LOG_LVL_ERRO)
+            self.beeper_.disconnect()
+            self.beeper_.close()
+            self.subscriber_.disconnect()
+            self.subscriber_.close()

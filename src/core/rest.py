@@ -49,9 +49,22 @@ from os import listdir
 from utils import bus, comn
 from utils.config import ConfigSet
 from core.procworker import ProcWorker
+from uvicorn.main import Server
 
-# from core.main import MainContext
+# 猴子补丁：在退出本进程的时候，ctrl+c会等待较长时间关闭socket
+original_handler = Server.handle_exit
 
+
+class AppStatus:
+    should_exit = False
+
+    @staticmethod
+    def handle_exit(*args, **kwargs):
+        AppStatus.should_exit = True
+        original_handler(*args, **kwargs)
+
+
+Server.handle_exit = AppStatus.handle_exit
 
 app_ = FastAPI(
     title="视频图像智能分析软件",
@@ -70,7 +83,6 @@ app_.add_middleware(
 
 # 全局变量
 rest_proc_ = None
-counter_ = 0
 cfg_ = None
 baseurl_of_nvr_samples_ = '/viewport'
 localroot_of_nvr_samples_ = ConfigSet.get_cfg()['nvr_samples']
@@ -121,7 +133,7 @@ class Switch(BaseModel):
 
 
 @app_.post("/api/v1/v2v/pipeline/")
-async def create_item(item: Switch):
+async def pipeline(item: Switch):
     """统一关闭或启动rtsp，ai，mqtt子进程"""
     cmds = ['start', 'stop']
     if item.cmd in cmds:
@@ -133,22 +145,20 @@ async def create_item(item: Switch):
     else:
         ret = {'reply': 'unrecognized command.'}
     return ret
-
-
-# @app_.on_event("startup")
-# def startup():
-#     """周期性任务，用于读取系统状态和实现探针程序数据来源的提取"""
-#     global localroot_of_nvr_samples_
-#     ret = rest_proc_.call_rpc(bus.CB_GET_CFG, {})
-#     localroot_of_nvr_samples_ = ret['nvr_samples']
+    pass
 
 
 @app_.on_event("startup")
 @repeat_every(seconds=1, wait_first=True)
 def periodic():
     """周期性任务，用于读取系统状态和实现探针程序数据来源的提取"""
-    global counter_
-    counter_ += 1
+    pass
+
+
+@app_.on_event("shutdown")
+def shutdown():
+    """关闭事件"""
+    pass
 
 
 class RestWorker(ProcWorker):
@@ -179,3 +189,5 @@ class RestWorker(ProcWorker):
                     ssl_certfile=self.ssl_certfile_,
                     log_level='info'
                     )
+        rest_proc_.call_rpc(bus.CB_STOP_REST, {})   # 好吧，优雅的退出
+

@@ -50,6 +50,7 @@ EBUS_SPECIAL_MSG_STOP = {'code': 0, 'desc': 'END'}  # 在基类实现的特殊�
 CB_STARTUP_PPL = 'start'
 CB_STOP_PPL = 'stop'
 CB_GET_CFG = 'get_cfg'
+CB_STOP_REST = 'stop_rest'
 
 
 class IEventBusMixin:
@@ -106,6 +107,19 @@ class IEventBusMixin:
         msg = bus.recv().decode('utf-8')
         ret = cls.rpc_implemention(msg)
         bus.send_string(ret)
+        # 下面的代码是为了解决在程序ctrl+c退出的时候，卡死在rpc_service的问题，通过引入退出循环的返回函数。
+        # if status in [getattr(FSM, y) for y in [x for x in dir(self) if x.find('STATUS') == 0]]:
+        retobj = json.loads(ret)
+        if isinstance(retobj, dict):
+            kl = 'continue'
+            if kl in retobj.keys():
+                print(f'rpc_service:{retobj}')
+                return retobj[kl]     # 返回是否继续提供远程调用服务，如果返回False，就不能在响应客户端call_rpc了。
+            else:
+                return True
+        else:
+            print(f'----error callback_xxx return values:{ret}')
+            return True
 
     @classmethod
     def rpc_implemention(cls, msg):
@@ -118,6 +132,8 @@ class IEventBusMixin:
             if func:
                 ret = func(ret['params'])
             ret = json.dumps(ret)
+        except json.decoder.JSONDecodeError:
+            ret = json.dumps({'reply': 'Illegal input string values.'})
         except KeyError:
             ret = json.dumps({'reply': 'No corresponding method handler.'})
         finally:

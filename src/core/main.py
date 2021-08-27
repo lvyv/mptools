@@ -32,7 +32,7 @@ Entry point of the project.
 import multiprocessing
 import functools
 import signal
-
+import sys
 from core.rtsp import RtspWorker
 from core.ai import AiWorker
 from core.mqtt import MqttWorker
@@ -40,6 +40,10 @@ from core.rest import RestWorker
 from utils import bus, log
 from utils.config import ConfigSet
 from utils.wrapper import proc_worker_wrapper, daemon_wrapper
+
+
+def init_worker():
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
 class ProcSimpleFactory:
@@ -56,39 +60,41 @@ class ProcSimpleFactory:
         self.poolsize_ = nop
 
     def create(self, worker_class, name, in_q=None, out_q=None, **kwargs):
-        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        # original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
         if self.pool_ is None:
-            self.pool_ = multiprocessing.Pool(processes=self.poolsize_)
-        signal.signal(signal.SIGINT, original_sigint_handler)
+            self.pool_ = multiprocessing.Pool(processes=self.poolsize_, initializer=init_worker)
+        # signal.signal(signal.SIGINT, original_sigint_handler)
 
         default_cnt = 1
         for key, value in kwargs.items():
             if key == 'cnt':
                 default_cnt = value
                 break
-
         res = self.pool_.starmap_async(proc_worker_wrapper,
                                        [(worker_class, f'{name}({idx})', in_q, out_q, kwargs)
                                         for idx in range(default_cnt)])
-        # res.get(60)
         return res
 
     @classmethod
     def teminate_rest(cls):
-        cls.rest_.terminate()
-        cls.rest_.join()
+        if cls.rest_:
+            cls.rest_.terminate()
+            cls.rest_.join()
 
     @classmethod
     def terminate(cls):
-        cls.pool_.terminate()
+        if cls.pool_:
+            cls.pool_.terminate()
 
     @classmethod
     def close(cls):
-        cls.pool_.close()
+        if cls.pool_:
+            cls.pool_.close()
 
     @classmethod
     def join(cls):
-        cls.pool_.join()
+        if cls.pool_:
+            cls.pool_.join()
 
     @classmethod
     def create_daemon(cls, worker_class, name, **kwargs):
@@ -153,7 +159,30 @@ class MainContext(bus.IEventBusMixin):
         if self.cfg_:
             return self.cfg_
         else:
-            return {'reply: False'}
+            return {'reply': False}
+
+    def callback_stop_rest(self, params):
+        """
+        本函数响应子进程对主进程的远程调用。
+
+        Parameters
+        ----------
+        params:  在bus模块定义，字符串类型，比如bus.CB_STOP_REST。
+
+        Returns
+        -------
+        List
+            该进程池所有进程执行完成的结果构成的列表。
+        Raises
+        ----------
+        RuntimeError
+            待定.
+        """
+        self.log(params)
+        return {'reply': True, 'continue': False}
+
+    # def signal_handler(self, sig, frame):
+    #     sys.exit(0)
 
     def __init__(self):
         self.log = functools.partial(log.logger, f'MAIN')
@@ -165,17 +194,19 @@ class MainContext(bus.IEventBusMixin):
         MainContext.register(bus.CB_STARTUP_PPL, self.callback_start_pipeline)
         MainContext.register(bus.CB_STOP_PPL, self.callback_stop_pipeline)
         MainContext.register(bus.CB_GET_CFG, self.callback_get_cfg)
+        MainContext.register(bus.CB_STOP_REST, self.callback_stop_rest)
 
         self.cfg_ = None  # 配置文件内容
         self.pic_q_ = multiprocessing.Manager().Queue()  # Is JoinableQueue better?
         self.vec_q_ = multiprocessing.Manager().Queue()
 
-        self.queues_ = []  # 子进程间数据传递队列
-        self.queues_.append(self.pic_q_)  # 图片
-        self.queues_.append(self.vec_q_)  # 识别结果
+        # self.queues_ = []  # 子进程间数据传递队列
+        # self.queues_.append(self.pic_q_)  # 图片
+        # self.queues_.append(self.vec_q_)  # 识别结果
 
         self.factory_ = ProcSimpleFactory(self.NUMBER_OF_PROCESSES)
         self.status_ = FSM()
+        # signal.signal(signal.SIGINT, self.signal_handler)
 
     def __enter__(self):
         self.log('********************  CASICLOUD AI METER services  ********************')
@@ -237,7 +268,6 @@ class MainContext(bus.IEventBusMixin):
             res = self.factory_.create(MqttWorker, name, self.vec_q_, None, **kwargs)
         else:
             res = (None, None)
-
         return res
 
     def start_procs(self, cfg):
@@ -254,7 +284,6 @@ class MainContext(bus.IEventBusMixin):
     def stop_procs(self):
         msg = bus.EBUS_SPECIAL_MSG_STOP
         self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)  # 微服务进程与主进程同时存在，不会停
-
         return True
 
     def run(self, path2cfg):
@@ -263,19 +292,22 @@ class MainContext(bus.IEventBusMixin):
             api = self.cfg_['micro_service']
             (ap, key, cer) = (api['http_port'], api['ssl_keyfile'], api['ssl_certfile'])  # 配置微服务
             self.rest_api(port=ap, ssl_keyfile=key, ssl_certfile=cer)                       # 启动1个Rest进程，提供微服务调用
-
             loop = True
             while loop:
-                # msg = self.recv_cmd(bus.EBUS_TOPIC_MAIN)
-                MainContext.rpc_service()  # rpc远程调用服务启动，阻塞等待外部事件出发状态改变
+                loop = MainContext.rpc_service()  # rpc远程调用服务启动，阻塞等待外部事件出发状态改变
         except KeyboardInterrupt:
-            print("Caught KeyboardInterrupt, terminating workers")
+            self.log("Caught KeyboardInterrupt, terminating workers", level=log.LOG_LVL_ERRO)
             self.factory_.teminate_rest()
+            self.log('rest process exit...')
             self.factory_.terminate()
+            self.log('pools of rtsp/ai/mqtt exit...')
         else:
-            print("Normal termination")
+            self.log("Normal termination")
             self.factory_.close()
             self.factory_.teminate_rest()
-        self.factory_.close()
-        self.factory_.join()
+            self.log('pools of rtsp/ai/mqtt exit...')
+        finally:
+            self.log('pools of rtsp/ai/mqtt close...')
+            self.factory_.close()
+            self.factory_.join()
 

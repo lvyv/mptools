@@ -50,13 +50,16 @@ import requests
 import cv2
 import io
 import imutils
+import multiprocessing
+import os
+import signal
+import time
 from imutils.video import VideoStream
 from matplotlib import pyplot as plt
 
-
 # ----fastapi-----
-
 from fastapi import FastAPI, File, UploadFile
+from fastapi_utils.tasks import repeat_every
 import uvicorn
 
 
@@ -228,11 +231,9 @@ def pools():
         p.apply_async(svr, (f'Center', random.randint(1, 3)))
         p.apply_async(cli, (f'beeper1', random.randint(1, 3)))
         p.apply_async(cli, (f'beeper2', random.randint(1, 3)))
-
         while True:
             sleep(0.5)
             pass
-
     except KeyboardInterrupt:
         print("Caught KeyboardInterrupt, terminating workers")
         p.terminate()
@@ -374,15 +375,6 @@ def keyboard_interrupt():
     p.join()
 
 
-#!/bin/env python
-
-
-import multiprocessing
-import os
-import signal
-import time
-
-
 def run_worker(name, delay):
     try:
         print("In a worker process", os.getpid())
@@ -414,10 +406,33 @@ def main():
         pool.close()
     pool.join()
 
+# --- test ctrl+c --- #
+
+
+ipc_address_ = f'tcp://127.0.0.1:5155'
+child_process_cli_ = None
+
+
+@app.on_event("startup")
+@repeat_every(seconds=1, wait_first=True)
+def periodic():
+    """周期性任务，用于读取系统状态和实现探针程序数据来源的提取"""
+    if child_process_cli_:
+        child_process_cli_.send_string('hello---')
+        print(child_process_cli_.recv())
+
 
 def run_fastapi(name):
+    global child_process_cli_
+    context = zmq.Context()
+    #  Socket to talk to server
+    print("Connecting to hello world server...")
+    socket = context.socket(zmq.REQ)
+    socket.connect(ipc_address_)
+    child_process_cli_ = socket
     uvicorn.run(app, host="0.0.0.0", port=21800)
-    pass
+    print('going to exit...')
+    socket.send_string('exit...')
 
 
 def fastapi_main():
@@ -425,6 +440,23 @@ def fastapi_main():
     dp.daemon = True
     dp.start()
     return dp
+
+
+def fastapi_mainloop():
+    try:
+        context = zmq.Context()
+        socket = context.socket(zmq.REP)
+        socket.bind(ipc_address_)
+        dp = fastapi_main()
+        while True:
+            msg = socket.recv()
+            print(f'main:{msg}')
+            socket.send_string('back')
+    except KeyboardInterrupt:
+        print('----KeyboardInterrupt----')
+        dp.terminate()
+
+    print('finally')
 
 
 class TestMain(unittest.TestCase):
@@ -445,15 +477,7 @@ class TestMain(unittest.TestCase):
         """Test core.main.MainContext."""
         # main()
         # pub_sub_pools()
-        try:
-            dp = fastapi_main()
-            while True:
-                pass
-        except KeyboardInterrupt:
-            dp.terminate()
-        else:
-            dp.terminate()
-
+        fastapi_mainloop()
 
 
 if __name__ == '__main__':
