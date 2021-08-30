@@ -231,15 +231,15 @@
 
 </head>
 
-<body class="nav-md" onload="createEditor('config/diagrameditor.xml');">
+<body onload="createEditor('config/diagrameditor.xml');">
    <div class="container">
       <div class="main_container">
          <!-- page content -->
          <div id="page">
 
-            <div class="x_panel " style="width:740px">
+            <div class="x_panel" style="width:720px">
                <div class="x_title">
-                  <ul class="nav navbar-center panel_toolbox">
+                  <ul class="nav panel_toolbox">
 
 
 
@@ -262,8 +262,7 @@
                   <div class="row">
                      <table>
                         <tr>
-                           <td valign="top"
-                              style="border-width:1px;border-style:solid;border-color:rgb(129, 127, 127);">
+                           <td valign="top" style="border: thin solid #cecece; box-shadow:25px 0px 2px #cdcdcd;">
                               <div id="graph" tabindex="-1"
                                  style="position:relative;height:480px;width:680px;overflow:hidden;cursor:default;">
                                  <!-- Graph Here -->
@@ -279,7 +278,7 @@
                            </td>
                         </tr>
                         <tr>
-                           <td>
+                           <td colspan="2">
                               <table class="tb_margin">
                                  <tr>
                                     <td>
@@ -341,13 +340,13 @@
                                  </tr>
                               </table>
                            </td>
-                           <td></td>
+                           
                         </tr>
                      </table>
                   </div>
 
                   <div class="row">
-                     <div class="col-md-3">
+                     <div>
                         <input id="source" style="margin-top: 10px" type="checkbox" /> 源数据
                      </div>
                   </div>
