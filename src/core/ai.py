@@ -37,7 +37,6 @@ from utils import bus, comn
 from core.procworker import ProcWorker
 
 
-
 class AiWorker(ProcWorker):
     def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
         super().__init__(name, bus.EBUS_TOPIC_BROADCAST, dicts, **kwargs)

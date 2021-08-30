@@ -168,7 +168,7 @@ async def get_all_presets(deviceid: str, channelid: str):
             'presetlist': [
                 {'presetid': 'preset4', 'presetname': '开机默认位置'},
                 {'presetid': 'preset5', 'presetname': '看室内'},
-                {'presetid': 'preset7', 'presetname': '看室外'}]
+                {'presetid': 'preset6', 'presetname': '看室外'}]
             }
     return item
 
