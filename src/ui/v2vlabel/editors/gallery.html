@@ -8,6 +8,7 @@
    <meta http-equiv="X-UA-Compatible" content="IE=edge">
    <meta name="viewport" content="width=device-width, initial-scale=1">
    <title>视频智能分析软件 | 配置标注</title>
+
    <!-- Bootstrap -->
    <link href="vendors/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
    <!-- Font Awesome -->
@@ -15,6 +16,10 @@
    <!-- Custom styling plus plugins -->
    <link href="css/custom.css" rel="stylesheet">
 
+   <!-- jQuery -->
+   <script src="js/jquery.js"></script>
+   <!-- Bootstrap -->
+   <script src="js/bootstrap.js"></script>
    <script type="text/javascript">
       var mxBasePath = '../../src';
 
@@ -37,20 +42,77 @@
    </script>
    <script type="text/javascript" src="../../src/js/mxClient.js"></script>
    <script type="text/javascript" src="js/app.js"></script>
+   <script type="text/javascript" src="js/xml2json.js"></script>
    <script type="text/javascript">
-      let current_video_channel_ = { "deviceid": null, "channelid": null };	// 外部程序需要通过init_preview函数调用初始化本页面的这个结构
+      let local_v2v_configuration_ = null
+      let v2v_app_ = { "deviceid": null, "channelid": null, "editor": {} };	// 外部程序需要通过init_preview函数调用初始化本页面的这个结构
+      // 本函数初始化全局配置变量
+      function load_local_v2v_configuration(editor) {
+         console.log('loading configuration ...');
+         window.localStorage.clear();
+         local_v2v_configuration_ = window.localStorage.getItem('local_v2v_configuration_');
+         if (local_v2v_configuration_) {
+            console.log(local_v2v_configuration_);
+            let jso_cfg = JSON.parse(local_v2v_configuration_);
+            let x2js = new X2JS();
+            let xmlo = x2js.json2xml(jso_cfg);
+            let codec = new mxCodec(xmlo);
+            codec.decode(xmlo.documentElement, editor.graph.getModel());
+         } else {
+            // 如果本地没有完成过配置，则初始化配置信息
+            local_v2v_configuration_ = { current_preset: null, presets: {} }
+            // 1.读取html节点，看有多少个预置点
+            /***** 定义预置点操作 *****/
+            let container = document.querySelector("#viewports");
+            let matches = container.querySelectorAll(".preview_img");
+            for (let iii = 0; iii < matches.length; iii++) {
+               console.log(matches[iii].id);
+               local_v2v_configuration_.presets[matches[iii].id] = {mxGraphModel: null};  // selected表示是否当前被选中
+            }
+         }
+
+      }
       function sleep(ms) {
          return new Promise(resolve => setTimeout(resolve, ms));
-      };
+      }
+      //把当前editor的模型转化为json对象
+      function get_json_model(editor) {
+         let codec = new mxCodec();
+         let xnode = codec.encode(editor.graph.getModel());
+         let x2js = new X2JS();
+         let jso = x2js.xml2json(xnode);
+         return jso;
+      }
+      //初始化空模型
+      function create_empty_model(editor) {
+         let mdstr = '<mxGraphModel><root>\
+                           <Diagram label="照片标注" href="https://github.com/lvyv/mptools" id="0"><mxCell /></Diagram>\
+                           <Layer label="Default Layer" id="1"><mxCell parent="0" /></Layer>\
+                     </root></mxGraphModel>'
+         let doc = mxUtils.parseXml(mdstr);
+         let dec = new mxCodec(doc);
+         dec.decode(doc.documentElement, editor.graph.getModel());
+      }
+      //设置当前的editor的模型
+      function set_json_model(editor, jso) {
+         if(jso.mxGraphModel) {
+            let x2js = new X2JS();
+            let xmlo = x2js.json2xml(jso);
+            let codec = new mxCodec(xmlo);
+            codec.decode(xmlo.documentElement, editor.graph.getModel());
+         } else {    // 如果没有设置过jso
+            create_empty_model(editor);
+         }
+      }
       // 本函数实现页面初始化的时候，更新预置点的thumbnail栏。
       function init_preview(devid, channelid, refresh) {
-         var onload = function (req) {
-            sc = req.getStatus()
+         let onload = function (req) {
+            let sc = req.getStatus()
             if (sc == 200) {
-               var container = document.querySelector("#viewports");
+               let container = document.querySelector("#viewports");
                // var matches = container.querySelectorAll(".preview_img");
-               ps = JSON.parse(req.getText());
-               var iii;
+               let ps = JSON.parse(req.getText());
+               let iii;
                for (idx in ps.presets) {
                   url = ps.presets[idx]
                   items = url.split('/')
@@ -64,12 +126,13 @@
                }
             }
          }
-         var onerror = function (req) {
+         let onerror = function (req) {
             mxUtils.alert('Error');
          }
-         url = `/api/v1/v2v/presets/${devid}/${channelid}?refresh=${refresh}`;
+         let url = `/api/v1/v2v/presets/${devid}/${channelid}?refresh=${refresh}`;
          mxUtils.get(url, onload, onerror);
       };
+
       // Program starts here. The document.onLoad executes the
       // createEditor function with a given configuration.
       // In the config file, the mxEditor.onInit method is
@@ -105,18 +168,27 @@
 
 
          /***** 定义预置点操作 *****/
-         var container = document.querySelector("#viewports");
-         var matches = container.querySelectorAll(".preview_img");
-         var iii;
-         for (iii = 0; iii < matches.length; iii++) {
+         let container = document.querySelector("#viewports");
+         let matches = container.querySelectorAll(".preview_img");
+         for (let iii = 0; iii < matches.length; iii++) {
             mxEvent.addListener(matches[iii], 'click', function (evt) {
                nd = evt.currentTarget;
                editor.execute('loadImage', nd);
             });
          }
          // 定义预置点的预览图片被点击的事件处理函数
-         var funct = function (editor, nd) {
-            var onload = function (req) {
+         let funct = function (editor, nd) {
+            // 一旦选中某个预置点，正确处理逻辑是保存现有的
+            let curid = local_v2v_configuration_.current_preset;
+            if (!curid) curid = nd.id; // 启动以来从来没有点击选择过
+            let jso = get_json_model(editor);
+            local_v2v_configuration_.presets[curid].mxGraphModel = jso;
+
+            local_v2v_configuration_.current_preset = nd.id;
+            let md = local_v2v_configuration_.presets[nd.id];
+            set_json_model(editor, md);
+
+            let onload = function (req) {
                sc = req.getStatus()
                if (sc == 200) {
                   base64 = 'data:image/png;base64, ' + req.getText();
@@ -131,29 +203,29 @@
                   editor.graph.view.validate();	//必须调用以刷新视图背景
                }
             }
-            var onerror = function (req) {
+            let onerror = function (req) {
                mxUtils.alert('Error');
             }
 
-            url = `/viewport/${current_video_channel_.deviceid}/${nd.id}?refresh=${true}`
+            let url = `/viewport/${v2v_app_.deviceid}/${nd.id}?refresh=${false}`
             mxUtils.get(url, onload, onerror, true);
          };
          editor.addAction('loadImage', funct);
 
          // Defines a new action to switch between
          // XML and graphical display
-         var textNode = document.getElementById('xml');
-         var graphNode = editor.graph.container;
-         var sourceInput = document.getElementById('source');
+         let textNode = document.getElementById('xml');
+         let graphNode = editor.graph.container;
+         let sourceInput = document.getElementById('source');
          sourceInput.checked = false;
 
-         var funct = function (editor) {
+         let funct_switch = function (editor) {
             if (sourceInput.checked) {
                graphNode.style.display = 'none';
                textNode.style.display = 'inline';
 
-               var enc = new mxCodec();
-               var node = enc.encode(editor.graph.getModel());
+               let enc = new mxCodec();
+               let node = enc.encode(editor.graph.getModel());
 
                textNode.value = mxUtils.getPrettyXml(node);
                textNode.originalValue = textNode.value;
@@ -163,8 +235,8 @@
                graphNode.style.display = '';
 
                if (textNode.value != textNode.originalValue) {
-                  var doc = mxUtils.parseXml(textNode.value);
-                  var dec = new mxCodec(doc);
+                  let doc = mxUtils.parseXml(textNode.value);
+                  let dec = new mxCodec(doc);
                   dec.decode(doc.documentElement, editor.graph.getModel());
                }
 
@@ -182,7 +254,7 @@
             }
          };
 
-         editor.addAction('switchView', funct);
+         editor.addAction('switchView', funct_switch);
 
          // Defines a new action to switch between
          // XML and graphical display
@@ -216,22 +288,36 @@
             editor.execute('fit');
          });
 
-         viewports = document.getElementById('viewports')
+         /* 自定义初始化操作 */
+         load_local_v2v_configuration(editor)
+         let viewports = document.getElementById('viewports')
          if (viewports) {
             // viewports.style.cursor = 'wait'
-            current_video_channel_.deviceid = viewports.getAttribute('deviceid');
-            current_video_channel_.channelid = viewports.getAttribute('channelid');
-            init_preview(current_video_channel_.deviceid, current_video_channel_.channelid, true);
+            v2v_app_.deviceid = viewports.getAttribute('deviceid');
+            v2v_app_.channelid = viewports.getAttribute('channelid');
+            init_preview(v2v_app_.deviceid, v2v_app_.channelid, false);
             // cur = editor.graph.getCursor()
          }
       }
 
-      window.onbeforeunload = function () { return mxResources.get('changesLost'); };
+      window.onbeforeunload = function () {
+         let model = v2v_app_.editor.graph.getModel()
+         let codec = new mxCodec()
+         let xnode = codec.encode(model)
+         let x2js = new X2JS();
+         let jso = x2js.xml2json(xnode)
+         jso = { mxGraphModel: jso }              // 非常重要
+         let jso_cfg = JSON.stringify(jso);
+         window.localStorage.setItem('local_v2v_configuration_', jso_cfg)
+         console.log(jso_cfg)
+         let msg = mxResources.get('changesLost');
+         return msg;
+      };
    </script>
 
 </head>
 
-<body onload="createEditor('config/diagrameditor.xml');">
+<body onload="v2v_app_.editor = createEditor('config/diagrameditor.xml');">
    <div class="container">
       <div class="main_container">
          <!-- page content -->
@@ -340,7 +426,7 @@
                                  </tr>
                               </table>
                            </td>
-                           
+
                         </tr>
                      </table>
                   </div>
@@ -357,10 +443,7 @@
          </div>
          <!-- /page content -->
       </div>
-      <!-- jQuery -->
-      <script src="js/jquery.js"></script>
-      <!-- Bootstrap -->
-      <script src="js/bootstrap.js"></script>
+
 </body>
 
 </html>

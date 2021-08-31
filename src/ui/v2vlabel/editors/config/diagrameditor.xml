@@ -32,14 +32,14 @@
 			</Container>
 		</add>
 		<add as="rectangle">
-			<Rect label="测点名称" href="">
+			<Rect label="测点名称" href="/api/v1/v2v/ai_meter">
 				<mxCell vertex="1">	
 					<mxGeometry as="geometry" width="80" height="40"/>
 				</mxCell>
 			</Rect>
 		</add>
 		<add as="text">
-			<Text label="Text Here" href="">
+			<Text label="Text Here" href="/api/v1/v2v/ai_counter">
 				<mxCell vertex="1" style="text">	
 					<mxGeometry as="geometry" width="80" height="20"/>
 				</mxCell>
@@ -53,7 +53,7 @@
 			</Image>
 		</add>
 		<add as="rounded">
-			<Roundrect label="Rounded" href="">
+			<Roundrect label="Rounded" href="/api/v1/v2v/ai_pointer">
 				<mxCell vertex="1" style="rounded">		
 					<mxGeometry as="geometry" width="80" height="40"/>
 				</mxCell>
@@ -280,7 +280,7 @@
 				}
 			]]></add>
 			<root>
-				<Diagram label="照片标注" href="http://www.jgraph.com/" id="0">
+				<Diagram label="照片标注" href="https://github.com/lvyv/mptools" id="0">
 					<mxCell/>
 				</Diagram>
 				<Layer label="Default Layer" id="1">
@@ -324,11 +324,12 @@
 			}
 		]]></add> -->
 		<br/><br/>
-		<add as="Text" template="text" icon="images/text.gif"/>
+		<add as="Text目标计数" template="text" icon="images/text.gif"/>
 		<!-- <add as="Container" template="container" icon="images/swimlane.gif"/> -->
-		<add as="Rectangle" template="rectangle" icon="images/rectangle.gif"/>
-		<add as="Rounded" template="rounded" icon="images/rounded.gif"/>
-		<add as="Ellipse" template="shape" style="ellipse" icon="images/ellipse.gif"/>
+		<add as="Rectangle表盘识读" template="rectangle" icon="images/rectangle.gif"/>
+		<add as="Rounded指针刻度" template="rounded" icon="images/rounded.gif"/>
+		<br/><br/>
+		<add as="Ellipse扩展模型" template="shape" style="ellipse" icon="images/ellipse.gif"/>
 		<!-- <add as="Double Ellipse" template="shape" style="doubleEllipse" icon="images/doubleellipse.gif"/>
 		<add as="Rhombus" template="shape" style="rhombus" icon="images/rhombus.gif"/>
 		<add as="Triangle" template="actor" style="triangle" icon="images/triangle.gif"/>
