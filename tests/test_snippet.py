@@ -50,6 +50,7 @@ import requests
 import cv2
 import io
 import imutils
+import base64
 import multiprocessing
 import os
 import signal
@@ -130,7 +131,7 @@ def test_upload_img():
     vs_ = VideoStream('rtsp://127.0.0.1/live').start()
     inteval = 1
     while True:
-        sleep(inteval - time() % inteval)  # 休眠采样间隔的时间
+        sleep(inteval - time() % inteval)  # 休眠采样间隔的时间，动态调速
         frame = vs_.read()
         if frame is not None:
             frame = imutils.resize(frame, width=1200)  # size changed from 6MB to 2MB
@@ -459,6 +460,62 @@ def fastapi_mainloop():
     print('finally')
 
 
+def nvr_stream_func():
+    cap = cv2.VideoCapture('rtsp://127.0.0.1/live')
+    print(f'fps: {cap.get(cv2.cv2.CAP_PROP_FPS)}')
+    opened = cap.isOpened()
+    if opened:
+        while True:
+            try:
+                ret, frame = cap.read()
+                height, width, channels = frame.shape
+                cv2.imshow('frame', frame)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+            except cv2.error as cve:
+                print(cve)
+                cap.release()
+                cv2.destroyAllWindows()
+                cap = cv2.VideoCapture('rtsp://127.0.0.1/live')
+                # break
+    else:
+        print('can not open the video source.')
+    cap.release()
+    cv2.destroyAllWindows()
+
+    # try:
+    #     url = 'rtsp://127.0.0.1/live'
+    #     start = time.time()
+    #     vs = VideoStream(src=url).start()
+    #     end = time.time()
+    #     print(end - start)
+    # except BaseException as be:
+    #     print(be)
+    #     pass
+    # while True:
+    #     try:
+    #         frame = vs.read()
+    #         # frame = imutils.resize(frame, width=680)
+    #         cv2.imshow('NVR realtime', frame)
+    #         key = cv2.waitKey(1) & 0xFF
+    #         if key == ord('q'):
+    #             break
+    #     except cv2.error as cve:
+    #         print(f'in loop error: {cve}')
+
+    # buf = io.BytesIO()
+    # plt.imsave(buf, frame, format='png')
+    # image_data = buf.getvalue()
+    # image_data = base64.b64encode(image_data)
+    # outfile = open(f'{target}{prs["presetid"]}', 'wb')
+    # outfile.write(image_data)
+    # outfile.close()
+
+    # vs.stop()
+    # vs.release()
+    pass
+
+
 class TestMain(unittest.TestCase):
     """
     Tests for `v2v` entrypoint.
@@ -477,7 +534,8 @@ class TestMain(unittest.TestCase):
         """Test core.main.MainContext."""
         # main()
         # pub_sub_pools()
-        fastapi_mainloop()
+        # fastapi_mainloop()
+        nvr_stream_func()
 
 
 if __name__ == '__main__':

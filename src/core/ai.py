@@ -47,18 +47,21 @@ class AiWorker(ProcWorker):
     def main_func(self, event=None, *args):
         # 全速
         pic = self.in_q_.get()
+
         buf = io.BytesIO()
         plt.imsave(buf, pic['frame'], format='jpg')
         image_data = buf.getvalue()
+
         vp = pic['channel']
         name = vp['name']
-        rest = vp['ai_service']
+        rests = vp['area_of_interest']
+        rest = rests[0]['ai_service']   # FIXME: 后面要统计不同的微服务如何合并起来
         files = {'upload_file': (comn.replace_non_ascii(name), image_data, 'image/jpg')}
         self.log(rest)
         resp = requests.post(rest, files=files, verify=False)  # data=image_data)
         result = resp.content.decode('utf-8')
         result = json.loads(result)
-        self.log(f'{result["statistics"]}-{result}')
+        # self.log(f'{result["statistics"]}-{result}')
         self.out_q_.put(resp.content)
 
         return False

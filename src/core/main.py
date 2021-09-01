@@ -272,14 +272,18 @@ class MainContext(bus.IEventBusMixin):
 
     def start_procs(self, cfg):
         # 启动进程
-        for channel in cfg['rtsp_urls']:
-            self.switchon_procs('RTSP', rtsp_url=channel, sample_rate=1)  # 不提供cnt=x参数，缺省1个通道启1个进程
-            num = 3  # AI比较慢，安排两个进程处理
-            self.switchon_procs('AI', cnt=num)
-            num = 2  # MQTT比较慢，上传文件，安排两个进程处理
-            mqtt = cfg['mqtt_svrs'][0]
-            self.switchon_procs('MQTT', cnt=num,
-                                mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'], mqtt_topic=mqtt['mqtt_tp'])
+        try:
+            for channel in cfg['rtsp_urls']:
+                # sr = channel['sample_rate']
+                self.switchon_procs('RTSP', rtsp_params=channel)  # 不提供cnt=x参数，缺省1个通道启1个进程 , sample_rate=sr
+                num = 3  # AI比较慢，安排两个进程处理
+                self.switchon_procs('AI', cnt=num)
+                num = 2  # MQTT比较慢，上传文件，安排两个进程处理
+                mqtt = cfg['mqtt_svrs'][0]
+                self.switchon_procs('MQTT', cnt=num,
+                                    mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'], mqtt_topic=mqtt['mqtt_tp'])
+        except KeyError as ke:
+            self.log(f'配置文件格式错误：{ke}', level=log.LOG_LVL_ERRO)
 
     def stop_procs(self):
         msg = bus.EBUS_SPECIAL_MSG_STOP

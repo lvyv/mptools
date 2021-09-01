@@ -31,12 +31,13 @@ Provide web api access points.
 
 
 import uvicorn
-# import cv2
+import cv2
 import imutils
 import io
 import base64
+import threading
 from matplotlib import pyplot as plt
-from imutils.video import VideoStream
+# from imutils.video import VideoStream
 # from typing import Optional
 from pydantic import BaseModel
 from fastapi import FastAPI
@@ -46,7 +47,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from os.path import isfile, join
 from os import listdir
 
-from utils import bus, comn
+from utils import bus, comn, log
 from utils.config import ConfigSet
 from core.procworker import ProcWorker
 from uvicorn.main import Server
@@ -86,6 +87,10 @@ rest_proc_ = None
 cfg_ = None
 baseurl_of_nvr_samples_ = '/viewport'
 localroot_of_nvr_samples_ = ConfigSet.get_cfg()['nvr_samples']
+# 这个是缓存cv2捕获nvr流的，因为打开一个nvr花费4秒以上太久
+# 缓存cv2带来负效应：一旦视频捕获开始，需要在定时器中持续消费，否则下次api调用得到的是滞后较久的帧，因此又加了个伪锁
+current_video_stream_ = {'url': None, 'videostream': None }
+mutex_ = threading.Lock()
 
 # EIF3:REST V2V C&M 外部接口-提供UI前端配置V2V需要的截图
 # 本路由为前端ui的路径
@@ -94,10 +99,24 @@ app_.mount('/ui', StaticFiles(directory='../src/ui'), name='ui')
 app_.mount(baseurl_of_nvr_samples_, StaticFiles(directory=localroot_of_nvr_samples_), name='nvr')
 
 
-@app_.get("/api/v1/v2v/presets/{deviceid}/{channelid}")
-async def label_picture(deviceid: str, channelid: str, refresh: bool = False):
-    """获取该视频通道所有预置点，然后逐个预置点取图，保存为base64"""
+@app_.post("/api/v1/v2v/setupcfg")
+async def setup_cfg(deviceid: str, channelid: str, refresh: bool = False):
+    """C&M之C：设置配置文件，收到该配置文件后，v2v将根据配置文件启动流水线开始识别任务"""
     item = {'version': '1.0.0'}
+    return item
+
+
+@app_.post("/api/v1/v2v/metrics")
+async def provide_metrics(deviceid: str, channelid: str, refresh: bool = False):
+    """C&M之M：接受监控端比如promethus的调用，反馈自己是否在线和反馈各种运行时信息"""
+    item = {'version': '1.0.0'}
+    return item
+
+
+@app_.get("/api/v1/v2v/presets/{deviceid}/{channelid}")
+async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
+    """获取该视频通道所有预置点，然后逐个预置点取图，保存为base64，加入流断处理，加入流缓存以及互斥锁保护全局缓存流"""
+    item = {'version': '1.0.0', 'reply': 'pending.'}
     try:
         target = f'{localroot_of_nvr_samples_}{deviceid}/'
         if refresh:
@@ -105,26 +124,64 @@ async def label_picture(deviceid: str, channelid: str, refresh: bool = False):
             url = comn.get_url(deviceid, channelid)
             presets = comn.get_presets(deviceid, channelid)
             if url and presets:
-                vs = VideoStream(src=url).start()
-                for prs in presets:
-                    ret = comn.run_to_viewpoints(deviceid, channelid, prs['presetid'])
-                    if ret:
-                        frame = vs.read()
-                        frame = imutils.resize(frame, width=680)
-                        buf = io.BytesIO()
-                        plt.imsave(buf, frame, format='png')
-                        image_data = buf.getvalue()
-                        image_data = base64.b64encode(image_data)
-                        outfile = open(f'{target}{prs["presetid"]}', 'wb')
-                        outfile.write(image_data)
-                        outfile.close()
-                # vs.stop()
-                # vs.release()
-        onlyfiles = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}' for f in listdir(target) if isfile(join(target, f))]
+                # 如果缓存过，就直接用缓存的流
+                if url == current_video_stream_['url']:
+                    vs = current_video_stream_['videostream']
+                # 如果没有缓存就开新的流，但原来缓存的流要关闭
+                else:
+                    vs = cv2.VideoCapture(url)
+                    opened = vs.isOpened()
+                    if opened:
+                        # 从未缓存
+                        if current_video_stream_['url'] is None:
+                            current_video_stream_['url'] = url
+                            current_video_stream_['videostream'] = vs   # noqa
+                        # 缓存了其他流
+                        else:
+                            current_video_stream_['videostream'].release()  # noqa
+                            current_video_stream_['url'] = url
+                            current_video_stream_['videostream'] = vs   # noqa
+                    else:
+                        item['reply'] = f'摄像头{deviceid}-{channelid}提供的流地址（{url}）无法访问'
+                        return item
+                # 产生系列预置点图片
+                try:
+                    for prs in presets:
+                        ret = comn.run_to_viewpoints(deviceid, channelid, prs['presetid'])
+                        if ret:
+                            mutex_.acquire()            # 防止流并发访问错误
+                            grab, frame = vs.read()
+                            mutex_.release()
+                            # height, width, channels = frame.shape
+                            # 保存原始图像
+                            cv2.imwrite(f'{target}{prs["presetid"]}.png', frame)
+                            # 保存缩略图，1920x1080的长宽缩小20倍
+                            frame = imutils.resize(frame, width=96, height=54)
+                            buf = io.BytesIO()
+                            plt.imsave(buf, frame, format='png')
+                            image_data = buf.getvalue()
+                            image_data = base64.b64encode(image_data)
+                            outfile = open(f'{target}{prs["presetid"]}', 'wb')
+                            outfile.write(image_data)
+                            outfile.close()
+                except cv2.error as cve:
+                    vs.release()
+                    vs = cv2.VideoCapture(current_video_stream_['url'])
+                    current_video_stream_['videostream'] = vs   # noqa
+
+        onlyfiles = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}'
+                     for f in listdir(target) if isfile(join(target, f)) and ('.png' not in f)]
+        # 返回视频的原始分辨率，便于在前端界面了解和载入
+        item['reply'] = True
         item['presets'] = onlyfiles
+        item['width'] = vs.get(cv2.cv2.CAP_PROP_FRAME_WIDTH)
+        item['height'] = vs.get(cv2.cv2.CAP_PROP_FRAME_HEIGHT)
     except FileNotFoundError as fs:
         rest_proc_.log(f'{fs}')  # noqa
+    else:
+        rest_proc_.log(f'{fs}', level=log.LOG_LVL_ERRO)  # noqa
     finally:
+        # current_video_stream_['consume_lock'] = True  # 允许定时器再同时消费视频流（grab）。
         return item
 
 
@@ -145,14 +202,26 @@ async def pipeline(item: Switch):
     else:
         ret = {'reply': 'unrecognized command.'}
     return ret
-    pass
 
 
 @app_.on_event("startup")
 @repeat_every(seconds=1, wait_first=True)
 def periodic():
-    """周期性任务，用于读取系统状态和实现探针程序数据来源的提取"""
-    pass
+    """周期性任务，用于读取系统状态和实现探针程序数据来源的提取，并在空闲时刻消费视频流"""
+    # 消耗掉多余的帧
+    if current_video_stream_['url']:
+        cap = current_video_stream_['videostream']
+        fps = cap.get(cv2.cv2.CAP_PROP_FPS) + 5
+        run = True
+        while fps > 0 and run:
+            mutex_.acquire()
+            run = cap.grab()
+            mutex_.release()
+            if not run:
+                rest_proc_.log('Catch up the nvr play speed.')  # noqa
+            fps -= 1
+        # rest_proc_.log(current_video_stream_['url'])
+    # rest_proc_.log(f'Ticker: {current_video_stream_["url"]}')
 
 
 @app_.on_event("shutdown")
@@ -189,5 +258,4 @@ class RestWorker(ProcWorker):
                     ssl_certfile=self.ssl_certfile_,
                     log_level='info'
                     )
-        rest_proc_.call_rpc(bus.CB_STOP_REST, {})   # 好吧，优雅的退出
-
+        rest_proc_.call_rpc(bus.CB_STOP_REST, {})  # 好吧，优雅的退出

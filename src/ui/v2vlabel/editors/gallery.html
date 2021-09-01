@@ -109,14 +109,16 @@
                let ps = JSON.parse(req.getText());
                let iii;
                for (idx in ps.presets) {
-                  url = ps.presets[idx]
-                  items = url.split('/')
-                  presetid = items[items.length - 1]
-                  nd = document.querySelector(`#${presetid}`)
+                  url = ps.presets[idx];
+                  items = url.split('/');
+                  presetid = items[items.length - 1];
+                  nd = document.querySelector(`#${presetid}`);
                   if (nd) {
-                     req = mxUtils.load(url)
+                     req = mxUtils.load(url);
                      base64 = 'data:image/png;base64, ' + req.getText();
-                     nd.setAttribute('src', base64)
+                     nd.setAttribute('src', base64);
+                     nd.setAttribute('ori_width', ps.width);
+                     nd.setAttribute('ori_height', ps.height);
                   }
                }
             }
@@ -192,7 +194,7 @@
                if (sc == 200) {
                   base64 = 'data:image/png;base64, ' + req.getText();
                   nd.setAttribute('src', base64)		//缩略图
-                  sleep(100).then(() => {				//等待渲染获得图片真实大小
+                  sleep(100).then(() => {				   //等待渲染获得图片真实大小
                      editor.graph.setBackgroundImage(new mxImage(base64, nd.naturalWidth, nd.naturalHeight));
                      editor.graph.view.validate();	//必须调用以刷新视图背景
                   });
@@ -205,9 +207,15 @@
             let onerror = function (req) {
                mxUtils.alert('Error');
             }
-
-            let url = `/viewport/${v2v_app_.deviceid}/${nd.id}?refresh=${false}`
-            mxUtils.get(url, onload, onerror, true);
+            try {
+               let url = `/viewport/${v2v_app_.deviceid}/${nd.id}.png`
+               editor.graph.setBackgroundImage(new mxImage(url, nd.getAttribute('ori_width'), nd.getAttribute('ori_height')));
+               editor.graph.view.validate();	//必须调用以刷新视图背景
+            } catch (error) {
+               editor.graph.setBackgroundImage(new mxImage('/viewport/add-viewport.png', 680, 480));
+               editor.graph.view.validate();	//必须调用以刷新视图背景
+            }
+            // mxUtils.get(url, onload, onerror);
          };
          editor.addAction('loadImage', funct);
 
@@ -294,7 +302,7 @@
             // viewports.style.cursor = 'wait'
             v2v_app_.deviceid = viewports.getAttribute('deviceid');
             v2v_app_.channelid = viewports.getAttribute('channelid');
-            init_preview(v2v_app_.deviceid, v2v_app_.channelid, false);
+            init_preview(v2v_app_.deviceid, v2v_app_.channelid, true);
             // cur = editor.graph.getCursor()
          }
       }
@@ -309,7 +317,7 @@
          let jso_cfg = JSON.stringify(local_v2v_configuration_);
          window.localStorage.setItem('local_v2v_configuration_', jso_cfg);
          console.log(jso_cfg);
-         let msg = mxResources.get('changesLost');
+         // let msg = mxResources.get('changesLost');
          return msg;
       };
    </script>

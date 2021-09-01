@@ -63,9 +63,10 @@ class MqttWorker(ProcWorker):
 
     def main_func(self, event=None, *args):
         # 全速
+        # self.log('mqtt begin get data.')
         vec = self.in_q_.get()
         self.client_.publish(self.mqtt_topic_, vec, 1)
-        # self.log(vec)
+        self.log(vec)
 
         return False
 
