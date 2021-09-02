@@ -29,7 +29,7 @@ Feed AI meter picture one by one and get recognized results.
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
 
-import io
+# import io
 import requests
 import json
 from matplotlib import pyplot as plt
@@ -48,11 +48,12 @@ class AiWorker(ProcWorker):
         # 全速
         pic = self.in_q_.get()
 
-        buf = io.BytesIO()
-        plt.imsave(buf, pic['frame'], format='jpg')
-        image_data = buf.getvalue()
-
+        # buf = io.BytesIO()
+        # plt.imsave(buf, pic['frame'], format='jpg')
+        # image_data = buf.getvalue()
+        image_data = pic['frame']
         vp = pic['channel']
+
         name = vp['name']
         rests = vp['area_of_interest']
         rest = rests[0]['ai_service']   # FIXME: 后面要统计不同的微服务如何合并起来
@@ -60,7 +61,7 @@ class AiWorker(ProcWorker):
         self.log(rest)
         resp = requests.post(rest, files=files, verify=False)  # data=image_data)
         result = resp.content.decode('utf-8')
-        result = json.loads(result)
+        json.loads(result)
         # self.log(f'{result["statistics"]}-{result}')
         self.out_q_.put(resp.content)
 

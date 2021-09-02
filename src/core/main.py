@@ -157,6 +157,13 @@ class MainContext(bus.IEventBusMixin):
     def callback_get_cfg(self, params):
         self.log(params)
         if self.cfg_:
+            return {'reply': True}
+        else:
+            return {'reply': False}
+
+    def callback_set_cfg(self, params):
+        self.log(params)
+        if self.cfg_:
             return self.cfg_
         else:
             return {'reply': False}
@@ -194,6 +201,7 @@ class MainContext(bus.IEventBusMixin):
         MainContext.register(bus.CB_STARTUP_PPL, self.callback_start_pipeline)
         MainContext.register(bus.CB_STOP_PPL, self.callback_stop_pipeline)
         MainContext.register(bus.CB_GET_CFG, self.callback_get_cfg)
+        MainContext.register(bus.CB_SET_CFG, self.callback_set_cfg)
         MainContext.register(bus.CB_STOP_REST, self.callback_stop_rest)
 
         self.cfg_ = None  # 配置文件内容

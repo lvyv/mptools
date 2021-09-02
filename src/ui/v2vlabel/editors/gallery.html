@@ -62,7 +62,7 @@
             let matches = container.querySelectorAll(".preview_img");
             for (let iii = 0; iii < matches.length; iii++) {
                // console.log(matches[iii].id);
-               local_v2v_configuration_.presets[matches[iii].id] = {mxGraphModel: null};  // selected表示是否当前被选中
+               local_v2v_configuration_.presets[matches[iii].id] = { mxGraphModel: null };  // selected表示是否当前被选中
             }
          }
 
@@ -90,7 +90,7 @@
       }
       //设置当前的editor的模型
       function set_json_model(editor, jso) {
-         if(jso.mxGraphModel) {
+         if (jso.mxGraphModel) {
             let x2js = new X2JS();
             let xmlo = x2js.json2xml(jso);
             let codec = new mxCodec(xmlo);
@@ -294,6 +294,32 @@
          $('#fit_window').click(function () {
             editor.execute('fit');
          });
+         $('#set_cfg').click(function () {
+            let rest = '/api/v1/v2v/setupcfg';
+            df = {
+               current_viewpoint: JSON.stringify(local_v2v_configuration_.presets[local_v2v_configuration_.current_preset])
+            }
+            let dd = JSON.stringify(df);
+            $.ajax({
+
+               type: "post",
+               url: rest,
+               async: true,
+               headers:{"Content-Type":"application/json","accept":"application/json","name":"666"},
+               dataType:"json",
+               data: dd,  //http 请求 记住要把数据转换为json格式数据
+               success: function (res) {
+                  console.log('成功检测');
+                  console.log(res);
+                  
+               },
+               error: function () {
+                  alert("返回数据失败")
+               }
+
+            })
+         });
+
 
          /* 自定义初始化操作 */
          load_local_v2v_configuration(editor)
@@ -345,8 +371,11 @@
                      <li><a id="zoom_out"><i class="fa fa-search-minus"></i></a></li>
                      <li><a id="original_size"><i class="fa fa-codepen"></i></a></li>
                      <li><a id="fit_window"><i class="fa fa-arrows-alt"></i></a></li>
+                     <li><a id="set_cfg"><i class="fa-solid fa-thumbs-up"></i></a></li>
 
-                     </li>
+
+
+
 
                   </ul>
                   <div class="clearfix"></div>

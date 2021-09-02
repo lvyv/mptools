@@ -50,6 +50,7 @@ EBUS_SPECIAL_MSG_STOP = {'code': 0, 'desc': 'END'}  # 在基类实现的特殊�
 CB_STARTUP_PPL = 'start'
 CB_STOP_PPL = 'stop'
 CB_GET_CFG = 'get_cfg'
+CB_SET_CFG = 'set_cfg'
 CB_STOP_REST = 'stop_rest'
 
 

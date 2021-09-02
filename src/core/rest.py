@@ -38,7 +38,7 @@ import base64
 import threading
 from matplotlib import pyplot as plt
 # from imutils.video import VideoStream
-# from typing import Optional
+from typing import Optional, List, Dict
 from pydantic import BaseModel
 from fastapi import FastAPI
 from fastapi_utils.tasks import repeat_every
@@ -99,10 +99,17 @@ app_.mount('/ui', StaticFiles(directory='../src/ui'), name='ui')
 app_.mount(baseurl_of_nvr_samples_, StaticFiles(directory=localroot_of_nvr_samples_), name='nvr')
 
 
+class ViewPort(BaseModel):
+    current_viewpoint: str = ''
+
+
 @app_.post("/api/v1/v2v/setupcfg")
-async def setup_cfg(deviceid: str, channelid: str, refresh: bool = False):
+async def setup_cfg(cfg: ViewPort):
     """C&M之C：设置配置文件，收到该配置文件后，v2v将根据配置文件启动流水线开始识别任务"""
-    item = {'version': '1.0.0'}
+    """当前功能是接受一个viewport的aoi进行设置给到ai"""
+    item = {'version': '1.0.0', 'reply': 'pending.'}
+    rest_proc_.call_rpc(bus.CB_SET_CFG, cfg.__dict__)  # 调用主进程函数，传配置给它。
+    item['reply'] = True
     return item
 
 

@@ -82,57 +82,59 @@ class RtspWorker(ProcWorker):
             # 2.等待摄像头执行到预置点位
             # 3.假设fps比如是30帧，而采样率1Hz，则需要丢弃fps-sample_rate帧图像
             # 4.读取流并设置处理该图片的参数
-            if self.vs_.isOpened():
-                did = self.args_['device_id']
-                cid = self.args_['channel_id']
-                vps = self.args_['view_ports']
-                # 采样的周期（秒），比如采样率1Hz，则睡1秒工作一次
-                inteval = 1 / self.sample_rate_
-                # 计算需要丢弃的帧数
-                skip = self.fps_ - self.sample_rate_
-                for vp in vps:
-                    comn.run_to_viewpoints(did, cid, vp['preset_id'])
-                    duration = vp['seconds']                # 配置文件要求停留多少秒
-                    delta = 0
-                    st = time()
-                    while duration > delta:
-                        # 开始丢帧：如前面计算，当skip>0，比如30fps - 1，则要丢弃29帧
-                        if skip > 0:
-                            cnt = 1
-                            while True:
-                                self.vs_.grab()
-                                if cnt % skip == 0:
-                                    ret, frame = self.vs_.retrieve()
-                                    break
-                                cnt += 1
-                        sleep(inteval - time() % inteval)               # 动态调速，休眠采样间隔的时间
 
-                        # grab, frame = self.vs_.read()
-                        # frame = imutils.resize(frame, width=1200)     # size changed from 6MB to 2MB 不能缩小！
-                        # cv2.imshow('NVR realtime', frame)
-                        # key = cv2.waitKey(1) & 0xFF
-                        # if key == ord('q'):
-                        #     break
+            did = self.args_['device_id']
+            cid = self.args_['channel_id']
+            vps = self.args_['view_ports']
+            # 采样的周期（秒），比如采样率1Hz，则睡1秒工作一次
+            inteval = 1 / self.sample_rate_
+            # 计算需要丢弃的帧数
+            skip = self.fps_ / self.sample_rate_
+            for vp in vps:
+                comn.run_to_viewpoints(did, cid, vp['preset_id'])
+                duration = vp['seconds']                # 配置文件要求停留多少秒
+                delta = 0
+                st = time()
 
-                        buf = io.BytesIO()
-                        plt.imsave(buf, pic['frame'], format='jpg')
-                        image_data = buf.getvalue()
+                while duration > delta:
+                    # 开始丢帧：如前面计算，当skip>0，比如fps/sample_rate=每都少帧一个抽样
+                    frame = None
+                    while skip >= 1 and self.vs_.grab():
+                        current_frame_pos = self.vs_.get(cv2.cv2.CAP_PROP_POS_FRAMES)
+                        if current_frame_pos % skip == 0:
+                            ret, frame = self.vs_.retrieve()
+                            self.log(f'framepos---{current_frame_pos}---')
+                            break
+                    sleep(inteval - time() % inteval)               # 动态调速，休眠采样间隔的时间
 
-                        pic = {'channel': vp, 'frame': frame}           # 把模型微服务参数等通过队列传给后续进程
-                        self.out_q_.put(pic)
-                        self.log(f'采用第{cnt}帧.--du:{duration}--, delta:{delta}.')
-                        cnt = cnt + 1
-                        delta = time() - st                             # 消耗的时间（秒）
-            else:
-                self.vs_.release()
-                self.startup()
-        except cv2.error as err:
-            self.log(f'cv2.error:{self.args_["rtsp_url"]}', level=log.LOG_LVL_ERRO)
+                    # grab, frame = self.vs_.read()
+                    # frame = imutils.resize(frame, width=1200)     # size changed from 6MB to 2MB 不能缩小！
+                    # cv2.imshow('NVR realtime', frame)
+                    # key = cv2.waitKey(1) & 0xFF
+                    # if key == ord('q'):
+                    #     break
+
+                    buf = io.BytesIO()
+                    plt.imsave(buf, frame, format='jpg')
+                    img = buf.getvalue()
+
+                    pic = {'channel': vp, 'frame': img}           # 把模型微服务参数等通过队列传给后续进程
+                    self.out_q_.put(pic)
+                    delta = time() - st                             # 消耗的时间（秒）
+
+        except (cv2.error, AttributeError, UnboundLocalError) as err:
+            self.log(f'cv2.error:({err}){self.args_["rtsp_url"]}', level=log.LOG_LVL_ERRO)
             self.vs_.release()
             self.startup()
+        # except UnboundLocalError as err:
+        #     self.log(f'{err}', level=log.LOG_LVL_ERRO)
         except TypeError as err:
             self.log('type error')
             self.log(err, level=log.LOG_LVL_ERRO)
+        except Exception as err:
+            self.log(f'Unkown error.{err}', level=log.LOG_LVL_ERRO)
+        # else:
+        #     self.log(f'normal execution.', level=log.LOG_LVL_ERRO)
         finally:
             self.log('finally.')
             return False
