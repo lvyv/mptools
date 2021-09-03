@@ -30,17 +30,29 @@ Pull av stream from nvr and decode pictures from the streams.
 # License: Apache Licence 2.0
 
 import cv2
-import io
+# import io
 
 # import imutils
 # from imutils.video import VideoStream
-from matplotlib import pyplot as plt
+# from matplotlib import pyplot as plt
 from time import time, sleep
 from utils import bus, comn, log
 from core.procworker import ProcWorker
 
 
 class RtspWorker(ProcWorker):
+
+    def handle_cfg_update(self, cfg):
+        """
+        本函数为配置发生变化，热更新配置。
+        热更新的含义：不需要重启整个程序。
+        1）如果没有改deviceid，也就是没有改rtsp_url，则改变的只是aoi，sample_rate，不需要重新建立nvr流。
+        2）如果rtsp_url都变了，则要重新建立nvr流，并且刷新fps。
+        :param cfg:
+        :return:
+        """
+        pass
+
     def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
         super().__init__(name, bus.EBUS_TOPIC_BROADCAST, dicts, **kwargs)
         self.in_q_ = in_q
@@ -48,11 +60,11 @@ class RtspWorker(ProcWorker):
         self.vs_ = None
         self.fps_ = None
         self.args_ = None
-        self.sample_rate_ = None
+        # self.sample_rate_ = None
         for key, value in dicts.items():
             if key == 'rtsp_params':
                 self.args_ = value
-                self.sample_rate_ = value['sample_rate']
+                # self.sample_rate_ = value['sample_rate']
 
     def startup(self):
         """启动进程后，访问对应的rtsp流."""
@@ -83,22 +95,31 @@ class RtspWorker(ProcWorker):
             # 3.假设fps比如是30帧，而采样率1Hz，则需要丢弃fps-sample_rate帧图像
             # 4.读取流并设置处理该图片的参数
 
+            # 是否有配置信息更新的广播消息，如果是通道信息，则需要判断是否是自己负责的通道self.args_['rtsp_url']
+            if event:
+                self.log(event)     # 如果是属于自己的配置更新广播，更新初始化时的数据信息，包括：self.args_和self.fps_。
+                self.handle_cfg_update(event)
+                pass
             did = self.args_['device_id']
             cid = self.args_['channel_id']
             vps = self.args_['view_ports']
+            sar = self.args_['sample_rate']
             # 采样的周期（秒），比如采样率1Hz，则睡1秒工作一次
-            inteval = 1 / self.sample_rate_
+            inteval = 1 / sar
             # 计算需要丢弃的帧数
-            skip = self.fps_ / self.sample_rate_
+            skip = self.fps_ / sar
             for vp in vps:
-                comn.run_to_viewpoints(did, cid, vp['preset_id'])
-                duration = vp['seconds']                # 配置文件要求停留多少秒
+                presetid = list(vp.keys())[0]   # 目前配置文件格式规定：只有1个preset1的主键
+                # 让摄像头就位
+                comn.run_to_viewpoints(did, cid, presetid)
+                # 读取停留时间
+                duration = vp[presetid][0]['seconds']   # 对某个具体的预置点vp，子分类aoi停留时间都是一样的，随便取一个即可。
                 delta = 0
                 st = time()
 
                 while duration > delta:
                     # 开始丢帧：如前面计算，当skip>0，比如fps/sample_rate=每都少帧一个抽样
-                    frame = None
+                    frame, current_frame_pos = None, None
                     while skip >= 1 and self.vs_.grab():
                         current_frame_pos = self.vs_.get(cv2.cv2.CAP_PROP_POS_FRAMES)
                         if current_frame_pos % skip == 0:
@@ -114,12 +135,20 @@ class RtspWorker(ProcWorker):
                     # if key == ord('q'):
                     #     break
 
-                    buf = io.BytesIO()
-                    plt.imsave(buf, frame, format='jpg')
-                    img = buf.getvalue()
+                    # buf = io.BytesIO()
+                    # plt.imsave(buf, frame, format='jpg')
+                    # img = buf.getvalue()
 
-                    pic = {'channel': vp, 'frame': img}           # 把模型微服务参数等通过队列传给后续进程
-                    self.out_q_.put(pic)
+                    # 为实现ai效率最大化，把图片中不同ai仪表识别任务分包，一个vp，不同类ai模型给不同的ai线程去处理
+                    # 这样会导致同一图片重复放到工作队列中（只是aoi不同）。
+                    tasks = vp[presetid]
+                    for task in tasks:
+                        if task['ai_service'] != '':
+                            # 把图像数据和任务信息通过队列传给后续进程，fid和fps可以用来计算流开始以来的时间
+                            pic = {'task': task, 'fid': current_frame_pos, 'fps': self.fps_, 'frame': frame}
+                            self.out_q_.put(pic)
+
+                    # 计算是否到设定的时间了
                     delta = time() - st                             # 消耗的时间（秒）
 
         except (cv2.error, AttributeError, UnboundLocalError) as err:

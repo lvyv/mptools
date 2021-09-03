@@ -32,7 +32,7 @@ Entry point of the project.
 import multiprocessing
 import functools
 import signal
-import sys
+# import sys
 from core.rtsp import RtspWorker
 from core.ai import AiWorker
 from core.mqtt import MqttWorker
@@ -154,14 +154,31 @@ class MainContext(bus.IEventBusMixin):
         else:
             return {'reply': False}
 
-    def callback_get_cfg(self, params):
-        self.log(params)
-        if self.cfg_:
-            return {'reply': True}
-        else:
-            return {'reply': False}
-
     def callback_set_cfg(self, params):
+        """
+        本函数为REST子进程设置配置信息而设计。
+
+        Parameters
+        ----------
+        params:  Dict类型，可能是某单路视频通道配置，可能是全局配置。
+
+        Returns
+        -------
+        Dict
+            通用格式。
+        Raises
+        ----------
+        RuntimeError
+            待定.
+        """
+        newcfg = ConfigSet.update_cfg(params)
+        if newcfg:
+            self.broadcast(bus.EBUS_TOPIC_BROADCAST, newcfg)  # 微服务进程与主进程同时存在，不会停
+            return {'reply': True, 'desc': '已广播通知配置更新。'}
+        else:
+            return {'reply': False, 'desc': '不能识别的配置格式。'}
+
+    def callback_get_cfg(self, params):
         self.log(params)
         if self.cfg_:
             return self.cfg_
@@ -174,7 +191,7 @@ class MainContext(bus.IEventBusMixin):
 
         Parameters
         ----------
-        params:  在bus模块定义，字符串类型，比如bus.CB_STOP_REST。
+        params:  在bus模块定义，Dict类型。
 
         Returns
         -------

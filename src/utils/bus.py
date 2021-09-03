@@ -45,7 +45,7 @@ EBUS_TOPIC_PROC = 'procworker'  # base class topic
 EBUS_TOPIC_BROADCAST = 'broadcast'  # 广播主题
 
 # 特殊的总线事件，用于所有子进程的共性行为
-EBUS_SPECIAL_MSG_STOP = {'code': 0, 'desc': 'END'}  # 在基类实现的特殊事件，退出主循环
+EBUS_SPECIAL_MSG_STOP = {'code': 0, 'desc': 'END'}               # 在基类实现的特殊事件，退出主循环
 # 特殊的call_rpc远程方法
 CB_STARTUP_PPL = 'start'
 CB_STOP_PPL = 'stop'

@@ -182,10 +182,10 @@ async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(.
 
 
 # IF2 REST API  内部接口-智能识别
-@app.post("/api/v1/ai/meter")
-async def meter_recognization(upload_file: UploadFile = File(...)):
-    print(upload_file.filename, upload_file.content_type)
-    contents = upload_file.file.read()
+@app.post("/api/v1/ai/panel")
+async def meter_recognization(files: UploadFile = File(...), cfg_info: str = Form(...)):
+    print(files.filename, files.content_type)
+    contents = files.file.read()
     # outfile = open(upfile.filename, 'wb')
     # outfile.write(contents)
     # outfile.close()
@@ -193,10 +193,10 @@ async def meter_recognization(upload_file: UploadFile = File(...)):
     return ret
 
 
-@app.post("/api/v1/ai/counter")
-async def object_counting(upload_file: UploadFile = File(...)):
-    print(upload_file.filename, upload_file.content_type)
-    contents = upload_file.file.read()
+@app.post("/api/v1/ai/person")
+async def object_counting(files: UploadFile = File(...), cfg_info: str = Form(...)):
+    print(files.filename, files.content_type)
+    contents = files.file.read()
     # outfile = open(upfile.filename, 'wb')
     # outfile.write(contents)
     # outfile.close()
@@ -204,10 +204,10 @@ async def object_counting(upload_file: UploadFile = File(...)):
     return ret
 
 
-@app.post("/api/v1/ai/pointer")
-async def indicator_frequency(upload_file: UploadFile = File(...)):
-    print(upload_file.filename, upload_file.content_type)
-    contents = upload_file.file.read()
+@app.post("/api/v1/ai/plc")
+async def indicator_frequency(files: UploadFile = File(...), cfg_info: str = Form(...)):
+    print(files.filename, files.content_type)
+    contents = files.file.read()
     # outfile = open(upfile.filename, 'wb')
     # outfile.write(contents)
     # outfile.close()

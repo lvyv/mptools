@@ -45,7 +45,7 @@
    <script type="text/javascript" src="js/xml2json.js"></script>
    <script type="text/javascript">
       let local_v2v_configuration_ = null
-      let v2v_app_ = { "deviceid": null, "channelid": null, "editor": {} };	// 外部程序需要通过init_preview函数调用初始化本页面的这个结构
+      let v2v_app_ = { "editor": {} };	// 外部程序需要通过init_preview函数调用初始化本页面的这个结构 "deviceid": null, "channelid": null, 放到全局配置
       // 本函数初始化全局配置变量
       function load_local_v2v_configuration(editor) {
          // console.log('loading configuration ...');
@@ -56,13 +56,23 @@
             local_v2v_configuration_.current_preset = null  // 初始化为正确状态很重要
          } else {
             // 如果本地没有完成过配置，则初始化配置信息
-            local_v2v_configuration_ = { current_preset: null, presets: {} }
-            // 读取html节点，看有多少个预置点
+            local_v2v_configuration_ = { 
+               device_id: '34020000001320000001',  // v2v后端提供，CDM设置
+               channel_id: '3402000001320000002',  // v2v后端提供，CDM设置
+               rtsp_url: 'rtsp://127.0.0.1/live',  // v2v后端提供，CDM设置
+               name: '123厂房',                    // v2v后端提供，CDM设置
+               sample_rate: 1,                     // 用户设置，CDM中选择
+               presets: {},                        // 用户设置，所有的view_port标注
+               current_preset: null,               // 程序内部使用
+            }
+            // 读取html节点，看有多少个view_port，预置点
             let container = document.querySelector("#viewports");
             let matches = container.querySelectorAll(".preview_img");
             for (let iii = 0; iii < matches.length; iii++) {
-               // console.log(matches[iii].id);
-               local_v2v_configuration_.presets[matches[iii].id] = { mxGraphModel: null };  // selected表示是否当前被选中
+               local_v2v_configuration_.presets[matches[iii].id] = {
+                  seconds: 5,                      // seconds - 要停止在当前预置点多少时间
+                  mxGraphModel: null               // mxGrapModel - aoi，兴趣点
+               };
             }
          }
 
@@ -92,7 +102,8 @@
       function set_json_model(editor, jso) {
          if (jso.mxGraphModel) {
             let x2js = new X2JS();
-            let xmlo = x2js.json2xml(jso);
+            mxjso = {mxGraphModel: jso.mxGraphModel}
+            let xmlo = x2js.json2xml(mxjso);
             let codec = new mxCodec(xmlo);
             codec.decode(xmlo.documentElement, editor.graph.getModel());
          } else {    // 如果没有设置过jso
@@ -208,7 +219,7 @@
                mxUtils.alert('Error');
             }
             try {
-               let url = `/viewport/${v2v_app_.deviceid}/${nd.id}.png`
+               let url = `/viewport/${local_v2v_configuration_.device_id}/${nd.id}.png`
                editor.graph.setBackgroundImage(new mxImage(url, nd.getAttribute('ori_width'), nd.getAttribute('ori_height')));
                editor.graph.view.validate();	//必须调用以刷新视图背景
             } catch (error) {
@@ -295,9 +306,27 @@
             editor.execute('fit');
          });
          $('#set_cfg').click(function () {
-            let rest = '/api/v1/v2v/setupcfg';
+            let rest = '/api/v1/v2v/setup_single_channel';
+            let the_presets = local_v2v_configuration_.presets;
+            let report_presets = {};
+            let pre_key = Object.keys(the_presets);   // preset1,2,3,...
+            let filtered = pre_key.filter(function(value, index, arr){
+               let keyset = Object.keys(the_presets[value].mxGraphModel.root)
+               labeled = keyset.filter(value => {
+                  return (value !== 'Diagram' & value !== 'Layer')
+               })
+               return labeled.length > 0;
+            })
+            filtered.forEach(function(key) { 
+                  report_presets[key] = the_presets[key];
+            })
             df = {
-               current_viewpoint: JSON.stringify(local_v2v_configuration_.presets[local_v2v_configuration_.current_preset])
+               "rtsp_url": local_v2v_configuration_.rtsp_url,
+               "device_id": local_v2v_configuration_.device_id,
+               "channel_id": local_v2v_configuration_.channel_id,
+               "name": local_v2v_configuration_.name,
+               "sample_rate": local_v2v_configuration_.sample_rate,
+               "view_ports": JSON.stringify(report_presets)
             }
             let dd = JSON.stringify(df);
             $.ajax({
@@ -326,9 +355,9 @@
          let viewports = document.getElementById('viewports')
          if (viewports) {
             // viewports.style.cursor = 'wait'
-            v2v_app_.deviceid = viewports.getAttribute('deviceid');
-            v2v_app_.channelid = viewports.getAttribute('channelid');
-            init_preview(v2v_app_.deviceid, v2v_app_.channelid, true);
+            local_v2v_configuration_.device_id = viewports.getAttribute('deviceid');
+            local_v2v_configuration_.channel_id = viewports.getAttribute('channelid');
+            init_preview(local_v2v_configuration_.device_id, local_v2v_configuration_.channel_id, true);
             // cur = editor.graph.getCursor()
          }
       }
@@ -371,7 +400,7 @@
                      <li><a id="zoom_out"><i class="fa fa-search-minus"></i></a></li>
                      <li><a id="original_size"><i class="fa fa-codepen"></i></a></li>
                      <li><a id="fit_window"><i class="fa fa-arrows-alt"></i></a></li>
-                     <li><a id="set_cfg"><i class="fa-solid fa-thumbs-up"></i></a></li>
+                     <li><a id="set_cfg"><i class="fa-solid fa-pencil"></i></a></li>
 
 
 

@@ -72,7 +72,7 @@ app_ = FastAPI(
     description="视频图像智能分析软件对外发布的RESTful API接口",
     version="2.2.0", )
 
-# 支持跨越
+# 支持跨域
 origins = ['*']
 app_.add_middleware(
     CORSMiddleware,
@@ -86,6 +86,7 @@ app_.add_middleware(
 rest_proc_ = None
 cfg_ = None
 baseurl_of_nvr_samples_ = '/viewport'
+# FIXME:这个地方应该改为从主进程获取配置，主进程是唯一来源，子进程避免直接操作文件系统
 localroot_of_nvr_samples_ = ConfigSet.get_cfg()['nvr_samples']
 # 这个是缓存cv2捕获nvr流的，因为打开一个nvr花费4秒以上太久
 # 缓存cv2带来负效应：一旦视频捕获开始，需要在定时器中持续消费，否则下次api调用得到的是滞后较久的帧，因此又加了个伪锁
@@ -99,21 +100,64 @@ app_.mount('/ui', StaticFiles(directory='../src/ui'), name='ui')
 app_.mount(baseurl_of_nvr_samples_, StaticFiles(directory=localroot_of_nvr_samples_), name='nvr')
 
 
-class ViewPort(BaseModel):
-    current_viewpoint: str = ''
+class Switch(BaseModel):
+    cmd: str = 'start'
 
 
-@app_.post("/api/v1/v2v/setupcfg")
-async def setup_cfg(cfg: ViewPort):
-    """C&M之C：设置配置文件，收到该配置文件后，v2v将根据配置文件启动流水线开始识别任务"""
-    """当前功能是接受一个viewport的aoi进行设置给到ai"""
+@app_.post("/api/v1/v2v/pipeline/")
+async def pipeline(item: Switch):
+    """统一关闭或启动rtsp，ai，mqtt子进程"""
+    cmds = ['start', 'stop']
+    if item.cmd in cmds:
+        # rest_proc_.send_cmd(bus.EBUS_TOPIC_MAIN, item.cmd) # noqa
+        if item.cmd == 'start':
+            ret = rest_proc_.call_rpc(bus.CB_STARTUP_PPL, {'cmd': item.cmd})  # noqa
+        else:
+            ret = rest_proc_.call_rpc(bus.CB_STOP_PPL, {'cmd': item.cmd})  # noqa
+    else:
+        ret = {'reply': 'unrecognized command.'}
+    return ret
+
+
+class ViewPorts(BaseModel):
+    rtsp_url: str = ''
+    device_id: Optional[str] = ''
+    channel_id: Optional[str] = ''
+    name: Optional[str] = ''
+    sample_rate: int = 1
+    view_ports: str = ''
+
+
+@app_.post("/api/v1/v2v/setup_single_channel")
+async def setup_single_channel(cfg: ViewPorts):
+    """C&M之C：设置配置文件，收到该配置文件后，v2v将更新单通道的配置文件"""
+    """当前功能是接受一个单通道视频设置给到ai"""
+    item = {'version': '1.0.0', 'reply': 'pending.'}
+    ret = rest_proc_.call_rpc(bus.CB_SET_CFG, cfg.__dict__)  # 调用主进程函数，传配置给它。
+    item['reply'] = ret['reply']
+    item['desc'] = ret['desc']
+    return item
+
+
+class Channels(BaseModel):
+    version: str = '1.0.0'
+    rtsp_urls: str = ''
+    mqtt_svrs: str = ''
+    micro_service: str = ''
+    nvr_samples: str = ''
+
+
+@app_.post("/api/v1/v2v/setup_all_channels")
+async def setup_all_channels(cfg: Channels):
+    """C&M之C：设置配置文件，收到该配置文件后，v2v将更新整个v2v的配置文件"""
+    """当前功能是接受整个配置设置给到ai"""
     item = {'version': '1.0.0', 'reply': 'pending.'}
     rest_proc_.call_rpc(bus.CB_SET_CFG, cfg.__dict__)  # 调用主进程函数，传配置给它。
     item['reply'] = True
     return item
 
 
-@app_.post("/api/v1/v2v/metrics")
+@app_.get("/api/v1/v2v/metrics")
 async def provide_metrics(deviceid: str, channelid: str, refresh: bool = False):
     """C&M之M：接受监控端比如promethus的调用，反馈自己是否在线和反馈各种运行时信息"""
     item = {'version': '1.0.0'}
@@ -190,25 +234,6 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
     finally:
         # current_video_stream_['consume_lock'] = True  # 允许定时器再同时消费视频流（grab）。
         return item
-
-
-class Switch(BaseModel):
-    cmd: str = 'start'
-
-
-@app_.post("/api/v1/v2v/pipeline/")
-async def pipeline(item: Switch):
-    """统一关闭或启动rtsp，ai，mqtt子进程"""
-    cmds = ['start', 'stop']
-    if item.cmd in cmds:
-        # rest_proc_.send_cmd(bus.EBUS_TOPIC_MAIN, item.cmd) # noqa
-        if item.cmd == 'start':
-            ret = rest_proc_.call_rpc(bus.CB_STARTUP_PPL, {'cmd': item.cmd})  # noqa
-        else:
-            ret = rest_proc_.call_rpc(bus.CB_STOP_PPL, {'cmd': item.cmd})  # noqa
-    else:
-        ret = {'reply': 'unrecognized command.'}
-    return ret
 
 
 @app_.on_event("startup")
