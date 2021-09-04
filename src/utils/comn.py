@@ -31,6 +31,7 @@ Some common function and tools of the project.
 
 import requests
 import json
+import cv2
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -38,6 +39,12 @@ baseurl_ = 'https://127.0.0.1:7180'
 
 
 def replace_non_ascii(x): return ''.join(i if ord(i) < 128 else '_' for i in x)
+
+
+def get_picture_size(path2pic):
+    # width, height = (0, 0)
+    height, width, channel = cv2.imread(path2pic).shape
+    return width, height
 
 
 def run_to_viewpoints(devid, channelid, presetid):

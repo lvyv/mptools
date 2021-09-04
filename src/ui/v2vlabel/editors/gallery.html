@@ -56,7 +56,7 @@
             local_v2v_configuration_.current_preset = null  // 初始化为正确状态很重要
          } else {
             // 如果本地没有完成过配置，则初始化配置信息
-            local_v2v_configuration_ = { 
+            local_v2v_configuration_ = {
                device_id: '34020000001320000001',  // v2v后端提供，CDM设置
                channel_id: '3402000001320000002',  // v2v后端提供，CDM设置
                rtsp_url: 'rtsp://127.0.0.1/live',  // v2v后端提供，CDM设置
@@ -102,7 +102,7 @@
       function set_json_model(editor, jso) {
          if (jso.mxGraphModel) {
             let x2js = new X2JS();
-            mxjso = {mxGraphModel: jso.mxGraphModel}
+            mxjso = { mxGraphModel: jso.mxGraphModel }
             let xmlo = x2js.json2xml(mxjso);
             let codec = new mxCodec(xmlo);
             codec.decode(xmlo.documentElement, editor.graph.getModel());
@@ -130,6 +130,7 @@
                      nd.setAttribute('src', base64);
                      nd.setAttribute('ori_width', ps.width);
                      nd.setAttribute('ori_height', ps.height);
+                     nd.setAttribute('ori_image', true);    //说明存在png大图
                   }
                }
             }
@@ -173,6 +174,63 @@
          // Clones the source if new connection has no target
          editor.graph.connectionHandler.setCreateTarget(true);
 
+         editor.graph.setGridSize(1);
+
+         // Handles keystroke events
+         var keyHandler = new mxKeyHandler(editor.graph);
+         
+         // Handles cursor keys
+         var nudge = function(keyCode)
+         {
+            if (!editor.graph.isSelectionEmpty())
+            {
+               var dx = 0;
+               var dy = 0;
+               
+               if (keyCode == 37)
+               {
+                  dx = -1;
+               }
+               else if (keyCode == 38)
+               {
+                  dy = -1;
+               }
+               else if (keyCode == 39)
+               {
+                  dx = 1;
+               }
+               else if (keyCode == 40)
+               {
+                  dy = 1;
+               }
+               
+               editor.graph.moveCells(editor.graph.getSelectionCells(), dx, dy);
+            }
+         };
+
+         // Ignores enter keystroke. Remove this line if you want the
+         // enter keystroke to stop editing
+         keyHandler.enter = function() {};
+            
+         keyHandler.bindKey(37, function()
+         {
+            nudge(37);
+         });
+            
+         keyHandler.bindKey(38, function()
+         {
+            nudge(38);
+         });
+         
+         keyHandler.bindKey(39, function()
+         {
+            nudge(39);
+         });
+         
+         keyHandler.bindKey(40, function()
+         {
+            nudge(40);
+         });
 
 
          /***** 定义预置点操作 *****/
@@ -200,33 +258,18 @@
             let md = local_v2v_configuration_.presets[nd.id];
             set_json_model(editor, md);
 
-            let onload = function (req) {
-               sc = req.getStatus()
-               if (sc == 200) {
-                  base64 = 'data:image/png;base64, ' + req.getText();
-                  nd.setAttribute('src', base64)		//缩略图
-                  sleep(100).then(() => {				   //等待渲染获得图片真实大小
-                     editor.graph.setBackgroundImage(new mxImage(base64, nd.naturalWidth, nd.naturalHeight));
-                     editor.graph.view.validate();	//必须调用以刷新视图背景
-                  });
-               } else {
-                  nd.setAttribute('src', '/viewport/add-viewport.png');
-                  editor.graph.setBackgroundImage(new mxImage('/viewport/add-viewport.png', 680, 480));
-                  editor.graph.view.validate();	//必须调用以刷新视图背景
-               }
-            }
-            let onerror = function (req) {
-               mxUtils.alert('Error');
-            }
-            try {
+
+
+            if (nd.getAttribute('ori_image')) {
                let url = `/viewport/${local_v2v_configuration_.device_id}/${nd.id}.png`
                editor.graph.setBackgroundImage(new mxImage(url, nd.getAttribute('ori_width'), nd.getAttribute('ori_height')));
-               editor.graph.view.validate();	//必须调用以刷新视图背景
-            } catch (error) {
+            } else {
                editor.graph.setBackgroundImage(new mxImage('/viewport/add-viewport.png', 680, 480));
                editor.graph.view.validate();	//必须调用以刷新视图背景
             }
-            // mxUtils.get(url, onload, onerror);
+
+            editor.graph.view.validate();	//必须调用以刷新视图背景
+
          };
          editor.addAction('loadImage', funct);
 
@@ -306,19 +349,20 @@
             editor.execute('fit');
          });
          $('#set_cfg').click(function () {
+            
             let rest = '/api/v1/v2v/setup_single_channel';
             let the_presets = local_v2v_configuration_.presets;
             let report_presets = {};
             let pre_key = Object.keys(the_presets);   // preset1,2,3,...
-            let filtered = pre_key.filter(function(value, index, arr){
+            let filtered = pre_key.filter(function (value, index, arr) {
                let keyset = Object.keys(the_presets[value].mxGraphModel.root)
                labeled = keyset.filter(value => {
                   return (value !== 'Diagram' & value !== 'Layer')
                })
                return labeled.length > 0;
             })
-            filtered.forEach(function(key) { 
-                  report_presets[key] = the_presets[key];
+            filtered.forEach(function (key) {
+               report_presets[key] = the_presets[key];
             })
             df = {
                "rtsp_url": local_v2v_configuration_.rtsp_url,
@@ -334,13 +378,13 @@
                type: "post",
                url: rest,
                async: true,
-               headers:{"Content-Type":"application/json","accept":"application/json","name":"666"},
-               dataType:"json",
+               headers: { "Content-Type": "application/json", "accept": "application/json", "name": "666" },
+               dataType: "json",
                data: dd,  //http 请求 记住要把数据转换为json格式数据
                success: function (res) {
                   console.log('成功检测');
                   console.log(res);
-                  
+
                },
                error: function () {
                   alert("返回数据失败")

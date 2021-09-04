@@ -38,16 +38,25 @@ from utils import log
 
 class ConfigSet:
     cfg_ = None
+    path2cfg_ = None
 
     @classmethod
     def load_json(cls, fp):
         try:
             load_dict = None
+            cls.path2cfg_ = fp
             with open(fp, 'r', encoding='UTF-8') as load_f:
                 load_dict = json.load(load_f)
                 load_f.close()
         finally:
             return load_dict
+
+    @classmethod
+    def save_json(cls):
+        if cls.path2cfg_:
+            with open(cls.path2cfg_, 'w', encoding='utf-8') as fp:
+                json.dump(cls.cfg_, fp, ensure_ascii=False)
+            pass
 
     @classmethod
     def get_cfg(cls, pathtocfg='v2v.cfg'):
@@ -191,6 +200,8 @@ class ConfigSet:
                         'view_ports': cls.ui2ai(json.loads(params['view_ports']))
                     }
                     cls.cfg_['rtsp_urls'].append(obj)
+                # 保存配置文件
+                cls.save_json()     # FIXME:有点野蛮，没有进行合法性校核，可能导致程序无法启动
                 ret = cls.cfg_
             else:
                 ret = None

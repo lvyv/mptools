@@ -36,6 +36,7 @@ import imutils
 import io
 import base64
 import threading
+import os
 from matplotlib import pyplot as plt
 # from imutils.video import VideoStream
 from typing import Optional, List, Dict
@@ -171,9 +172,10 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
     try:
         target = f'{localroot_of_nvr_samples_}{deviceid}/'
         if refresh:
-            # 如果是刷新，这需要从nvr取图片保存到本地目录
+            # 如果是刷新，这需要从nvr取图片保存到本地目录(nvr_samples目录下按设备号创建目录)
             url = comn.get_url(deviceid, channelid)
             presets = comn.get_presets(deviceid, channelid)
+            # 如果是合法的设备号，并且配置有url则启动流，抓图，否则
             if url and presets:
                 # 如果缓存过，就直接用缓存的流
                 if url == current_video_stream_['url']:
@@ -193,7 +195,7 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
                             current_video_stream_['url'] = url
                             current_video_stream_['videostream'] = vs   # noqa
                     else:
-                        item['reply'] = f'摄像头{deviceid}-{channelid}提供的流地址（{url}）无法访问'
+                        item['reply'] = f'摄像头{deviceid}-{channelid}提供的流地址（{url}）无法访问。'
                         return item
                 # 产生系列预置点图片
                 try:
@@ -205,7 +207,9 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
                             mutex_.release()
                             # height, width, channels = frame.shape
                             # 保存原始图像
-                            cv2.imwrite(f'{target}{prs["presetid"]}.png', frame)
+                            filename = f'{target}{prs["presetid"]}.png'
+                            os.makedirs(os.path.dirname(filename), exist_ok=True)
+                            cv2.imwrite(filename, frame)
                             # 保存缩略图，1920x1080的长宽缩小20倍
                             frame = imutils.resize(frame, width=96, height=54)
                             buf = io.BytesIO()
@@ -219,14 +223,23 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
                     vs.release()
                     vs = cv2.VideoCapture(current_video_stream_['url'])
                     current_video_stream_['videostream'] = vs   # noqa
-
+            else:
+                item['reply'] = f'摄像头{deviceid}-{channelid}未设置流地址或预置点。'
+                return item
         onlyfiles = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}'
                      for f in listdir(target) if isfile(join(target, f)) and ('.png' not in f)]
         # 返回视频的原始分辨率，便于在前端界面了解和载入
-        item['reply'] = True
-        item['presets'] = onlyfiles
-        item['width'] = vs.get(cv2.cv2.CAP_PROP_FRAME_WIDTH)
-        item['height'] = vs.get(cv2.cv2.CAP_PROP_FRAME_HEIGHT)
+
+        # 有问题，如果没有初始化流（fresh=False）,为了获取png文件尺寸，选第一个文件来查询其尺寸
+        pngfiles = [fn for fn in listdir(target) if isfile(join(target, fn)) and ('.png' in fn)]
+        if len(pngfiles) > 0:
+            item['reply'] = True
+            item['presets'] = onlyfiles
+            pngfile = f'{target}{pngfiles[0]}'
+            item['width'], item['height'] = comn.get_picture_size(pngfile)
+        else:
+            item['reply'] = False
+            item['desc'] = '没有生成可标注的图片。'
     except FileNotFoundError as fs:
         rest_proc_.log(f'{fs}')  # noqa
     else:

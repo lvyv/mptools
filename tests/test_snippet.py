@@ -56,13 +56,15 @@ import os
 import signal
 import time
 from imutils.video import VideoStream
+
 from matplotlib import pyplot as plt
+import matplotlib
+import numpy as np
 
 # ----fastapi-----
 from fastapi import FastAPI, File, UploadFile
 from fastapi_utils.tasks import repeat_every
 import uvicorn
-
 
 app = FastAPI()
 
@@ -137,6 +139,7 @@ def test_upload_img():
             frame = imutils.resize(frame, width=1200)  # size changed from 6MB to 2MB
             cv2.imshow('NVR realtime', frame)
             buf = io.BytesIO()
+            plt.plot()
             plt.imsave(buf, frame, format='png')
             image_data = buf.getvalue()
             rest = 'https://127.0.0.1:21900/meter_recognization/'
@@ -171,14 +174,36 @@ def uploadfile_withparams():
 
 def uploadfiles_withparams():
     rest = 'https://127.0.0.1:7180/api/v1/uploadfiles_with_params'
+    # upload local files
     mypath = '../src/mock/local/'
     onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
     files = [('files', (replace_non_ascii(name), open(f'{mypath}{name}', 'rb'))) for name in onlyfiles]
     payload = {'jsos': '{"key1":1, "key2":2}'}
-    requests.post(rest, files=files, data=payload, verify=False)  # data=image_data)
+    ret = requests.post(rest, files=files, data=payload, verify=False)  # data=image_data)
+    log.log(ret)
+    for it in files:
+        it[1][1].close()
 
+    # upload memory files
+    t = np.arange(0.0, 2.0, 0.01)
+    s = 1 + np.sin(2 * np.pi * t)
+    fig, ax = plt.subplots()
+    ax.plot(t, s)
+    ax.set(xlabel='time (s)', ylabel='voltage (mV)',
+           title='About as simple as it gets, folks')
+    ax.grid()
+    b = io.BytesIO()
+    plt.savefig(b, format='png')
+    plt.close()
+    b.seek(0)
+    files = [('files', ('iobytes.png', b))]
+    payload = {'jsos': '{"key3":1, "key2":4}'}
+    ret = requests.post(rest, files=files, data=payload, verify=False)
+    b.close()
 
 # ----zmq-----
+
+
 address_ = f'tcp://127.0.0.1:5555'
 
 
@@ -516,6 +541,17 @@ def nvr_stream_func():
     pass
 
 
+def save_json():
+    abc = {'key1': 1,
+           'key2': 'value2',
+           '中k': '中文支持'
+           }
+    with open('abc.cfg', 'w', encoding='utf-8') as fp:
+        json.dump(abc, fp, ensure_ascii=False)
+    filename = "./foo/bar/baz/a.txt"
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+
 class TestMain(unittest.TestCase):
     """
     Tests for `v2v` entrypoint.
@@ -535,7 +571,9 @@ class TestMain(unittest.TestCase):
         # main()
         # pub_sub_pools()
         # fastapi_mainloop()
-        nvr_stream_func()
+        # nvr_stream_func()
+        # uploadfiles_withparams()
+        save_json()
 
 
 if __name__ == '__main__':

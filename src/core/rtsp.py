@@ -42,15 +42,17 @@ from core.procworker import ProcWorker
 
 class RtspWorker(ProcWorker):
 
-    def handle_cfg_update(self, cfg):
+    def handle_cfg_update(self, channel):
         """
         本函数为配置发生变化，热更新配置。
         热更新的含义：不需要重启整个程序。
         1）如果没有改deviceid，也就是没有改rtsp_url，则改变的只是aoi，sample_rate，不需要重新建立nvr流。
         2）如果rtsp_url都变了，则要重新建立nvr流，并且刷新fps。
-        :param cfg:
+        :param channel:
         :return:
         """
+        # self.log(cfg)
+        self.args_ = channel
         pass
 
     def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
@@ -98,8 +100,10 @@ class RtspWorker(ProcWorker):
             # 是否有配置信息更新的广播消息，如果是通道信息，则需要判断是否是自己负责的通道self.args_['rtsp_url']
             if event:
                 self.log(event)     # 如果是属于自己的配置更新广播，更新初始化时的数据信息，包括：self.args_和self.fps_。
-                self.handle_cfg_update(event)
-                pass
+                for rtsp in event['rtsp_urls']:
+                    if rtsp['device_id'] == self.args_['device_id'] and rtsp['channel_id'] == self.args_['channel_id']:
+                        self.handle_cfg_update(rtsp)
+                        break
             did = self.args_['device_id']
             cid = self.args_['channel_id']
             vps = self.args_['view_ports']

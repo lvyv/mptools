@@ -32,14 +32,28 @@
 			</Container>
 		</add>
 		<add as="rectangle">
-			<Rect label="测点名称" href="https://127.0.0.1:7180/api/v1/ai/plc">
+			<Rect label="OCR_" href="https://192.168.1.5:7180/api/v1/ai/pannel">
 				<mxCell vertex="1">	
 					<mxGeometry as="geometry" width="80" height="40"/>
 				</mxCell>
 			</Rect>
 		</add>
+		<add as="rounded">
+			<Roundrect label="PLC_" href="https://192.168.1.5:7180/api/v1/ai/plc">
+				<mxCell vertex="1" style="rounded">		
+					<mxGeometry as="geometry" width="80" height="40"/>
+				</mxCell>
+			</Roundrect>
+		</add>
+		<add as="actor">
+			<Shape label="CNT_" href="https://192.168.1.5:7180/api/v1/ai/person">
+				<mxCell vertex="1" style="actor">		
+					<mxGeometry as="geometry" width="40" height="60"/>
+				</mxCell>
+			</Shape>
+		</add>
 		<add as="text">
-			<Text label="Text Here" href="https://127.0.0.1:7180/api/v1/ai/person">
+			<Text label="Text Here" href="">
 				<mxCell vertex="1" style="text">	
 					<mxGeometry as="geometry" width="80" height="20"/>
 				</mxCell>
@@ -52,13 +66,6 @@
 				</mxCell>
 			</Image>
 		</add>
-		<add as="rounded">
-			<Roundrect label="Rounded" href="https://127.0.0.1:7180/api/v1/ai/pannel">
-				<mxCell vertex="1" style="rounded">		
-					<mxGeometry as="geometry" width="80" height="40"/>
-				</mxCell>
-			</Roundrect>
-		</add>
 		<add as="shape">
 			<Shape label="Shape" href="">
 				<mxCell vertex="1" style="ellipse">		
@@ -66,13 +73,7 @@
 				</mxCell>
 			</Shape>
 		</add>
-		<add as="actor">
-			<Shape label="Shape" href="">
-				<mxCell vertex="1" style="actor">		
-					<mxGeometry as="geometry" width="40" height="60"/>
-				</mxCell>
-			</Shape>
-		</add>
+
 		<add as="cloud">
 			<Shape label="Shape" href="">
 				<mxCell vertex="1" style="cloud">		
@@ -136,12 +137,12 @@
 			<add as="defaultVertex" extend="text">
 				<add as="shape" value="rectangle"/>
 				<add as="fontSize" value="11"/>
-				<add as="fontColor" value="red"/>
+				<add as="fontColor" value="grey"/>
 				<add as="align" value="center"/>
 				<add as="verticalAlign" value="middle"/>
 				<add as="shadow" value="0"/>
 				<add as="strokeColor" value="#FF0000"/>
-				<add as="strokeWidth" value="3"/>
+				<add as="strokeWidth" value="1"/>
 				<add as="fillColor" value="none"/>
 				<add as="gradientColor" value="white"/>
 			</add>
@@ -217,8 +218,8 @@
 			</add>
 			<add as="actor">
 				<add as="shape" value="actor"/>
-				<add as="strokeColor" value="#FFC7C7"/>
-				<add as="fillColor" value="#FFC7C7"/>
+				<add as="strokeColor" value="#FF0000"/>
+				<!-- <add as="fillColor" value="#FFC7C7"/> -->
 			</add>
 			<add as="cloud">
 				<add as="shape" value="cloud"/>
@@ -324,17 +325,18 @@
 			}
 		]]></add> -->
 		<br/><br/>
-		<add as="Text目标计数" template="text" icon="images/text.gif"/>
+		<!-- <add as="Text目标计数" template="text" icon="images/text.gif"/> -->
+		<add as="人数统计" template="actor" style="actor" icon="images/actor.gif"/>
 		<!-- <add as="Container" template="container" icon="images/swimlane.gif"/> -->
-		<add as="Rectangle表盘识读" template="rectangle" icon="images/rectangle.gif"/>
-		<add as="Rounded指针刻度" template="rounded" icon="images/rounded.gif"/>
+		<add as="仪表判读" template="rectangle" icon="images/rectangle.gif"/>
+		<add as="指示灯频率" template="rounded" icon="images/rounded.gif"/>
 		<br/><br/>
 		<add as="Ellipse扩展模型" template="shape" style="ellipse" icon="images/ellipse.gif"/>
 		<!-- <add as="Double Ellipse" template="shape" style="doubleEllipse" icon="images/doubleellipse.gif"/>
 		<add as="Rhombus" template="shape" style="rhombus" icon="images/rhombus.gif"/>
 		<add as="Triangle" template="actor" style="triangle" icon="images/triangle.gif"/>
 		<add as="Hexagon" template="cloud" style="hexagon" icon="images/hexagon.gif"/>
-		<add as="Actor" template="actor" style="actor" icon="images/actor.gif"/>
+		
 		<add as="Cylinder" template="shape" style="cylinder" icon="images/cylinder.gif"/>
 		<add as="Cloud" template="cloud" style="cloud" icon="images/cloud.gif"/>
 		<add as="Line" template="hline" style="hline" icon="images/hline.gif"/>

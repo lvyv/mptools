@@ -32,7 +32,10 @@ mock module
 from fastapi import FastAPI, Form, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional, List, Tuple
+from typing import Optional
+# , List, Tuple
+from utils import log
+from typing import List
 import uvicorn
 
 
@@ -61,9 +64,9 @@ def call_indicator_freq(contents):
     if contents:
         pass
     ret = [
-        {'id': 1, 'error_led': 3},  # 3 表示3Hz
-        {'id': 2, 'power_led': -1},  # -1 表示常亮
-        {'id': 3, 'communicate_led': 0}  # 0 表示常灭
+        {'id': 1, '油泵指示灯': 3},  # 3 表示3Hz
+        {'id': 2, '电源指示灯': -1},  # -1 表示常亮
+        {'id': 3, '通信指示灯': 0}  # 0 表示常灭
     ]
     return ret
 
@@ -98,6 +101,7 @@ async def post_iot_login():
 @app.post("/api/v1/{devicetoken}/telemetry")
 async def post_iot_telemetry(devicetoken: str):
     """模拟物联网遥测数据推送接口，有物联网服务器，暂未实现"""
+    log.log(devicetoken)
     pass
 
 
@@ -120,13 +124,23 @@ async def uploadfiles(files: List[UploadFile] = File(...)):
 
 @app.post("/api/v1/uploadfile_with_params")
 async def uploadfile_with_params(file: bytes = File(...), jso: str = Form(...)):
-    print(jso)
+    log.log(len(file))
+    log.log(jso)
     return {"reply": True}
 
 
 @app.post("/api/v1/uploadfiles_with_params")
 async def uploadfiles_with_params(files: List[UploadFile] = File(...), jsos: str = Form(...)):
-    print(jsos)
+    # log.log(len(files[0]))
+    for file in files:
+        if file.filename == 'iobytes.png':
+            with open("abc.png", "wb") as f:
+                contents = await file.read()
+                f.write(contents)
+                f.close()
+        file.close()
+    log.log(jsos)
+
     return {"reply": True}
 
 
@@ -162,6 +176,7 @@ async def stream_info_by_desc(desc: str):
 @app.get("/api/v1/ptz/front_end_command/{deviceid}/{channelid}")
 async def get_all_presets(deviceid: str, channelid: str):
     """模拟视频调度的获取某路视频的所有预置点接口"""
+    log.log(channelid)
     item = {'version': '1.0.0',
             'deviceid': f'{deviceid}',
             'url': 'rtsp://127.0.0.1/live',
@@ -184,7 +199,7 @@ async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(.
 # IF2 REST API  内部接口-智能识别
 @app.post("/api/v1/ai/panel")
 async def meter_recognization(files: UploadFile = File(...), cfg_info: str = Form(...)):
-    print(files.filename, files.content_type)
+    log.log(f'{files.filename}, {files.content_type}, {cfg_info}')
     contents = files.file.read()
     # outfile = open(upfile.filename, 'wb')
     # outfile.write(contents)
@@ -195,7 +210,7 @@ async def meter_recognization(files: UploadFile = File(...), cfg_info: str = For
 
 @app.post("/api/v1/ai/person")
 async def object_counting(files: UploadFile = File(...), cfg_info: str = Form(...)):
-    print(files.filename, files.content_type)
+    log.log(f'{files.filename}, {files.content_type}, {cfg_info}')
     contents = files.file.read()
     # outfile = open(upfile.filename, 'wb')
     # outfile.write(contents)
@@ -205,8 +220,8 @@ async def object_counting(files: UploadFile = File(...), cfg_info: str = Form(..
 
 
 @app.post("/api/v1/ai/plc")
-async def indicator_frequency(files: UploadFile = File(...), cfg_info: str = Form(...)):
-    print(files.filename, files.content_type)
+async def indicator_frequency(files: UploadFile = File(...), cfg_info: str = Form(...), req_id: Optional[str] = None):
+    log.log(f'{files.filename}, {files.content_type}, {cfg_info}')
     contents = files.file.read()
     # outfile = open(upfile.filename, 'wb')
     # outfile.write(contents)
