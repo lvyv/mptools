@@ -37,6 +37,7 @@ import io
 import base64
 import threading
 import os
+import xml.etree.ElementTree as xmlet
 from matplotlib import pyplot as plt
 # from imutils.video import VideoStream
 from typing import Optional, List, Dict
@@ -89,9 +90,12 @@ cfg_ = None
 baseurl_of_nvr_samples_ = '/viewport'
 # FIXME:这个地方应该改为从主进程获取配置，主进程是唯一来源，子进程避免直接操作文件系统
 localroot_of_nvr_samples_ = ConfigSet.get_cfg()['nvr_samples']
+ui_config_tpl_ = f'{ConfigSet.get_cfg()["ui_config_dir"]}ui.xml'
+ai_url_config_file_ = f'{ConfigSet.get_cfg()["ui_config_dir"]}diagrameditor.xml'
+
 # 这个是缓存cv2捕获nvr流的，因为打开一个nvr花费4秒以上太久
 # 缓存cv2带来负效应：一旦视频捕获开始，需要在定时器中持续消费，否则下次api调用得到的是滞后较久的帧，因此又加了个伪锁
-current_video_stream_ = {'url': None, 'videostream': None }
+current_video_stream_ = {'url': None, 'videostream': None}
 mutex_ = threading.Lock()
 
 # EIF3:REST V2V C&M 外部接口-提供UI前端配置V2V需要的截图
@@ -154,6 +158,37 @@ async def setup_all_channels(cfg: Channels):
     """当前功能是接受整个配置设置给到ai"""
     item = {'version': '1.0.0', 'reply': 'pending.'}
     rest_proc_.call_rpc(bus.CB_SET_CFG, cfg.__dict__)  # 调用主进程函数，传配置给它。
+    item['reply'] = True
+    return item
+
+
+class AiURL(BaseModel):
+    plc: str = 'https://127.0.0.1:7180/api/v1/ai/plc'
+    panel: str = 'https://127.0.0.1:7180/api/v1/ai/panel'
+    person: str = 'https://127.0.0.1:7180/api/v1/ai/person'
+
+
+@app_.post("/api/v1/v2v/setup_ai_url")
+async def setup_ai_url(cfg: AiURL):
+    """C&M之C：设置ai微服务模型的url"""
+    """当前功能是修改配置文件"""
+    item = {'version': '1.0.0', 'reply': 'pending.'}
+    tree = xmlet.parse(ui_config_tpl_)
+    root = tree.getroot()
+
+    panel = root.findall('./Array/add/Rect')
+    if len(panel) == 1:
+        panel[0].attrib['href'] = cfg.panel
+
+    plc = root.findall('./Array/add/Roundrect')
+    if len(plc) == 1:
+        plc[0].attrib['href'] = cfg.plc
+
+    person = root.findall('./Array/add[@as="actor"]/Shape')
+    if len(person) == 1:
+        person[0].attrib['href'] = cfg.person
+
+    tree.write(ai_url_config_file_)
     item['reply'] = True
     return item
 
