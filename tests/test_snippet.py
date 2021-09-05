@@ -38,7 +38,7 @@ from os import listdir
 from os.path import isfile, join
 from time import time, sleep
 from random import randrange
-from utils import bus, comn, config
+from utils import bus, comn, config, wrapper as wpr
 from utils import log
 from core.procworker import ProcWorker
 
@@ -507,37 +507,6 @@ def nvr_stream_func():
         print('can not open the video source.')
     cap.release()
     cv2.destroyAllWindows()
-
-    # try:
-    #     url = 'rtsp://127.0.0.1/live'
-    #     start = time.time()
-    #     vs = VideoStream(src=url).start()
-    #     end = time.time()
-    #     print(end - start)
-    # except BaseException as be:
-    #     print(be)
-    #     pass
-    # while True:
-    #     try:
-    #         frame = vs.read()
-    #         # frame = imutils.resize(frame, width=680)
-    #         cv2.imshow('NVR realtime', frame)
-    #         key = cv2.waitKey(1) & 0xFF
-    #         if key == ord('q'):
-    #             break
-    #     except cv2.error as cve:
-    #         print(f'in loop error: {cve}')
-
-    # buf = io.BytesIO()
-    # plt.imsave(buf, frame, format='png')
-    # image_data = buf.getvalue()
-    # image_data = base64.b64encode(image_data)
-    # outfile = open(f'{target}{prs["presetid"]}', 'wb')
-    # outfile.write(image_data)
-    # outfile.close()
-
-    # vs.stop()
-    # vs.release()
     pass
 
 
@@ -605,6 +574,25 @@ def test_url_statistics():
             log.log('in jail...')
 
 
+def test_opencv_capture_timeout():
+    rtsp = 'rtsp://127.0.0.1/live'
+    try:
+        cap_status, cap = wpr.video_capture_open(rtsp)
+        if not cap_status:
+            print(cap_status, cap)
+            return cap
+        while True:
+            ret, image_frame = cap.read()
+            cv2.imshow("res", image_frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        cap.release()
+        cv2.destroyAllWindows()
+    except Exception as err:
+        print(err)
+        pass
+
+
 class TestMain(unittest.TestCase):
     """
     Tests for `v2v` entrypoint.
@@ -627,7 +615,8 @@ class TestMain(unittest.TestCase):
         # nvr_stream_func()
         # uploadfiles_withparams()
         # save_json()
-        test_url_statistics()
+        # test_url_statistics()
+        test_opencv_capture_timeout()
 
 
 if __name__ == '__main__':
