@@ -173,6 +173,7 @@ class MainContext(bus.IEventBusMixin):
         """
         newcfg = ConfigSet.update_cfg(params)
         if newcfg:
+            self.log(f'got config from ui:{newcfg}')
             self.broadcast(bus.EBUS_TOPIC_BROADCAST, newcfg)  # 微服务进程与主进程同时存在，不会停
             return {'reply': True, 'desc': '已广播通知配置更新。'}
         else:

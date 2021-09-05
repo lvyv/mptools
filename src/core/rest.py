@@ -49,7 +49,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from os.path import isfile, join
 from os import listdir
 
-from utils import bus, comn, log
+from utils import bus, comn, log, wrapper as wpr
 from utils.config import ConfigSet
 from core.procworker import ProcWorker
 from uvicorn.main import Server
@@ -231,9 +231,10 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
                     vs = current_video_stream_['videostream']
                 # 如果没有缓存就开新的流，但原来缓存的流要关闭
                 else:
-                    vs = cv2.VideoCapture(url)
-                    opened = vs.isOpened()
-                    if opened:
+                    cap_status, vs = wpr.video_capture_open(url)     # cv2.VideoCapture(url)
+                    rest_proc_.log(f'cap_status, vs, {url}')  # noqa
+                    # opened = vs.isOpened()
+                    if cap_status:
                         # 从未缓存
                         if current_video_stream_['url'] is None:
                             current_video_stream_['url'] = url
@@ -244,7 +245,7 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
                             current_video_stream_['url'] = url
                             current_video_stream_['videostream'] = vs   # noqa
                     else:
-                        item['reply'] = f'摄像头{deviceid}-{channelid}提供的流地址（{url}）无法访问。'
+                        rest_proc_.log(f'cap_status, vs, {url}')  # noqa
                         return item
                 # 产生系列预置点图片
                 try:
@@ -269,9 +270,10 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
                             outfile.write(image_data)
                             outfile.close()
                 except cv2.error as cve:
+                    rest_proc_.log(f'{cve}')  # noqa
                     vs.release()
-                    vs = cv2.VideoCapture(current_video_stream_['url'])
-                    current_video_stream_['videostream'] = vs   # noqa
+                    current_video_stream_['url'] = None
+                    current_video_stream_['videostream'] = None
             else:
                 item['reply'] = f'摄像头{deviceid}-{channelid}未设置流地址或预置点。'
                 return item
@@ -285,7 +287,7 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
             item['reply'] = True
             item['presets'] = onlyfiles
             pngfile = f'{target}{pngfiles[0]}'
-            item['width'], item['height'] = comn.get_picture_size(pngfile)
+            item['width'], item['height'] = wpr.get_picture_size(pngfile)
         else:
             item['reply'] = False
             item['desc'] = '没有生成可标注的图片。'

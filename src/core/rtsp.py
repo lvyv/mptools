@@ -73,6 +73,7 @@ class RtspWorker(ProcWorker):
         self.log(f'{self.name} started.')
         url = self.args_['rtsp_url']
         # self.vs_ = VideoStream(src=url, framerate=24).start()
+        self.log(f'openning rtsp stream: {url}')
         self.vs_ = cv2.VideoCapture(url)
         self.fps_ = self.vs_.get(cv2.cv2.CAP_PROP_FPS)
         # opened = self.vs_.isOpened()  # 暂时不检查是否正确打开流

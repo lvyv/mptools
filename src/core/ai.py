@@ -136,17 +136,20 @@ class AiWorker(ProcWorker):
                 buf = io.BytesIO()
                 template = None
                 if '/api/v1/ai/plc' in rest:
+                    # self.log(f'in:{template_in}')
                     sub_image, template = self.plc_sub_image(frame, template_in)
                     plt.imsave(buf, sub_image, format='jpg', cmap=cm.gray)  # noqa
                     cv2.imwrite('abc.jpg', sub_image)
+                    self.log(f'plc:{template}--{rest}')
+                    payload = {'cfg_info': str(template), 'req_id': None}
                 else:
                     plt.imsave(buf, pic['frame'], format='jpg')
-                image_data = buf.getvalue()
+                    self.log(f'panel & others:{template_in}')
+                    payload = {'cfg_info': str(template_in), 'req_id': None}
 
+                image_data = buf.getvalue()
                 files = {'files': (comn.replace_non_ascii(f'{fid}-{fps}'), image_data, 'image/jpg')}
-                payload = {'cfg_info': str(template), 'req_id': None}
-                self.log(f'in:{template_in}')
-                self.log(f'out:{template}--{rest}')
+
                 resp = requests.post(rest, files=files, data=payload, verify=False)
                 result = resp.content.decode('utf-8')
                 self.out_q_.put(resp.content)

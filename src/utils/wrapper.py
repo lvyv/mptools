@@ -32,6 +32,9 @@ https://stackoverflow.com/questions/41385708/multiprocessing-example-giving-attr
 # License: Apache Licence 2.0
 
 import os
+import cv2
+import time
+import threading
 
 
 # -- Process Wrapper
@@ -66,3 +69,71 @@ def proc_worker_wrapper(proc_worker_class, name, in_q=None, out_q=None, dicts=No
     except KeyboardInterrupt:
         pass
     return ret
+
+
+# OpenCV-Python timeout for opening a non-existent RTSP video stream
+
+
+class MyThread(threading.Thread):
+    def __init__(self, target, args=()):
+        super(MyThread, self).__init__()
+        self.func = target
+        self.args = args
+        self.result = None
+
+    def run(self):
+        self.result = self.func(*self.args)
+
+    def get_result(self):
+        try:
+            return self.result
+        except Exception as err:
+            return None
+
+
+# Decorator to limit the actual request time or function execution time
+def limit_decor(limit_time):
+    """
+    :param limit_time: Set the maximum allowable execution time, unit: second
+    :return: Untimed returns the value of the decorated function; timed out returns None
+    """
+    def functions(func):
+        def run(*params):
+            thre_func = MyThread(target=func, args=params)
+            # The thread method terminates when the main thread terminates (exceeds its length)
+            thre_func.setDaemon(True)
+            thre_func.start()
+            # Count the number of segmental slumbers
+            sleep_num = int(limit_time // 1)
+            sleep_nums = round(limit_time % 1, 1)
+            # Sleep briefly several times and try to get the return value
+            for i in range(sleep_num):
+                time.sleep(1)
+                infor = thre_func.get_result()
+                if infor:
+                    return infor
+            time.sleep(sleep_nums)
+            # Final return value (whether or not the thread has terminated)
+            if thre_func.get_result():
+                return thre_func.get_result()
+            else:
+                return False, None  # Timeout returns can be customized
+
+        return run
+
+    return functions
+
+
+TIME_LIMITED: int = 6
+
+
+@limit_decor(TIME_LIMITED)
+def video_capture_open(rtsp):
+    capture = cv2.VideoCapture(rtsp)
+    return True, capture
+
+
+def get_picture_size(path2pic):
+    # width, height = (0, 0)
+    height, width, channel = cv2.imread(path2pic).shape
+    return width, height

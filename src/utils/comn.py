@@ -31,20 +31,14 @@ Some common function and tools of the project.
 
 import requests
 import json
-import cv2
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
 baseurl_ = 'https://127.0.0.1:7180'
 
 
 def replace_non_ascii(x): return ''.join(i if ord(i) < 128 else '_' for i in x)
-
-
-def get_picture_size(path2pic):
-    # width, height = (0, 0)
-    height, width, channel = cv2.imread(path2pic).shape
-    return width, height
 
 
 def run_to_viewpoints(devid, channelid, presetid):
@@ -98,3 +92,23 @@ def get_presets(devid, channelid):
         pass
     finally:
         return resp
+
+
+# def frame_get(rtsp):
+#     try:
+#         cap_status, cap = video_capture_open(rtsp)
+#         if not cap_status:
+#             print(cap_status, cap)
+#             return cap
+#         while True:
+#             ret, image_frame = cap.read()
+#             cv2.imshow("res", image_frame)
+#             cv2.waitKey(3)
+#             if not ret:
+#                 continue
+#             image = cv2.imencode('.png', image_frame)[1]
+#             image_base64_data = str(base64.b64encode(image))[2:-1]
+#             return image_base64_data
+#     except Exception as err:
+#         print(err)
+#         pass

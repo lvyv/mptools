@@ -34,6 +34,7 @@ import logging
 import os
 
 LOG_LVL_INFO = logging.INFO
+LOG_LVL_DBG = logging.DEBUG
 LOG_LVL_ERRO = logging.ERROR
 
 log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'

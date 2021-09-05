@@ -118,6 +118,8 @@ class ConfigSet:
             ai_list = [aoi for aoi in aois.keys() if aoi not in ['Diagram', 'Layer']]
             lis = []    # containe divided preset4, preset4, ...
             for jk in ai_list:
+                if 'seconds' not in vp.keys():
+                    vp['seconds'] = 5
                 li[key] = {
                     'seconds': vp['seconds'],  # vp from ui include 'seconds', 'mxGraphModel' keys.
                 }
