@@ -552,6 +552,59 @@ def save_json():
     os.makedirs(os.path.dirname(filename), exist_ok=True)
 
 
+class UrlStatisticsHelper:
+    def __init__(self, criterion=100):
+        self.urls_ = []
+        self.criterion_ = criterion     # 连续几次（比如3）访问失败，就不再允许访问，直到发现请求持续超过（100）次，重新放行。
+
+    def add(self, url):
+        found = False
+        for it in self.urls_:
+            if it['url'] == url:
+                it['cnt'] += 1
+                found = True
+                break
+        if not found:
+            self.urls_.append({'url': url, 'cnt': 1})
+
+    def get_cnts(self, url):
+        ret = -1
+        for it in self.urls_:
+            if it['url'] == url:
+                ret = it['cnt']
+        return ret
+
+    def waitforrecover(self, url):
+        cnt = self.get_cnts(url)
+        if cnt < self.criterion_:
+            self.add(url)
+        else:
+            self.freeup(url)
+
+    def freeup(self, url):
+        found = False
+        for it in self.urls_:
+            if it['url'] == url:
+                it['cnt'] = 0   # 刑满释放
+                found = True
+                break
+
+
+def test_url_statistics():
+    urls = UrlStatisticsHelper(criterion=8)
+    url = 'https://192.168.1.4/api/v1/ai/plc'
+    while True:
+        somethingbad = random.randint(0, 5) == 2
+        if somethingbad:
+            log.log('something bad happened!')
+            urls.add(url)
+        if urls.get_cnts(url) < 3:
+            log.log('run...')
+        else:
+            urls.waitforrecover(url)
+            log.log('in jail...')
+
+
 class TestMain(unittest.TestCase):
     """
     Tests for `v2v` entrypoint.
@@ -573,7 +626,8 @@ class TestMain(unittest.TestCase):
         # fastapi_mainloop()
         # nvr_stream_func()
         # uploadfiles_withparams()
-        save_json()
+        # save_json()
+        test_url_statistics()
 
 
 if __name__ == '__main__':

@@ -219,6 +219,7 @@
 			<add as="actor">
 				<add as="shape" value="actor"/>
 				<add as="strokeColor" value="#FF0000"/>
+				<add as="verticalAlign" value="bottom"/>
 				<!-- <add as="fillColor" value="#FFC7C7"/> -->
 			</add>
 			<add as="cloud">

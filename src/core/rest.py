@@ -37,10 +37,10 @@ import io
 import base64
 import threading
 import os
-import xml.etree.ElementTree as xmlet
+import xml.etree.ElementTree as xmlET
 from matplotlib import pyplot as plt
 # from imutils.video import VideoStream
-from typing import Optional, List, Dict
+from typing import Optional
 from pydantic import BaseModel
 from fastapi import FastAPI
 from fastapi_utils.tasks import repeat_every
@@ -138,7 +138,7 @@ async def setup_single_channel(cfg: ViewPorts):
     """C&M之C：设置配置文件，收到该配置文件后，v2v将更新单通道的配置文件"""
     """当前功能是接受一个单通道视频设置给到ai"""
     item = {'version': '1.0.0', 'reply': 'pending.'}
-    ret = rest_proc_.call_rpc(bus.CB_SET_CFG, cfg.__dict__)  # 调用主进程函数，传配置给它。
+    ret = rest_proc_.call_rpc(bus.CB_SET_CFG, cfg.__dict__)  # noqa 调用主进程函数，传配置给它。
     item['reply'] = ret['reply']
     item['desc'] = ret['desc']
     return item
@@ -157,7 +157,7 @@ async def setup_all_channels(cfg: Channels):
     """C&M之C：设置配置文件，收到该配置文件后，v2v将更新整个v2v的配置文件"""
     """当前功能是接受整个配置设置给到ai"""
     item = {'version': '1.0.0', 'reply': 'pending.'}
-    rest_proc_.call_rpc(bus.CB_SET_CFG, cfg.__dict__)  # 调用主进程函数，传配置给它。
+    rest_proc_.call_rpc(bus.CB_SET_CFG, cfg.__dict__)  # noqa 调用主进程函数，传配置给它。
     item['reply'] = True
     return item
 
@@ -173,7 +173,7 @@ async def setup_ai_url(cfg: AiURL):
     """C&M之C：设置ai微服务模型的url"""
     """当前功能是修改配置文件"""
     item = {'version': '1.0.0', 'reply': 'pending.'}
-    tree = xmlet.parse(ui_config_tpl_)
+    tree = xmlET.parse(ui_config_tpl_)
     root = tree.getroot()
 
     panel = root.findall('./Array/add/Rect')
@@ -194,9 +194,12 @@ async def setup_ai_url(cfg: AiURL):
 
 
 @app_.get("/api/v1/v2v/metrics")
-async def provide_metrics(deviceid: str, channelid: str, refresh: bool = False):
+async def provide_metrics(deviceid: str, channelid: str):
     """C&M之M：接受监控端比如promethus的调用，反馈自己是否在线和反馈各种运行时信息"""
     item = {'version': '1.0.0'}
+    rest_proc_.log(deviceid)    # noqa
+    rest_proc_.log(channelid)   # noqa
+
     return item
 
 
@@ -302,11 +305,11 @@ def periodic():
     # 消耗掉多余的帧
     if current_video_stream_['url']:
         cap = current_video_stream_['videostream']
-        fps = cap.get(cv2.cv2.CAP_PROP_FPS) + 5
+        fps = cap.get(cv2.cv2.CAP_PROP_FPS) + 5 # noqa
         run = True
         while fps > 0 and run:
             mutex_.acquire()
-            run = cap.grab()
+            run = cap.grab()    # noqa
             mutex_.release()
             if not run:
                 rest_proc_.log('Catch up the nvr play speed.')  # noqa

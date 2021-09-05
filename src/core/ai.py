@@ -39,6 +39,42 @@ from utils import bus, comn, log
 from core.procworker import ProcWorker
 
 
+class UrlStatisticsHelper:
+    def __init__(self, criterion=100):
+        self.urls_ = []
+        self.criterion_ = criterion     # 连续几次（比如3）访问失败，就不再允许访问，直到发现请求持续超过（100）次，重新放行。
+
+    def add(self, url):
+        found = False
+        for it in self.urls_:
+            if it['url'] == url:
+                it['cnt'] += 1
+                found = True
+                break
+        if not found:
+            self.urls_.append({'url': url, 'cnt': 1})
+
+    def get_cnts(self, url):
+        ret = -1
+        for it in self.urls_:
+            if it['url'] == url:
+                ret = it['cnt']
+        return ret
+
+    def waitforrecover(self, url):
+        cnt = self.get_cnts(url)
+        if cnt < self.criterion_:
+            self.add(url)
+        else:
+            self.freeup(url)
+
+    def freeup(self, url):
+        for it in self.urls_:
+            if it['url'] == url:
+                it['cnt'] = 0   # 刑满释放
+                break
+
+
 class AiWorker(ProcWorker):
     @classmethod
     def plc_sub_image(cls, image_data, template):
@@ -68,6 +104,8 @@ class AiWorker(ProcWorker):
         # self.bus_topic_ = bus.EBUS_TOPIC_AI
         self.in_q_ = in_q
         self.out_q_ = out_q
+        # 出现调用连接失败等的url需要被记录，下次再收到这样的url要丢弃
+        self.badurls_ = UrlStatisticsHelper()
 
     def main_func(self, event=None, *args):
         """
@@ -94,25 +132,31 @@ class AiWorker(ProcWorker):
             rest = task['ai_service']
             template_in = task['area_of_interest']
 
-            buf = io.BytesIO()
+            if self.badurls_.get_cnts(rest) < 3:    # 事不过三。
+                buf = io.BytesIO()
+                template = None
+                if '/api/v1/ai/plc' in rest:
+                    sub_image, template = self.plc_sub_image(frame, template_in)
+                    plt.imsave(buf, sub_image, format='jpg', cmap=cm.gray)  # noqa
+                    cv2.imwrite('abc.jpg', sub_image)
+                else:
+                    plt.imsave(buf, pic['frame'], format='jpg')
+                image_data = buf.getvalue()
 
-            template = None
-            if '/api/v1/ai/plc' in rest:
-                sub_image, template = self.plc_sub_image(frame, template_in)
-                plt.imsave(buf, sub_image, format='jpg', cmap=cm.gray)  # noqa
-                cv2.imwrite('abc.jpg', sub_image)
+                files = {'files': (comn.replace_non_ascii(f'{fid}-{fps}'), image_data, 'image/jpg')}
+                payload = {'cfg_info': str(template), 'req_id': None}
+                self.log(f'in:{template_in}')
+                self.log(f'out:{template}--{rest}')
+                resp = requests.post(rest, files=files, data=payload, verify=False)
+                result = resp.content.decode('utf-8')
+                self.out_q_.put(resp.content)
+                self.log(result)
             else:
-                plt.imsave(buf, pic['frame'], format='jpg')
-            image_data = buf.getvalue()
+                self.badurls_.waitforrecover(rest)     # 并不真的去访问该rest，而是要等累计若干次以后再说。
 
-            files = {'files': (comn.replace_non_ascii(f'{fid}-{fps}'), image_data, 'image/jpg')}
-            payload = {'cfg_info': str(template), 'req_id': None}
-            self.log(template_in)
-            self.log(template)
-            resp = requests.post(rest, files=files, data=payload, verify=False)
-            result = resp.content.decode('utf-8')
-            self.out_q_.put(resp.content)
-            self.log(result)
+        except requests.exceptions.ConnectionError as err:
+            self.badurls_.add(rest)     # noqa
+            self.log(err, level=log.LOG_LVL_ERRO)
         except Exception as err:
             self.log(err, level=log.LOG_LVL_ERRO)
         finally:

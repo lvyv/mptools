@@ -118,8 +118,7 @@ class RtspWorker(ProcWorker):
                 comn.run_to_viewpoints(did, cid, presetid)
                 # 读取停留时间
                 duration = vp[presetid][0]['seconds']   # 对某个具体的预置点vp，子分类aoi停留时间都是一样的，随便取一个即可。
-                delta = 0
-                st = time()
+                st, delta = time(), 0
 
                 while duration > delta:
                     # 开始丢帧：如前面计算，当skip>0，比如fps/sample_rate=每都少帧一个抽样
@@ -132,29 +131,22 @@ class RtspWorker(ProcWorker):
                             break
                     sleep(inteval - time() % inteval)               # 动态调速，休眠采样间隔的时间
 
-                    # grab, frame = self.vs_.read()
-                    # frame = imutils.resize(frame, width=1200)     # size changed from 6MB to 2MB 不能缩小！
-                    # cv2.imshow('NVR realtime', frame)
-                    # key = cv2.waitKey(1) & 0xFF
-                    # if key == ord('q'):
-                    #     break
-
-                    # buf = io.BytesIO()
-                    # plt.imsave(buf, frame, format='jpg')
-                    # img = buf.getvalue()
-
                     # 为实现ai效率最大化，把图片中不同ai仪表识别任务分包，一个vp，不同类ai模型给不同的ai线程去处理
                     # 这样会导致同一图片重复放到工作队列中（只是aoi不同）。
                     tasks = vp[presetid]
                     for task in tasks:
                         if task['ai_service'] != '':
                             # 把图像数据和任务信息通过队列传给后续进程，fid和fps可以用来计算流开始以来的时间
-                            pic = {'task': task, 'fid': current_frame_pos, 'fps': self.fps_, 'frame': frame}
-                            self.out_q_.put(pic)
+                            if frame is not None:
+                                pic = {'task': task, 'fid': current_frame_pos, 'fps': self.fps_, 'frame': frame}
+                                self.out_q_.put(pic)
 
                     # 计算是否到设定的时间了
                     delta = time() - st                             # 消耗的时间（秒）
-
+                self.log(f'preset {presetid} spend time: {delta} and current frame pos: {current_frame_pos}')
+                # 如果读流发现错误，则需要重新连接流，不再往下发错误数据
+                if current_frame_pos is None:
+                    raise cv2.error
         except (cv2.error, AttributeError, UnboundLocalError) as err:
             self.log(f'cv2.error:({err}){self.args_["rtsp_url"]}', level=log.LOG_LVL_ERRO)
             self.vs_.release()
