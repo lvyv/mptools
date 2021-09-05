@@ -39,7 +39,7 @@
 			</Rect>
 		</add>
 		<add as="rounded">
-			<Roundrect href="https://127.0.0.1:7180/api/v1/ai/plc" label="PLC_">
+			<Roundrect href="https://90.90.90.90:7180/api/v1/ai/plc" label="PLC_">
 				<mxCell style="rounded" vertex="1">		
 					<mxGeometry as="geometry" height="40" width="80" />
 				</mxCell>
@@ -219,7 +219,7 @@
 			<add as="actor">
 				<add as="shape" value="actor" />
 				<add as="strokeColor" value="#FF0000" />
-				<add as="verticalAlign" value="bottom" />
+				
 			</add>
 			<add as="cloud">
 				<add as="shape" value="cloud" />

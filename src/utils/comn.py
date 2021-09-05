@@ -76,6 +76,18 @@ def get_url(devid, channelid):
         return resp
 
 
+def get_urls():
+    resp = None
+    try:
+        url = f'{baseurl_}/api/v1/ptz/streaminfo'
+        resp = requests.get(url, verify=False)
+        resp = json.loads(resp.content)['channels']
+    except KeyError:
+        pass
+    finally:
+        return resp
+
+
 def get_presets(devid, channelid):
     resp = None
     try:

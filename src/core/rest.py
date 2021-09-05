@@ -200,6 +200,17 @@ async def provide_metrics(deviceid: str, channelid: str, refresh: bool = False):
     return item
 
 
+# EIF5:REST PTZ CNTL 代理视频调度管理软件，返回当前所有摄像头的描述
+@app_.get("/api/v1/ptz/streaminfo")
+async def stream_info():
+    """获取所有的视频通道列表"""
+    item = {'version': '1.0.0', 'reply': 'pending.'}
+    streams = comn.get_urls()
+    item['streams'] = streams
+    item['reply'] = True
+    return item
+
+
 @app_.get("/api/v1/v2v/presets/{deviceid}/{channelid}")
 async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
     """获取该视频通道所有预置点，然后逐个预置点取图，保存为base64，加入流断处理，加入流缓存以及互斥锁保护全局缓存流"""
