@@ -124,11 +124,12 @@ def limit_decor(limit_time):
     return functions
 
 
-TIME_LIMITED: int = 6
+TIME_LIMITED: int = 30
 
 
 @limit_decor(TIME_LIMITED)
 def video_capture_open(rtsp):
+    print(f'rtsp AAAA{rtsp}')
     capture = cv2.VideoCapture(rtsp)
     return True, capture
 

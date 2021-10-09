@@ -139,7 +139,7 @@ class AiWorker(ProcWorker):
                     # self.log(f'in:{template_in}')
                     sub_image, template = self.plc_sub_image(frame, template_in)
                     plt.imsave(buf, sub_image, format='jpg', cmap=cm.gray)  # noqa
-                    cv2.imwrite('abc.jpg', sub_image)
+                    cv2.imwrite(f'{self.name}-plc-extract.jpg', sub_image)
                     self.log(f'plc:{template}--{rest}')
                     payload = {'cfg_info': str(template), 'req_id': None}
                 else:

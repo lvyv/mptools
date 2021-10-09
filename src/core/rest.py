@@ -223,7 +223,8 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
         if refresh:
             # 如果是刷新，这需要从nvr取图片保存到本地目录(nvr_samples目录下按设备号创建目录)
             url = comn.get_url(deviceid, channelid)
-            presets = comn.get_presets(deviceid, channelid)
+            if url:     # url都得不到，就不需要得presets了
+                presets = comn.get_presets(deviceid, channelid)
             # 如果是合法的设备号，并且配置有url则启动流，抓图，否则
             if url and presets:
                 # 如果缓存过，就直接用缓存的流
@@ -232,7 +233,7 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
                 # 如果没有缓存就开新的流，但原来缓存的流要关闭
                 else:
                     cap_status, vs = wpr.video_capture_open(url)     # cv2.VideoCapture(url)
-                    rest_proc_.log(f'cap_status, vs, {url}')  # noqa
+                    rest_proc_.log(f'wpr.video_capture_open: {cap_status}, {vs}, {url}')  # noqa
                     # opened = vs.isOpened()
                     if cap_status:
                         # 从未缓存
@@ -245,7 +246,6 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
                             current_video_stream_['url'] = url
                             current_video_stream_['videostream'] = vs   # noqa
                     else:
-                        rest_proc_.log(f'cap_status, vs, {url}')  # noqa
                         return item
                 # 产生系列预置点图片
                 try:
@@ -275,8 +275,9 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
                     current_video_stream_['url'] = None
                     current_video_stream_['videostream'] = None
             else:
-                item['reply'] = f'摄像头{deviceid}-{channelid}未设置流地址或预置点。'
-                return item
+                errmsg = f'摄像头{deviceid}-{channelid}查询流地址或预置点失败。'
+                item['reply'] = errmsg
+                raise ValueError(errmsg)
         onlyfiles = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}'
                      for f in listdir(target) if isfile(join(target, f)) and ('.png' not in f)]
         # 返回视频的原始分辨率，便于在前端界面了解和载入
@@ -293,6 +294,8 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
             item['desc'] = '没有生成可标注的图片。'
     except FileNotFoundError as fs:
         rest_proc_.log(f'{fs}')  # noqa
+    except ValueError as err:
+        rest_proc_.log(f'{err}', level=log.LOG_LVL_ERRO)  # noqa
     else:
         rest_proc_.log(f'{fs}', level=log.LOG_LVL_ERRO)  # noqa
     finally:

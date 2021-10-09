@@ -56,18 +56,22 @@ def run_to_viewpoints(devid, channelid, presetid):
 
 
 def get_url(devid, channelid):
-    resp = None
+    ret = result = None
     try:
+
         url = f'{baseurl_}/api/v1/ptz/streaminfo'
         resp = requests.get(url, verify=False)
         resp = json.loads(resp.content)['channels']
-        for item in resp:
-            if item['deviceid'] == devid and item['channelid'] == channelid:
-                resp = item['url']
+        result = list(filter(lambda r: r['deviceid'] == devid and r['channelid'] == channelid, resp))
+        if len(result) > 0:
+            ret = result[0].get('url')
+        # for item in resp:
+        #     if item['deviceid'] == devid and item['channelid'] == channelid:
+        #         resp = item['url']
     except KeyError:
         pass
     finally:
-        return resp
+        return ret
 
 
 def get_urls():
