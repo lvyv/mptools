@@ -198,13 +198,10 @@ class ConfigSet:
                     with open(f'{cls.path2cfg_}.bak', 'w', encoding='utf-8') as fp:
                         json.dump(oldcfg, fp, ensure_ascii=False)
                         fp.close()
-                    pass
                     # 其次保存新配置文件
                     with open(cls.path2cfg_, 'w', encoding='utf-8') as fp:
                         json.dump(cfgobj, fp, ensure_ascii=False)
                         fp.close()
-                    pass
-                pass
             elif 'view_ports' in params.keys():
                 # 根据params新设置过来的device_id和channel_id，更新cls.cfg_下面的各项值，或插入新项
                 exist = False
