@@ -177,7 +177,33 @@ class ConfigSet:
         """
         ret = params
         try:
-            if 'rtsp_urls' in params.keys():  # 全局配置直接就替换了，但是需要更新view_ports的格式
+            # 全局配置直接就替换了，但是因为所有的配置项都是字符类型，需要先json对象化
+            if 'rtsp_urls' in params.keys():
+                # rtsp_urls，mqtt_svrs，micro_service是对象，需要重建
+                o_rtsp_urls = json.loads(params['rtsp_urls'])
+                o_mqtt_svrs = json.loads(params['mqtt_svrs'])
+                o_micro_service = json.loads(params['micro_service'])
+                cfgobj = {'version': params['version'],
+                          'rtsp_urls': o_rtsp_urls,
+                          'mqtt_svrs': o_mqtt_svrs,
+                          'micro_service': o_micro_service,
+                          'nvr_samples': params['nvr_samples'],
+                          'ui_config_dir': params['ui_config_dir']}
+                # 全局更新的情况，目前不支持热更新，即当前正在调度识别的流地址（按上次配置的地址）不会改，要重启服务
+                if cls.path2cfg_:
+                    # 首先备份旧配置文件
+                    with open(cls.path2cfg_, 'r', encoding='UTF-8') as fp:
+                        oldcfg = json.load(fp)
+                        fp.close()
+                    with open(f'{cls.path2cfg_}.bak', 'w', encoding='utf-8') as fp:
+                        json.dump(oldcfg, fp, ensure_ascii=False)
+                        fp.close()
+                    pass
+                    # 其次保存新配置文件
+                    with open(cls.path2cfg_, 'w', encoding='utf-8') as fp:
+                        json.dump(cfgobj, fp, ensure_ascii=False)
+                        fp.close()
+                    pass
                 pass
             elif 'view_ports' in params.keys():
                 # 根据params新设置过来的device_id和channel_id，更新cls.cfg_下面的各项值，或插入新项

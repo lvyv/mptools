@@ -146,10 +146,11 @@ async def setup_single_channel(cfg: ViewPorts):
 
 class Channels(BaseModel):
     version: str = '1.0.0'
-    rtsp_urls: str = ''
-    mqtt_svrs: str = ''
-    micro_service: str = ''
+    rtsp_urls: str = '[]'
+    mqtt_svrs: str = '[]'
+    micro_service: str = '{}'
     nvr_samples: str = ''
+    ui_config_dir: str = ''
 
 
 @app_.post("/api/v1/v2v/setup_all_channels")
@@ -223,6 +224,7 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
         if refresh:
             # 如果是刷新，这需要从nvr取图片保存到本地目录(nvr_samples目录下按设备号创建目录)
             url = comn.get_url(deviceid, channelid)
+            presets = None
             if url:     # url都得不到，就不需要得presets了
                 presets = comn.get_presets(deviceid, channelid)
             # 如果是合法的设备号，并且配置有url则启动流，抓图，否则
