@@ -486,7 +486,9 @@ def fastapi_mainloop():
 
 
 def nvr_stream_func():
-    cap = cv2.VideoCapture('rtsp://127.0.0.1/live')
+    # rtspurl = 'rtsp://192.168.1.225:7554/plc'
+    rtspurl = 'rtsp://user:userpass@192.168.1.225:7554/person'
+    cap = cv2.VideoCapture(rtspurl)
     print(f'fps: {cap.get(cv2.cv2.CAP_PROP_FPS)}')
     opened = cap.isOpened()
     if opened:
@@ -612,11 +614,11 @@ class TestMain(unittest.TestCase):
         # main()
         # pub_sub_pools()
         # fastapi_mainloop()
-        # nvr_stream_func()
+        nvr_stream_func()
         # uploadfiles_withparams()
         # save_json()
         # test_url_statistics()
-        test_opencv_capture_timeout()
+        # test_opencv_capture_timeout()
 
 
 if __name__ == '__main__':

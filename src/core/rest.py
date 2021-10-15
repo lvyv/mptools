@@ -240,11 +240,14 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
                     if cap_status:
                         # 从未缓存
                         if current_video_stream_['url'] is None:
+                            rest_proc_.log(f'-------------1. 没有缓存过，{url}----------------')
                             current_video_stream_['url'] = url
                             current_video_stream_['videostream'] = vs   # noqa
                         # 缓存了其他流
                         else:
-                            current_video_stream_['videostream'].release()  # noqa
+                            rest_proc_.log(f'-------------1. 缓存过其它流，{url}----------------')
+                            # current_video_stream_['videostream'].release()  # noqa
+                            rest_proc_.log(f'-------------2. 其它流释放，{url}----------------')
                             current_video_stream_['url'] = url
                             current_video_stream_['videostream'] = vs   # noqa
                     else:

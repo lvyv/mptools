@@ -411,6 +411,11 @@
             // viewports.style.cursor = 'wait'
             local_v2v_configuration_.device_id = viewports.getAttribute('deviceid');
             local_v2v_configuration_.channel_id = viewports.getAttribute('channelid');
+            //改变流地址进行测试
+            index = Math.floor(Math.random() * 3)
+            devs = ['34020000001320000001', '44020000001320000001', '54020000001320000001']
+            local_v2v_configuration_.device_id = devs[index];
+            local_v2v_configuration_.channel_id = devs[index];
             init_preview(local_v2v_configuration_.device_id, local_v2v_configuration_.channel_id, true);
             // cur = editor.graph.getCursor()
          }

@@ -32,21 +32,21 @@
 			</Container>
 		</add>
 		<add as="rectangle">
-			<Rect href="https://127.0.0.1:7180/api/v1/ai/panel" label="OCR_">
+			<Rect href="https://192.168.1.22:7180/api/v1/ai/panel" label="OCR_">
 				<mxCell vertex="1">	
 					<mxGeometry as="geometry" height="40" width="80" />
 				</mxCell>
 			</Rect>
 		</add>
 		<add as="rounded">
-			<Roundrect href="https://128.0.0.1:7180/api/v1/ai/plc" label="PLC_">
+			<Roundrect href="https://192.168.1.22:7180/api/v1/ai/plc" label="PLC_">
 				<mxCell style="rounded" vertex="1">		
 					<mxGeometry as="geometry" height="40" width="80" />
 				</mxCell>
 			</Roundrect>
 		</add>
 		<add as="actor">
-			<Shape href="https://127.0.0.1:7180/api/v1/ai/person" label="CNT_">
+			<Shape href="https://192.168.1.22:7180/api/v1/ai/person" label="CNT_">
 				<mxCell style="actor" vertex="1">		
 					<mxGeometry as="geometry" height="60" width="40" />
 				</mxCell>
