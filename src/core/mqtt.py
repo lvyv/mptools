@@ -66,7 +66,7 @@ class MqttWorker(ProcWorker):
         # self.log('mqtt begin get data.')
         vec = self.in_q_.get()
         self.client_.publish(self.mqtt_topic_, vec, 1)
-        self.log(vec)
+        self.log(f'发送到mqtt服务器：{vec.decode("utf-8")}')
 
         return False
 

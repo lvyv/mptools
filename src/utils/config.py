@@ -78,6 +78,23 @@ class ConfigSet:
 
         ret = [int(geometry['_x']), int(geometry['_y']),
                int(geometry['_x']) + int(geometry['_width']), int(geometry['_y']) + int(geometry['_height'])]
+
+        # 如果是特殊的液位计，需要多边形内部的座标
+        try:
+            style = mxcell['mxCell']['_style']
+            # style: 'polygon;polyCoords=[[10,10],[50,10],[84.76307531380758,107.06191742071053],[10,90]];'
+            coords = style[style.find('polyCoords'):].split(';')[0][len('polyCoords') + 1:]
+            jso = json.loads(coords)
+            # jso is a list: [[10, 10], [50, 10], [84.76307531380758, 107.06191742071053], [10, 90]]
+            coordslist = []
+            for pt in jso:
+                coordslist.append(int(pt[0]) + ret[0])
+                coordslist.append(int(pt[1]) + ret[1])
+            ret = coordslist
+        except KeyError as err:
+            log.log(err, level=log.LOG_LVL_ERRO)
+        except json.decoder.JSONDecodeError as err:
+            log.log(err, level=log.LOG_LVL_ERRO)
         return ret
 
     @classmethod
@@ -106,6 +123,15 @@ class ConfigSet:
              },
              ...
         ]
+        目前支持的模型类型包括：
+        '人数':'person',
+        '频率':'PLC',
+        ----------------
+        '字符':'OCR',
+        '液位':'LLM'
+        '指针':'METER',
+        '开关':'SWITCH',
+        '指示灯':'IDL',
         """
 
         listvps = []
@@ -129,11 +155,10 @@ class ConfigSet:
                 # Oh,no, the format is different!
                 if type(categories_aois) is dict:
                     mxcell = categories_aois
-
                     li[key]['ai_service'] = mxcell['_href']  # 每个ai模型类别的ai_service微服务链接都一样，随便取一个
                     aoi_item = {
                         'name': mxcell['_label'],
-                        'type': '',
+                        'type': jk,
                         'score': None,
                         'pos': cls.geometry_fix(mxcell),
                         'value': None
@@ -141,11 +166,10 @@ class ConfigSet:
                     aoi_list.append(aoi_item)
                 elif type(categories_aois) is list:
                     for mxcell in categories_aois:
-
                         li[key]['ai_service'] = mxcell['_href']  # 每个ai模型类别的ai_service微服务链接都一样，随便取一个
                         aoi_item = {
                             'name': mxcell['_label'],
-                            'type': '',
+                            'type': jk,
                             'score': None,
                             'pos': cls.geometry_fix(mxcell),
                             'value': None

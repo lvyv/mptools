@@ -148,14 +148,23 @@ async def uploadfiles_with_params(files: List[UploadFile] = File(...), jsos: str
 @app.get("/api/v1/ptz/streaminfo")
 async def stream_info():
     """获取所有的视频通道列表"""
+    # item = {'version': '1.0.0',
+    #         'channels': [
+    #             {'deviceid': '34020000001320000001', 'channelid': '34020000001320000001', 'desc': '605房间前门',
+    #              'url': 'rtsp://user:userpass@192.168.1.225:7554/person'},
+    #             {'deviceid': '44020000001320000001', 'channelid': '44020000001320000001', 'desc': '605大厅',
+    #              'url': 'rtsp://user:userpass@192.168.1.225:7554/plc'},
+    #             {'deviceid': '54020000001320000001', 'channelid': '54020000001320000001', 'desc': '608停车区',
+    #              'url': 'rtsp://user:userpass@192.168.1.225:7554/panel'}
+    #         ]}
     item = {'version': '1.0.0',
             'channels': [
                 {'deviceid': '34020000001320000001', 'channelid': '34020000001320000001', 'desc': '605房间前门',
-                 'url': 'rtsp://user:userpass@192.168.1.225:7554/person'},
+                 'url': 'rtsp://127.0.0.1/live'},
                 {'deviceid': '44020000001320000001', 'channelid': '44020000001320000001', 'desc': '605大厅',
-                 'url': 'rtsp://user:userpass@192.168.1.225:7554/plc'},
+                 'url': 'rtsp://127.0.0.1/live'},
                 {'deviceid': '54020000001320000001', 'channelid': '54020000001320000001', 'desc': '608停车区',
-                 'url': 'rtsp://user:userpass@192.168.1.225:7554/panel'}
+                 'url': 'rtsp://127.0.0.1/live'}
             ]}
     return item
 

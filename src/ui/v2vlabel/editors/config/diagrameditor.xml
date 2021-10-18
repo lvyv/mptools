@@ -31,27 +31,58 @@
 				</mxCell>
 			</Container>
 		</add>
-		<add as="rectangle">
-			<Rect href="https://192.168.1.22:7180/api/v1/ai/panel" label="OCR_">
-				<mxCell vertex="1">	
-					<mxGeometry as="geometry" height="40" width="80" />
+
+		<add as="person">
+			<person href="https://127.0.0.1:7180/api/v1/ai/person" label="CNT_">
+				<mxCell style="actor" vertex="1">
+					<mxGeometry as="geometry" height="60" width="40" />
 				</mxCell>
-			</Rect>
+			</person>
 		</add>
-		<add as="rounded">
-			<Roundrect href="https://192.168.1.22:7180/api/v1/ai/plc" label="PLC_">
+		<add as="plc">
+			<PLC href="https://127.0.0.1:7180/api/v1/ai/plc" label="PLC_">
 				<mxCell style="rounded" vertex="1">		
 					<mxGeometry as="geometry" height="40" width="80" />
 				</mxCell>
-			</Roundrect>
+			</PLC>
 		</add>
-		<add as="actor">
-			<Shape href="https://192.168.1.22:7180/api/v1/ai/person" label="CNT_">
-				<mxCell style="actor" vertex="1">		
-					<mxGeometry as="geometry" height="60" width="40" />
+
+		<add as="ocr">
+			<OCR href="https://127.0.0.1:7180/api/v1/ai/panel" label="OCR_">
+				<mxCell vertex="1">
+					<mxGeometry as="geometry" height="40" width="80" />
 				</mxCell>
-			</Shape>
+			</OCR>
 		</add>
+		<add as="llm">
+			<LLM href="https://127.0.0.1:7180/api/v1/ai/panel" label="LLM_">
+				<mxCell style="polygon" vertex="1">
+					<mxGeometry as="geometry" height="100" width="60" />
+				</mxCell>
+			</LLM>
+		</add>
+		<add as="pointer">
+			<METER href="https://127.0.0.1:7180/api/v1/ai/panel" label="PT_">
+				<mxCell vertex="1">
+					<mxGeometry as="geometry" height="40" width="80" />
+				</mxCell>
+			</METER>
+		</add>
+		<add as="switch">
+			<SWITCH href="https://127.0.0.1:7180/api/v1/ai/panel" label="SW_">
+				<mxCell vertex="1">
+					<mxGeometry as="geometry" height="40" width="80" />
+				</mxCell>
+			</SWITCH>
+		</add>
+		<add as="indicator">
+			<IDL href="https://127.0.0.1:7180/api/v1/ai/panel" label="LED_">
+				<mxCell vertex="1">
+					<mxGeometry as="geometry" height="40" width="80" />
+				</mxCell>
+			</IDL>
+		</add>
+
 		<add as="text">
 			<Text href="" label="Text Here">
 				<mxCell style="text" vertex="1">	
@@ -73,7 +104,6 @@
 				</mxCell>
 			</Shape>
 		</add>
-
 		<add as="cloud">
 			<Shape href="" label="Shape">
 				<mxCell style="cloud" vertex="1">		
@@ -252,6 +282,14 @@
 				<add as="verticalAlign" value="middle" />
 				<add as="image" value="images/draw/mxlogo.jpg" />
 			</add>
+			<add as="polygon">
+				<add as="shape" value="casicloud.polygon" />
+				<add as="perimeter" value="rectanglePerimeter" />
+				<add as="fontSize" value="10" />
+				<add as="align" value="center" />
+				<add as="verticalAlign" value="middle" />
+				<add as="polyCoords" value="[[10,10],[50,10],[50,90],[10, 90]]" />
+			</add>
 		</mxStylesheet>
 		<mxGraphModel as="model">
 			<add as="valueForCellChanged">
@@ -301,12 +339,15 @@
 		
 		<br /><br />
 		
-		<add as="&#20154;&#25968;&#32479;&#35745;" icon="images/actor.gif" style="actor" template="actor" />
-		
-		<add as="&#20202;&#34920;&#21028;&#35835;" icon="images/rectangle.gif" template="rectangle" />
-		<add as="&#25351;&#31034;&#28783;&#39057;&#29575;" icon="images/rounded.gif" template="rounded" />
+		<add as="&#20154;&#25968;&#32479;&#35745;" icon="images/actor.gif" style="actor" template="person" />
+		<add as="led&#39057;&#29575;" icon="images/rounded.gif" template="plc" />
 		<br /><br />
-		<add as="Ellipse&#25193;&#23637;&#27169;&#22411;" icon="images/ellipse.gif" style="ellipse" template="shape" />
-		
+		<add as="&#20202;&#34920;&#23383;&#31526;" icon="images/rectangle.gif" template="ocr" />
+		<add as="&#28082;&#20301;&#35745;" icon="images/rhombus.gif" style="polygon" template="llm" />
+
+		<add as="&#25351;&#38024;&#24335;" icon="images/arrow.gif" template="pointer" />
+		<add as="&#24320;&#20851;" icon="images/doubleellipse.gif" template="switch" />
+		<add as="&#25351;&#31034;&#28783;" icon="images/hexagon.gif" template="indicator" />
+
 	</mxDefaultToolbar>
 </mxEditor>

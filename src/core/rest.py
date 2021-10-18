@@ -164,9 +164,13 @@ async def setup_all_channels(cfg: Channels):
 
 
 class AiURL(BaseModel):
-    plc: str = 'https://127.0.0.1:7180/api/v1/ai/plc'
-    panel: str = 'https://127.0.0.1:7180/api/v1/ai/panel'
     person: str = 'https://127.0.0.1:7180/api/v1/ai/person'
+    plc: str = 'https://127.0.0.1:7180/api/v1/ai/plc'
+    ocr: str = 'https://127.0.0.1:7180/api/v1/ai/panel'
+    llm: str = 'https://127.0.0.1:7180/api/v1/ai/panel'
+    pointer: str = 'https://127.0.0.1:7180/api/v1/ai/panel'
+    switch: str = 'https://127.0.0.1:7180/api/v1/ai/panel'
+    indicator: str = 'https://127.0.0.1:7180/api/v1/ai/panel'
 
 
 @app_.post("/api/v1/v2v/setup_ai_url")
@@ -177,17 +181,33 @@ async def setup_ai_url(cfg: AiURL):
     tree = xmlET.parse(ui_config_tpl_)
     root = tree.getroot()
 
-    panel = root.findall('./Array/add/Rect')
-    if len(panel) == 1:
-        panel[0].attrib['href'] = cfg.panel
+    person = root.findall('./Array/add/person')
+    if len(person) == 1:
+        person[0].attrib['href'] = cfg.person
 
-    plc = root.findall('./Array/add/Roundrect')
+    plc = root.findall('./Array/add/PLC')
     if len(plc) == 1:
         plc[0].attrib['href'] = cfg.plc
 
-    person = root.findall('./Array/add[@as="actor"]/Shape')
-    if len(person) == 1:
-        person[0].attrib['href'] = cfg.person
+    ocr = root.findall('./Array/add/OCR')
+    if len(ocr) == 1:
+        ocr[0].attrib['href'] = cfg.ocr
+
+    llm = root.findall('./Array/add/LLM')
+    if len(llm) == 1:
+        llm[0].attrib['href'] = cfg.llm
+
+    pointer = root.findall('./Array/add/METER')
+    if len(pointer) == 1:
+        pointer[0].attrib['href'] = cfg.pointer
+
+    switch = root.findall('./Array/add/SWITCH')
+    if len(switch) == 1:
+        switch[0].attrib['href'] = cfg.switch
+
+    indicator = root.findall('./Array/add/IDL')
+    if len(indicator) == 1:
+        indicator[0].attrib['href'] = cfg.indicator
 
     tree.write(ai_url_config_file_)
     item['reply'] = True
