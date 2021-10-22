@@ -124,7 +124,7 @@ def limit_decor(limit_time):
     return functions
 
 
-TIME_LIMITED: int = 30
+TIME_LIMITED: int = 10
 
 
 @limit_decor(TIME_LIMITED)
