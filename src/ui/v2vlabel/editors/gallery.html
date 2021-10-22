@@ -130,13 +130,15 @@
       }
       // 本函数实现页面初始化的时候，更新预置点的thumbnail栏。
       function init_preview(devid, channelid, refresh) {
+         
          let onload = function (req) {
             let sc = req.getStatus()
             if (sc == 200) {
+               document.body.classList.remove("loading");
                let container = document.querySelector("#viewports");
                // var matches = container.querySelectorAll(".preview_img");
                let ps = JSON.parse(req.getText());
-               let iii;
+               // let iii;
                for (idx in ps.presets) {
                   url = ps.presets[idx];
                   items = url.split('/');
@@ -158,6 +160,7 @@
          }
          let url = `/api/v1/v2v/presets/${devid}/${channelid}?refresh=${refresh}`;
          mxUtils.get(url, onload, onerror);
+         document.body.classList.add("loading");
       };
 
       // Program starts here. The document.onLoad executes the
@@ -570,6 +573,8 @@
          <!-- /page content -->
       </div>
    </div>
+   <div class="waiting"><!-- Place at bottom of page --></div>
+   
 </body>
 
 </html>
