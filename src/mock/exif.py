@@ -169,6 +169,7 @@ async def stream_info():
     return item
 
 
+# 不提供
 @app.get("/api/v1/ptz/streaminfo/{desc}")
 async def stream_info_by_desc(desc: str):
     """按照对用户有意义的名称，获取视频通道列表"""
