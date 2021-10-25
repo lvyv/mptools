@@ -29,11 +29,10 @@ Event bus of all processes.
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
 
-# from pynng import Bus0, Timeout
 import zmq
 import json
-import utils.log
-
+import functools
+from utils import log
 # 特殊的通讯主题
 
 EBUS_TOPIC_RTSP = 'rtsp'
@@ -60,6 +59,7 @@ class IEventBusMixin:
     center_ = None          # 单例req-reply服务器
     handlers_ = {}          # 远程调用的处理函数注册容器表
     broadcaster_ = None     # 单例pub-sub服务器
+    log = functools.partial(log.logger, f'{"IEventBusMixin"}')
 
     @classmethod
     def register(cls, method, callback):
@@ -162,7 +162,7 @@ class IEventBusMixin:
             cmdstr = json.dumps(msg)
             bus.send_string(f'{topic}:{cmdstr}')
         except TypeError:
-            self.log('Json format', level=utils.log.LOG_LVL_ERRO)        # noqa
+            cls.log('Json format', level=log.LOG_LVL_ERRO)        # noqa
 
     def subscribe(self):
         """
@@ -185,7 +185,7 @@ class IEventBusMixin:
             idx = msg.index(':') + 1
             ret = json.loads(msg[idx:])
         except json.decoder.JSONDecodeError:
-            self.log('Json format', level=utils.log.LOG_LVL_ERRO)   # noqa
+            IEventBusMixin.log('Json format', level=log.LOG_LVL_ERRO)   # noqa
         finally:
             return ret
 
@@ -208,7 +208,7 @@ class IEventBusMixin:
             msg = bus.recv().decode('utf-8')
             ret = json.loads(msg)
         except json.decoder.JSONDecodeError:
-            self.log('Json format', level=utils.log.LOG_LVL_ERRO)   # noqa
+            IEventBusMixin.log('Json format', level=log.LOG_LVL_ERRO)   # noqa
         finally:
             return ret
 
@@ -233,5 +233,4 @@ class IEventBusMixin:
             cmdstr = json.dumps({'method': method, 'params': params})  # 不需要encode为utf-8，编辑器设置缺省就是utf-8编码。
             bus.send_string(cmdstr)
         except TypeError:
-            self.log('Json format', level=utils.log.LOG_LVL_ERRO)   # noqa
-
+            IEventBusMixin.log('Json format', level=log.LOG_LVL_ERRO)
