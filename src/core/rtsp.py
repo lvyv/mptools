@@ -114,7 +114,7 @@ class RtspWorker(ProcWorker):
             # 计算需要丢弃的帧数
             skip = self.fps_ / sar
             for vp in vps:
-                presetid = list(vp.keys())[0]   # 目前配置文件格式规定：只有1个preset1的主键
+                presetid = list(vp.keys())[0]   # 目前配置文件格式规定：每个vp对象只有1个presetX的主键，value是一个json对象
                 # 让摄像头就位
                 comn.run_to_viewpoints(did, cid, presetid)
                 # 读取停留时间

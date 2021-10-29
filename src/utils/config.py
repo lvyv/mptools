@@ -205,14 +205,26 @@ class ConfigSet:
             if 'rtsp_urls' in params.keys():
                 # rtsp_urls，mqtt_svrs，micro_service是对象，需要重建
                 o_rtsp_urls = json.loads(params['rtsp_urls'])
+                k_rtsp_urls = []
+                for rtspobj in o_rtsp_urls:
+                    obj = {
+                        'device_id': rtspobj['device_id'],
+                        'channel_id': rtspobj['channel_id'],
+                        'rtsp_url': rtspobj['rtsp_url'],
+                        'name': rtspobj['name'],
+                        'sample_rate': rtspobj['sample_rate'],
+                        'view_ports': cls.ui2ai(rtspobj['view_ports'])
+                    }
+                    k_rtsp_urls.append(obj)
                 o_mqtt_svrs = json.loads(params['mqtt_svrs'])
                 o_micro_service = json.loads(params['micro_service'])
                 cfgobj = {'version': params['version'],
-                          'rtsp_urls': o_rtsp_urls,
+                          'rtsp_urls': k_rtsp_urls,
                           'mqtt_svrs': o_mqtt_svrs,
                           'micro_service': o_micro_service,
                           'nvr_samples': params['nvr_samples'],
                           'ui_config_dir': params['ui_config_dir']}
+
                 # 全局更新的情况，目前不支持热更新，即当前正在调度识别的流地址（按上次配置的地址）不会改，要重启服务
                 if cls.path2cfg_:
                     # 首先备份旧配置文件
