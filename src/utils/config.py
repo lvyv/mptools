@@ -98,6 +98,41 @@ class ConfigSet:
         return ret
 
     @classmethod
+    def validate_cfg(cls, config):
+        """
+        在全通道配置下发保存到配置文件之前，最后校验一次合法性，并合并优化调用方式（同一个ai service，不要多次调用）。
+        这个函数后续需要和整个配置模块一起优化重构。
+        :param config:
+        :return:
+        """
+        channels = config['rtsp_urls']
+
+        for ch in channels:
+            for vp in ch['view_ports']:
+                ai_set = set()  # 在某个预置点，收集该预置点下配置的所有ai地址，以合并重复项
+                presetid = list(vp.keys())[0]
+                aois = vp[presetid]
+                for aoi in aois:
+                    ai_set.add(aoi['ai_service'])
+
+                merged_aois = []
+                for ai in ai_set:
+                    new_aoi = {
+                        'ai_service': ai,
+                        'area_of_interest': []
+                    }
+
+                    for oldaoi in aois:
+                        if oldaoi['ai_service'] == ai:
+                            new_aoi['area_of_interest'] = new_aoi['area_of_interest'] + oldaoi['area_of_interest']
+                            new_aoi['seconds'] = oldaoi['seconds']
+                    merged_aois.append(new_aoi)
+
+                vp[presetid] = merged_aois
+            pass
+        return config
+
+    @classmethod
     def ui2ai(cls, vps):
         """
         输入ui配置层发来的dict:{'preset1':{...}, 'preset2': {...}, ...}
@@ -236,6 +271,7 @@ class ConfigSet:
                         fp.close()
                     # 其次保存新配置文件
                     with open(cls.path2cfg_, 'w', encoding='utf-8') as fp:
+                        cfgobj = cls.validate_cfg(cfgobj)
                         json.dump(cfgobj, fp, ensure_ascii=False)
                         fp.close()
             elif 'view_ports' in params.keys():
