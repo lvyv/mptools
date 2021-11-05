@@ -92,9 +92,9 @@ class ConfigSet:
                 coordslist.append(int(pt[1]) + ret[1])
             ret = coordslist
         except KeyError as err:
-            log.log(err, level=log.LOG_LVL_ERRO)
+            log.log(f'[{__file__}]{err}', level=log.LOG_LVL_WARN)
         except json.decoder.JSONDecodeError as err:
-            log.log(err, level=log.LOG_LVL_ERRO)
+            log.log(f'[{__file__}]{err}', level=log.LOG_LVL_WARN)
         return ret
 
     @classmethod
@@ -303,7 +303,7 @@ class ConfigSet:
             else:
                 ret = None
         except KeyError as err:
-            log.log(err, level=log.LOG_LVL_ERRO)
+            log.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
             ret = None
         finally:
             return ret

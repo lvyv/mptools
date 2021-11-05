@@ -320,9 +320,9 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
     except FileNotFoundError as fs:
         rest_proc_.log(f'{fs}')  # noqa
     except ValueError as err:
-        rest_proc_.log(f'{err}', level=log.LOG_LVL_ERRO)  # noqa
+        rest_proc_.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)  # noqa
     else:
-        rest_proc_.log(f'{fs}', level=log.LOG_LVL_ERRO)  # noqa
+        rest_proc_.log(f'[{__file__}]{fs}', level=log.LOG_LVL_ERRO)  # noqa
     finally:
         # current_video_stream_['consume_lock'] = True  # 允许定时器再同时消费视频流（grab）。
         return item

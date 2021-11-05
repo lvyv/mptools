@@ -161,8 +161,8 @@ class IEventBusMixin:
             bus = cls.broadcaster_         # noqa
             cmdstr = json.dumps(msg)
             bus.send_string(f'{topic}:{cmdstr}')
-        except TypeError:
-            cls.log('Json format', level=log.LOG_LVL_ERRO)        # noqa
+        except TypeError as err:
+            cls.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)        # noqa
 
     def subscribe(self):
         """
@@ -184,8 +184,8 @@ class IEventBusMixin:
             msg = bus.recv_string(flags=zmq.NOBLOCK)
             idx = msg.index(':') + 1
             ret = json.loads(msg[idx:])
-        except json.decoder.JSONDecodeError:
-            IEventBusMixin.log('Json format', level=log.LOG_LVL_ERRO)   # noqa
+        except json.decoder.JSONDecodeError as err:
+            IEventBusMixin.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)   # noqa
         finally:
             return ret
 
@@ -207,8 +207,8 @@ class IEventBusMixin:
             bus = self.beeper_              # noqa
             msg = bus.recv().decode('utf-8')
             ret = json.loads(msg)
-        except json.decoder.JSONDecodeError:
-            IEventBusMixin.log('Json format', level=log.LOG_LVL_ERRO)   # noqa
+        except json.decoder.JSONDecodeError as err:
+            IEventBusMixin.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)   # noqa
         finally:
             return ret
 
@@ -232,5 +232,5 @@ class IEventBusMixin:
             bus = self.beeper_          # noqa
             cmdstr = json.dumps({'method': method, 'params': params})  # 不需要encode为utf-8，编辑器设置缺省就是utf-8编码。
             bus.send_string(cmdstr)
-        except TypeError:
-            IEventBusMixin.log('Json format', level=log.LOG_LVL_ERRO)
+        except TypeError as err:
+            IEventBusMixin.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)

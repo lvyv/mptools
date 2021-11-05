@@ -149,16 +149,16 @@ class RtspWorker(ProcWorker):
                 if current_frame_pos is None:
                     raise cv2.error
         except (cv2.error, AttributeError, UnboundLocalError) as err:
-            self.log(f'cv2.error:({err}){self.args_["rtsp_url"]}', level=log.LOG_LVL_ERRO)
+            self.log(f'[{__file__}]cv2.error:({err}){self.args_["rtsp_url"]}', level=log.LOG_LVL_ERRO)
             self.vs_.release()
             self.startup()
         # except UnboundLocalError as err:
         #     self.log(f'{err}', level=log.LOG_LVL_ERRO)
         except TypeError as err:
             self.log('type error')
-            self.log(err, level=log.LOG_LVL_ERRO)
+            self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
         except Exception as err:
-            self.log(f'Unkown error.{err}', level=log.LOG_LVL_ERRO)
+            self.log(f'[{__file__}]Unkown error.{err}', level=log.LOG_LVL_ERRO)
         # else:
         #     self.log(f'normal execution.', level=log.LOG_LVL_ERRO)
         finally:

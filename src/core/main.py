@@ -240,7 +240,7 @@ class MainContext(bus.IEventBusMixin):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type:
-            self.log(f"Exception: {exc_val}", level=log.LOG_LVL_ERRO, exc_info=(exc_type, exc_val, exc_tb))
+            self.log(f'[{__file__}]{exc_val}', level=log.LOG_LVL_ERRO, exc_info=(exc_type, exc_val, exc_tb))
         # -- Don't eat exceptions that reach here.
         return not exc_type
 
@@ -308,8 +308,8 @@ class MainContext(bus.IEventBusMixin):
                 mqtt = cfg['mqtt_svrs'][0]
                 self.switchon_procs('MQTT', cnt=num,
                                     mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'], mqtt_topic=mqtt['mqtt_tp'])
-        except KeyError as ke:
-            self.log(f'配置文件格式错误：{ke}', level=log.LOG_LVL_ERRO)
+        except KeyError as err:
+            self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
 
     def stop_procs(self):
         msg = bus.EBUS_SPECIAL_MSG_STOP
@@ -325,18 +325,18 @@ class MainContext(bus.IEventBusMixin):
             loop = True
             while loop:
                 loop = MainContext.rpc_service()  # rpc远程调用服务启动，阻塞等待外部事件出发状态改变
-        except KeyboardInterrupt:
-            self.log("Caught KeyboardInterrupt, terminating workers", level=log.LOG_LVL_ERRO)
+        except KeyboardInterrupt as err:
+            self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
             self.factory_.teminate_rest()
-            self.log('rest process exit...')
+            # self.log('rest process exit...')
             self.factory_.terminate()
-            self.log('pools of rtsp/ai/mqtt exit...')
+            # self.log('pools of rtsp/ai/mqtt exit...')
         else:
-            self.log("Normal termination")
+            self.log(f'[{__file__}] Normal termination...')
             self.factory_.close()
             self.factory_.teminate_rest()
-            self.log('pools of rtsp/ai/mqtt exit...')
+            # self.log('pools of rtsp/ai/mqtt exit...')
         finally:
-            self.log('pools of rtsp/ai/mqtt close...')
+            self.log(f'[{__file__}] pools of rtsp/ai/mqtt close...')
             self.factory_.close()
             self.factory_.join()

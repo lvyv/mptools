@@ -85,9 +85,9 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
                 if evt == bus.EBUS_SPECIAL_MSG_STOP:
                     break
                 self.break_out_ = self.main_func(evt)
-            self.log("Leaving main_loop.")
+            self.log('Leaving main_loop.')
         except KeyboardInterrupt:
-            self.log("----Caught KeyboardInterrupt----", level=log.LOG_LVL_ERRO)
+            self.log(f'[{__file__}]----Caught KeyboardInterrupt----', level=log.LOG_LVL_ERRO)
             self.beeper_.disconnect()
             self.beeper_.close()
             self.subscriber_.disconnect()

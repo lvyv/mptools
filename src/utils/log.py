@@ -35,7 +35,9 @@ import os
 
 LOG_LVL_INFO = logging.INFO
 LOG_LVL_DBG = logging.DEBUG
+LOG_LVL_WARN = logging.WARNING
 LOG_LVL_ERRO = logging.ERROR
+
 
 log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 lg = logging.getLogger('v2v')
@@ -52,7 +54,7 @@ def logger(name, msg, level=LOG_LVL_INFO, exc_info=None):
     elapsed = time.monotonic() - start_time
     hours = int(elapsed // 60)
     seconds = elapsed - (hours * 60)
-    lg.log(level, f'{hours:3}:{seconds:06.3f} {name:20} {msg}', exc_info=exc_info)
+    lg.log(level, f'{hours:3}:{seconds:06.3f} {name:10} {msg}', exc_info=exc_info)
 
 
 def log(msg, level=LOG_LVL_INFO):

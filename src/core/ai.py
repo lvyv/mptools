@@ -159,8 +159,8 @@ class AiWorker(ProcWorker):
 
         except requests.exceptions.ConnectionError as err:
             self.badurls_.add(rest)     # noqa
-            self.log(err, level=log.LOG_LVL_ERRO)
+            self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
         except Exception as err:
-            self.log(err, level=log.LOG_LVL_ERRO)
+            self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
         finally:
             return False
