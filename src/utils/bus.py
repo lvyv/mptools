@@ -119,7 +119,7 @@ class IEventBusMixin:
             else:
                 return True
         else:
-            print(f'----error callback_xxx return values:{ret}')
+            cls.log(f'----error callback_xxx return values:{ret}')
             return True
 
     @classmethod

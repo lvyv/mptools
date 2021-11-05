@@ -35,6 +35,7 @@ import os
 import cv2
 import time
 import threading
+from utils import log
 
 
 # -- Process Wrapper
@@ -46,6 +47,8 @@ def daemon_wrapper(proc_worker_class, name, **kwargs):
         ret = proc_worker.run()
     except KeyboardInterrupt:
         pass
+    except RuntimeError as err:
+        log.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
     return ret
 
 
@@ -68,6 +71,8 @@ def proc_worker_wrapper(proc_worker_class, name, in_q=None, out_q=None, dicts=No
         ret = proc_worker.run()
     except KeyboardInterrupt:
         pass
+    except RuntimeError as err:
+        log.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
     return ret
 
 

@@ -30,8 +30,11 @@ Publish recognized results to iot gateway.
 # License: Apache Licence 2.0
 
 import paho.mqtt.client as mqtt_client
-from utils import bus
+import json
+from utils import bus, log
 from core.procworker import ProcWorker
+from utils.tracing import AdaptorTracingUtility
+from opentracing import global_tracer
 
 
 class MqttWorker(ProcWorker):
@@ -53,20 +56,47 @@ class MqttWorker(ProcWorker):
                 self.mqtt_topic_ = value
             elif key == 'fsvr_url':
                 self.fsvr_url_ = value
+            elif key == 'jaeger':
+                self.jaeger_ = value
+
+        # cfg = self.call_rpc(bus.CB_GET_CFG, {})                               # 进程创建的时候传入配置参数，不需要实时获取
+        if self.jaeger_:
+            if self.jaeger_['enable']:
+                # init opentracing jaeger client
+                aip = self.jaeger_['agent_ip']
+                apt = self.jaeger_['agent_port']
+                AdaptorTracingUtility.init_tracer(name, agentip=aip, agentport=apt)
+                # 缓存tracer便于后面使用
+                self.tracer_ = global_tracer()
+
         self.client_ = None
 
     def startup(self):
-        self.client_ = mqtt_client.Client()
-        self.client_.username_pw_set(self.mqtt_cid_)
-        self.client_.connect(self.mqtt_host_, self.mqtt_port_)
-        self.client_.loop_start()
+        try:
+            self.client_ = mqtt_client.Client()
+            self.client_.username_pw_set(self.mqtt_cid_)
+            self.client_.connect(self.mqtt_host_, self.mqtt_port_)
+            self.client_.loop_start()
+        except Exception as err:
+            self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+            raise RuntimeError(f'Cannot connect to mqtt svr:{self.mqtt_host_}:{self.mqtt_port_}')
 
     def main_func(self, event=None, *args):
         # 全速
         # self.log('mqtt begin get data.')
         vec = self.in_q_.get()
-        self.client_.publish(self.mqtt_topic_, vec, 1)
-        self.log(f'发送到mqtt服务器：{vec.decode("utf-8")}')
+
+        payload = json.loads(str(vec.decode('utf-8')))
+        data = {'payload': payload}
+
+        if 'tracer_' in dir(self):    # 如果配置项有jaeger，将记录
+            with self.tracer_.start_active_span('v2v_mqtt_publish_msg') as scope:       # 带内数据插入trace id
+                scope.span.set_tag('originalMsg', vec.decode('utf-8'))
+                span = self.tracer_.active_span
+                AdaptorTracingUtility.inject_span_ctx(self.tracer_, span, data)
+
+        self.client_.publish(self.mqtt_topic_, json.dumps(data), 1)
+        self.log(f'发送到mqtt服务器：{data}')
 
         return False
 

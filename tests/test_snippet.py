@@ -31,18 +31,19 @@ unit test module
 from __future__ import print_function
 import unittest
 
-import os
-import signal
+# import os
+# import signal
+# from random import randrange
 from multiprocessing import Pool
 from os import listdir
 from os.path import isfile, join
 from time import time, sleep
-from random import randrange
-from utils import bus, comn, config, wrapper as wpr
-from utils import log
-from core.procworker import ProcWorker
 
-import sys
+from utils import wrapper as wpr
+from utils import log
+# from core.procworker import ProcWorker
+
+# import sys
 import json
 import zmq
 import random
@@ -50,7 +51,7 @@ import requests
 import cv2
 import io
 import imutils
-import base64
+# import base64
 import multiprocessing
 import os
 import signal
@@ -58,13 +59,16 @@ import time
 from imutils.video import VideoStream
 
 from matplotlib import pyplot as plt
-import matplotlib
+# import matplotlib
 import numpy as np
 
 # ----fastapi-----
 from fastapi import FastAPI, File, UploadFile
 from fastapi_utils.tasks import repeat_every
 import uvicorn
+import logging
+from jaeger_client import Config
+from opentracing import set_global_tracer, Format
 
 app = FastAPI()
 
@@ -94,6 +98,7 @@ async def create_upload_file(upfile: UploadFile = File(...)):
     # outfile.close()
     ret = call_aimeter(contents)
     return ret
+
 
 # ----pool-----
 
@@ -198,8 +203,9 @@ def uploadfiles_withparams():
     b.seek(0)
     files = [('files', ('iobytes.png', b))]
     payload = {'jsos': '{"key3":1, "key2":4}'}
-    ret = requests.post(rest, files=files, data=payload, verify=False)
+    requests.post(rest, files=files, data=payload, verify=False)
     b.close()
+
 
 # ----zmq-----
 
@@ -223,7 +229,7 @@ def svr(name, ts):
         sleep(0.5)
         print(f'begin sending reply...')
         #  Send reply back to client
-        socket.send_string(f"{message}, World")     # noqa
+        socket.send_string(f"{message}, World")  # noqa
         print(f'send.')
 
 
@@ -238,7 +244,7 @@ def cli(name, ts):
     #  Do 10 requests, waiting each time for a response
     for request in range(10):
         print(f"{name}, Sending request {request} ...")
-        socket.send_string(f"send Hello({request}) ")   # noqa
+        socket.send_string(f"send Hello({request}) ")  # noqa
         # socket.send_string(f"send hello twice")
         #  Get the reply.
         message = socket.recv()
@@ -246,12 +252,13 @@ def cli(name, ts):
 
 
 def pools():
+    p = None
     try:
         # cs = center()
         # sleep(1)
         # bbp = beeper()
-        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
         p = Pool(2)
+        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
         signal.signal(signal.SIGINT, original_sigint_handler)
 
         p.apply_async(svr, (f'Center', random.randint(1, 3)))
@@ -263,10 +270,9 @@ def pools():
     except KeyboardInterrupt:
         print("Caught KeyboardInterrupt, terminating workers")
         p.terminate()
-
-    else:
-        p.close()
-        p.join()
+    # else:
+    #     p.close()
+    #     p.join()
 
 
 def pub(name, ts):
@@ -281,7 +287,7 @@ def pub(name, ts):
             sleep(0.1)
             msg = f"中 国 {cnt} 中 {cnt}"
             print(msg)
-            socket.send_string(msg)     # noqa
+            socket.send_string(msg)  # noqa
             cnt += 1
         while True:
             pass
@@ -303,10 +309,11 @@ def sub(name, ts):
         socket.setsockopt_string(zmq.SUBSCRIBE, strfilter)  # noqa
 
         while True:
-            st = socket.recv_string()   # noqa
+            st = socket.recv_string()  # noqa
             print(f'recv: {st}')
     except KeyboardInterrupt:
         print("-----------sub--------Caught KeyboardInterrupt, terminating workers-----------------")
+
 
 # def pub11(name, delay):
 #     try:
@@ -332,6 +339,7 @@ def pub_sub_pools():
         res1 = p.apply_async(pub, (f'pub', 3))
         res2 = p.apply_async(sub, (f'sub1', 3))
         res3 = p.apply_async(sub, (f'sub2', 3))
+        logging.info(f'{res1}, {res2}, {res3}')
         # res1.get(60)
         # res2.get(60)
         # res3.get(60)
@@ -342,9 +350,9 @@ def pub_sub_pools():
     except KeyboardInterrupt:
         print('ctrl+C<<<')
         p.terminate()
-    else:
-        p.close()
-        print("Normal termination")
+    # else:
+    #     p.close()
+    #     print("Normal termination")
     p.close()
     p.join()
 
@@ -403,7 +411,7 @@ def keyboard_interrupt():
 
 def run_worker(name, delay):
     try:
-        print("In a worker process", os.getpid())
+        print(f'In a worker process- {name}', os.getpid())
         time.sleep(delay)
     except KeyboardInterrupt:
         print("-------------------Caught KeyboardInterrupt, terminating workers-----------------")
@@ -418,7 +426,7 @@ def main():
     pool = multiprocessing.Pool(2)
     # signal.signal(signal.SIGINT, original_sigint_handler)
     try:
-        print("Starting 2 jobs of 5 seconds each")
+        print(f'{vec_q_}, Starting 2 jobs of 5 seconds each')
         res = pool.starmap_async(run_worker, [('a', 15), ('b', 16)])
         print("Waiting for results")
 
@@ -432,6 +440,7 @@ def main():
         pool.close()
     pool.join()
 
+
 # --- test ctrl+c --- #
 
 
@@ -444,31 +453,32 @@ child_process_cli_ = None
 def periodic():
     """周期性任务，用于读取系统状态和实现探针程序数据来源的提取"""
     if child_process_cli_:
-        child_process_cli_.send_string('hello---')
-        print(child_process_cli_.recv())
+        child_process_cli_.send_string('hello---')  # noqa
+        print(child_process_cli_.recv())            # noqa
 
 
 def run_fastapi(name):
     global child_process_cli_
     context = zmq.Context()
     #  Socket to talk to server
-    print("Connecting to hello world server...")
+    print(f'{name} - Connecting to hello world server...')
     socket = context.socket(zmq.REQ)
     socket.connect(ipc_address_)
     child_process_cli_ = socket
-    uvicorn.run(app, host="0.0.0.0", port=21800)
+    uvicorn.run('test_snippet:app', host="0.0.0.0", port=21800)
     print('going to exit...')
-    socket.send_string('exit...')
+    socket.send_string('exit...')       # noqa
 
 
 def fastapi_main():
-    dp = multiprocessing.Process(target=run_fastapi, args=('fastapi', ))
+    dp = multiprocessing.Process(target=run_fastapi, args=('fastapi',))
     dp.daemon = True
     dp.start()
     return dp
 
 
 def fastapi_mainloop():
+    dp = None
     try:
         context = zmq.Context()
         socket = context.socket(zmq.REP)
@@ -477,7 +487,7 @@ def fastapi_mainloop():
         while True:
             msg = socket.recv()
             print(f'main:{msg}')
-            socket.send_string('back')
+            socket.send_string('back')  # noqa
     except KeyboardInterrupt:
         print('----KeyboardInterrupt----')
         dp.terminate()
@@ -496,6 +506,7 @@ def nvr_stream_func():
             try:
                 ret, frame = cap.read()
                 height, width, channels = frame.shape
+                logging.info(f'{height},{width}')
                 cv2.imshow('frame', frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
@@ -526,7 +537,7 @@ def save_json():
 class UrlStatisticsHelper:
     def __init__(self, criterion=100):
         self.urls_ = []
-        self.criterion_ = criterion     # 连续几次（比如3）访问失败，就不再允许访问，直到发现请求持续超过（100）次，重新放行。
+        self.criterion_ = criterion  # 连续几次（比如3）访问失败，就不再允许访问，直到发现请求持续超过（100）次，重新放行。
 
     def add(self, url):
         found = False
@@ -556,9 +567,10 @@ class UrlStatisticsHelper:
         found = False
         for it in self.urls_:
             if it['url'] == url:
-                it['cnt'] = 0   # 刑满释放
+                it['cnt'] = 0  # 刑满释放
                 found = True
                 break
+        return found
 
 
 def test_url_statistics():
@@ -595,6 +607,49 @@ def test_opencv_capture_timeout():
         pass
 
 
+def construct_span(tracer):
+    with tracer.start_span('AliyunTestSpan') as span:
+        span.log_kv({'event': 'test message', 'life': 42})
+        span.set_tag('key2', 60)
+        print("tracer.tages: ", tracer.tags)
+        with tracer.start_span('AliyunTestChildSpan', child_of=span) as child_span:
+            span.log_kv({'event': 'down below'})
+        return span
+
+
+def test_jaeger():
+    log_level = logging.DEBUG
+    logging.getLogger('').handlers = []
+    logging.basicConfig(format='%(asctime)s %(message)s', level=log_level)
+
+    config = Config(
+        config={ # usually read from some yaml config
+            'sampler': {
+                'type': 'const',
+                'param': 1,
+            },
+            'local_agent': {
+                # 注意这里是指定了JaegerAgent的host和port。
+                # 根据官方建议为了保证数据可靠性，JaegerClient和JaegerAgent运行在同一台主机内，因此reporting_host填写为127.0.0.1。
+                'reporting_host': '192.168.47.141',
+                'reporting_port': 6831,
+            },
+            'logging': True,
+        },
+        #这里填写应用名称
+        service_name="mytest3",
+        validate=True
+    )
+
+    # this call also sets opentracing.tracer
+    tracer = config.initialize_tracer()
+
+    span = construct_span(tracer)
+    span.set_tag('key1', 'ABCDE')
+    time.sleep(2)   # yield to IOLoop to flush the spans - https://github.com/jaegertracing/jaeger-client-python/issues/50
+    tracer.close()  # flush any buffered spans
+
+
 class TestMain(unittest.TestCase):
     """
     Tests for `v2v` entrypoint.
@@ -603,6 +658,7 @@ class TestMain(unittest.TestCase):
     https://IP:29080/docs，执行POST /subprocess，发送start/stop命令启停视频识别流水线。
     注意
     """
+
     def setUp(self):
         """Set up test fixtures, if any."""
 
@@ -614,11 +670,12 @@ class TestMain(unittest.TestCase):
         # main()
         # pub_sub_pools()
         # fastapi_mainloop()
-        nvr_stream_func()
+        # nvr_stream_func()
         # uploadfiles_withparams()
         # save_json()
         # test_url_statistics()
         # test_opencv_capture_timeout()
+        test_jaeger()
 
 
 if __name__ == '__main__':
@@ -641,3 +698,4 @@ if __name__ == '__main__':
     # keyboard_interrupt()
     # main()
     unittest.main()
+
