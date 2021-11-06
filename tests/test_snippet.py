@@ -69,11 +69,11 @@ import uvicorn
 import logging
 from jaeger_client import Config
 # from opentracing import set_global_tracer, Format
-import asyncio
-from typing import Any, Dict, Optional
+# import asyncio
+# from typing import Any, Dict, Optional
 
-from fastapi import FastAPI, HTTPException
-from fastapi.testclient import TestClient
+from fastapi import FastAPI
+# from fastapi.testclient import TestClient
 
 from prometheus_fastapi_instrumentator import Instrumentator
 

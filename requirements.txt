@@ -17,3 +17,4 @@ zmq~=0.0.0
 pyzmq~=22.1.0
 numpy~=1.19.5
 opentracing~=2.4.0
+prometheus-fastapi-instrumentator~=5.7.1

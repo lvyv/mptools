@@ -3,6 +3,11 @@ V2V测试联调指南
 
 快速开始
 --------
+【注意】下面的所有命令都需要运行在python 3.6.8及以上的虚拟环境下。
+
+通过pip安装虚拟环境（virtualenv）不赘述，主要过程是先要yum或apt-get安装python3.x的版本。
+在用安装好的python3.x版本的对应pip3.x来安装一个virtualenv包，再用python运行virtualenv包创建虚拟环境。
+最后在虚拟环境的bin目录，source activate，激活虚拟环境。之后在这个虚拟环境下pip安装各种包即可。
 
 1.下载代码到本地，安装requirments.txt的包，冒烟测试基本功能。
 
