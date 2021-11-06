@@ -63,12 +63,19 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 # ----fastapi-----
-from fastapi import FastAPI, File, UploadFile
+from fastapi import File, UploadFile
 from fastapi_utils.tasks import repeat_every
 import uvicorn
 import logging
 from jaeger_client import Config
-from opentracing import set_global_tracer, Format
+# from opentracing import set_global_tracer, Format
+import asyncio
+from typing import Any, Dict, Optional
+
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
+
+from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI()
 
@@ -614,6 +621,7 @@ def construct_span(tracer):
         print("tracer.tages: ", tracer.tags)
         with tracer.start_span('AliyunTestChildSpan', child_of=span) as child_span:
             span.log_kv({'event': 'down below'})
+            child_span.log_kv({'event': 'child'})
         return span
 
 
@@ -623,7 +631,7 @@ def test_jaeger():
     logging.basicConfig(format='%(asctime)s %(message)s', level=log_level)
 
     config = Config(
-        config={ # usually read from some yaml config
+        config={  # usually read from some yaml config
             'sampler': {
                 'type': 'const',
                 'param': 1,
@@ -636,7 +644,7 @@ def test_jaeger():
             },
             'logging': True,
         },
-        #这里填写应用名称
+        # 这里填写应用名称
         service_name="mytest3",
         validate=True
     )
@@ -646,8 +654,81 @@ def test_jaeger():
 
     span = construct_span(tracer)
     span.set_tag('key1', 'ABCDE')
-    time.sleep(2)   # yield to IOLoop to flush the spans - https://github.com/jaegertracing/jaeger-client-python/issues/50
+    time.sleep(2)   # yield to IOLoop to flush the spans-https://github.com/jaegertracing/jaeger-client-python/issues/50
     tracer.close()  # flush any buffered spans
+
+
+# how to instrument fastapi with promethues
+def create_app() -> FastAPI:
+    localapp = FastAPI()
+
+    # @localapp.get("/")
+    # def read_root():
+    #     return "Hello World!"
+
+    # @localapp.get("/sleep")
+    # async def sleep(seconds: float):
+    #     await asyncio.sleep(seconds)
+    #     return f"I have slept for {seconds}s"
+    #
+    # @localapp.get("/always_error")
+    # def read_always_error():
+    #     raise HTTPException(status_code=404, detail="Not really error")
+    #
+    # @localapp.get("/ignore")
+    # def read_ignore():
+    #     return "Should be ignored"
+    #
+    # @localapp.get("/items/{item_id}")
+    # def read_item(item_id: int, q: Optional[str] = None):
+    #     return {"item_id": item_id, "q": q}
+    #
+    # @localapp.get("/just_another_endpoint")
+    # def read_just_another_endpoint():
+    #     return "Green is my pepper"
+    #
+    # @localapp.post("/items")
+    # def create_item(item: Dict[Any, Any]):
+    #     return None
+
+    return localapp
+
+
+def reset_prometheus() -> None:
+    from prometheus_client import REGISTRY
+
+    # Unregister all collectors.
+    collectors = list(REGISTRY._collector_to_names.keys())
+    print(f"before unregister collectors={collectors}")
+    for collector in collectors:
+        REGISTRY.unregister(collector)
+    print(f"after unregister collectors={list(REGISTRY._collector_to_names.keys())}")
+
+    # Import default collectors.
+    from prometheus_client import gc_collector, platform_collector, process_collector
+
+    # Re-register default collectors.
+    process_collector.ProcessCollector()
+    platform_collector.PlatformCollector()
+    gc_collector.GCCollector()
+
+
+def test_promethues_exporter():
+    # reset_prometheus()
+    localapp = create_app()
+    Instrumentator().instrument(localapp).expose(localapp)
+    # reset_prometheus()
+
+    uvicorn.run(localapp, host='0.0.0.0', port=21800)
+
+    # client = TestClient(localapp)
+    #
+    # response = client.get("/metrics")
+    # print(response.headers.items())
+    # assert (
+    #     "text/plain; version=0.0.4; charset=utf-8; charset=utf-8"
+    #     not in response.headers.values()
+    # )
 
 
 class TestMain(unittest.TestCase):
@@ -675,7 +756,8 @@ class TestMain(unittest.TestCase):
         # save_json()
         # test_url_statistics()
         # test_opencv_capture_timeout()
-        test_jaeger()
+        # test_jaeger()
+        test_promethues_exporter()
 
 
 if __name__ == '__main__':
@@ -698,4 +780,3 @@ if __name__ == '__main__':
     # keyboard_interrupt()
     # main()
     unittest.main()
-
