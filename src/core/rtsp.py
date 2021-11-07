@@ -93,7 +93,7 @@ class RtspWorker(ProcWorker):
             返回True，退出循环，返回False，继续循环。
         """
         try:
-            # 1.按参数设置摄像头到预置点，因为预置点有多个，所以要轮流执行
+            # 1.按参数设置摄像头到预置点，因为预置点有多个，所以要轮流执行，每个预置点停留时间由seconds参数决定，所以这个函数花费时间会比较久
             # 2.等待摄像头执行到预置点位
             # 3.假设fps比如是30帧，而采样率1Hz，则需要丢弃fps-sample_rate帧图像
             # 4.读取流并设置处理该图片的参数
@@ -149,16 +149,16 @@ class RtspWorker(ProcWorker):
                 if current_frame_pos is None:
                     raise cv2.error
         except (cv2.error, AttributeError, UnboundLocalError) as err:
-            self.log(f'[{__file__}]cv2.error:({err}){self.args_["rtsp_url"]}', level=log.LOG_LVL_ERRO)
+            self.log(f'1.[{__file__}]cv2.error:({err}){self.args_["rtsp_url"]}', level=log.LOG_LVL_ERRO)
             self.vs_.release()
             self.startup()
         # except UnboundLocalError as err:
         #     self.log(f'{err}', level=log.LOG_LVL_ERRO)
         except TypeError as err:
             self.log('type error')
-            self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+            self.log(f'2.[{__file__}]{err}', level=log.LOG_LVL_ERRO)
         except Exception as err:
-            self.log(f'[{__file__}]Unkown error.{err}', level=log.LOG_LVL_ERRO)
+            self.log(f'3.[{__file__}]Unkown error.{err}', level=log.LOG_LVL_ERRO)
         # else:
         #     self.log(f'normal execution.', level=log.LOG_LVL_ERRO)
         finally:

@@ -30,6 +30,7 @@ All common behaviors of sub process.
 # License: Apache Licence 2.0
 
 import functools
+import time
 # import collections
 from utils import bus, log
 
@@ -69,6 +70,7 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
 
     def __init__(self, name, topic, dicts, **kwargs):
         super().__init__(name, dicts, **kwargs)
+        self.startts_ = time.time()                                      # 记录进程启动的时间戳
         self.beeper_ = bus.IEventBusMixin.get_beeper()                   # req-rep客户端。
         self.subscriber_ = bus.IEventBusMixin.get_subscriber(topic)      # pub-sub订阅端。
         # self.bus_topic_ = topic
@@ -82,9 +84,20 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
         try:
             while self.break_out_ is False:
                 evt = self.subscribe()
-                if evt == bus.EBUS_SPECIAL_MSG_STOP:
+                if evt == bus.EBUS_SPECIAL_MSG_STOP:        # 停止子进程
                     break
+                # 不通过消息方式采集监测指标，防止队列堆积。
+                # elif evt == bus.EBUS_SPECIAL_MSG_METRICS:   # 发布子进程采集运行状态广播消息
+                #     # 目前只采集子进程运行持续时间这个指标，其它指标rest进程自己搞定。
+                #     delta = time.time() - self.startts_
+                #     self.call_rpc(bus.CB_SET_METRICS, {'up': delta, 'proc': self.name})
+                #     evt = None                              # 把这个消息消化了，不需要再往之类传
                 self.break_out_ = self.main_func(evt)
+
+                # 在每次循环完毕上报一次运行时间。
+                delta = time.time() - self.startts_
+                self.call_rpc(bus.CB_SET_METRICS, {'up': delta, 'proc': self.name})
+
             self.log('Leaving main_loop.')
         except KeyboardInterrupt:
             self.log(f'[{__file__}]----Caught KeyboardInterrupt----', level=log.LOG_LVL_ERRO)

@@ -76,6 +76,11 @@ from fastapi import FastAPI
 # from fastapi.testclient import TestClient
 
 from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_fastapi_instrumentator.metrics import Info
+from prometheus_client import Gauge, Counter
+from typing import Callable
+from fastapi.testclient import TestClient
+import psutil
 
 app = FastAPI()
 
@@ -461,7 +466,7 @@ def periodic():
     """周期性任务，用于读取系统状态和实现探针程序数据来源的提取"""
     if child_process_cli_:
         child_process_cli_.send_string('hello---')  # noqa
-        print(child_process_cli_.recv())            # noqa
+        print(child_process_cli_.recv())  # noqa
 
 
 def run_fastapi(name):
@@ -474,7 +479,7 @@ def run_fastapi(name):
     child_process_cli_ = socket
     uvicorn.run('test_snippet:app', host="0.0.0.0", port=21800)
     print('going to exit...')
-    socket.send_string('exit...')       # noqa
+    socket.send_string('exit...')  # noqa
 
 
 def fastapi_main():
@@ -654,81 +659,122 @@ def test_jaeger():
 
     span = construct_span(tracer)
     span.set_tag('key1', 'ABCDE')
-    time.sleep(2)   # yield to IOLoop to flush the spans-https://github.com/jaegertracing/jaeger-client-python/issues/50
+    time.sleep(2)  # yield to IOLoop to flush the spans-https://github.com/jaegertracing/jaeger-client-python/issues/50
     tracer.close()  # flush any buffered spans
 
 
 # how to instrument fastapi with promethues
 def create_app() -> FastAPI:
+    # from prometheus_client import make_asgi_app
+    # ap = make_asgi_app()
     localapp = FastAPI()
 
-    # @localapp.get("/")
-    # def read_root():
-    #     return "Hello World!"
-
-    # @localapp.get("/sleep")
-    # async def sleep(seconds: float):
-    #     await asyncio.sleep(seconds)
-    #     return f"I have slept for {seconds}s"
-    #
-    # @localapp.get("/always_error")
-    # def read_always_error():
-    #     raise HTTPException(status_code=404, detail="Not really error")
-    #
-    # @localapp.get("/ignore")
-    # def read_ignore():
-    #     return "Should be ignored"
-    #
-    # @localapp.get("/items/{item_id}")
-    # def read_item(item_id: int, q: Optional[str] = None):
-    #     return {"item_id": item_id, "q": q}
-    #
-    # @localapp.get("/just_another_endpoint")
-    # def read_just_another_endpoint():
-    #     return "Green is my pepper"
-    #
-    # @localapp.post("/items")
-    # def create_item(item: Dict[Any, Any]):
-    #     return None
+    @localapp.get("/")
+    def read_root():
+        return "Hello World!"
 
     return localapp
 
 
-def reset_prometheus() -> None:
-    from prometheus_client import REGISTRY
+def up_time() -> Callable[[Info], None]:
+    metric = Counter(
+        "up_time",
+        "开机持续运行时间.",
+        labelnames=("proc",)
+    )
+    sts_ = int(time.time())  # 秒为单位
 
-    # Unregister all collectors.
-    collectors = list(REGISTRY._collector_to_names.keys())
-    print(f"before unregister collectors={collectors}")
-    for collector in collectors:
-        REGISTRY.unregister(collector)
-    print(f"after unregister collectors={list(REGISTRY._collector_to_names.keys())}")
+    def instrumentation(info: Info) -> None:
+        # 主进程的运行时间累计
+        nonlocal sts_
+        current = int(time.time())
+        delta = current - sts_
+        metric.labels('main').inc(delta)
+        sts_ = current
 
-    # Import default collectors.
-    from prometheus_client import gc_collector, platform_collector, process_collector
+        # 如果请求了具体的子进程运行时间
+        pnames = info.request.query_params.getlist('v2v')
+        if 0 <= len(pnames):
+            for proc in pnames:
+                metric.labels(proc).inc()
 
-    # Re-register default collectors.
-    process_collector.ProcessCollector()
-    platform_collector.PlatformCollector()
-    gc_collector.GCCollector()
+    return instrumentation
+
+
+def cpu_rate() -> Callable[[Info], None]:
+    metric = Gauge(
+        "cpu_rate",
+        "cpu占用率.",
+        labelnames=("proc",)
+    )
+
+    def instrumentation(info: Info) -> None:
+        cpu = psutil.cpu_percent()
+        metric.labels('main').set(cpu)
+        info.request.query_params.getlist('v2v')
+
+    return instrumentation
+
+
+def mem_rate() -> Callable[[Info], None]:
+    metric = Gauge(
+        "mem_rate",
+        "内存占用率.",
+        labelnames=("proc",)
+    )
+
+    def instrumentation(info: Info) -> None:
+        mem = psutil.virtual_memory().percent
+        metric.labels('main').set(mem)
+        info.request.query_params.getlist('v2v')
+
+    return instrumentation
 
 
 def test_promethues_exporter():
     # reset_prometheus()
     localapp = create_app()
-    Instrumentator().instrument(localapp).expose(localapp)
+    # Instrumentator().instrument(localapp).expose(localapp)
     # reset_prometheus()
+    instrumentator = Instrumentator(
+        # excluded_handlers=[".*admin.*", "/metrics"],
+    )
+    instrumentator.add(up_time())
+    instrumentator.add(cpu_rate())
+    instrumentator.add(mem_rate())
+    instrumentator.instrument(localapp).expose(localapp)
 
-    uvicorn.run(localapp, host='0.0.0.0', port=21800)
+    # uvicorn.run(localapp, host='0.0.0.0', port=21880)
 
-    # client = TestClient(localapp)
-    #
-    # response = client.get("/metrics")
-    # print(response.headers.items())
-    # assert (
-    #     "text/plain; version=0.0.4; charset=utf-8; charset=utf-8"
-    #     not in response.headers.values()
-    # )
+    client = TestClient(localapp)
+
+    response = client.get("/metrics?v2v=rest&v2v=rtsp")
+    print(response.headers.items())
+    assert (
+            "text/plain; version=0.0.4; charset=utf-8; charset=utf-8"
+            not in response.headers.values()
+    )
+
+
+metrics_ = {}
+
+
+def callback_set_metrics(params):
+    """
+    本函数响应子进程对所有监测指标的设置。
+    把子进程上报的自己持续运行的时间等指标记录到一个数据结构中等备查。
+    :param params: dict, {'proc': 'RTSP(0)-16380','up': 39.5527503490448, ...}, proc是固定的，除up外还可能增加其它键值。
+    :return: dict, {'reply': True}
+    """
+    pname = params['proc']
+    params.pop('proc', None)
+    if pname in metrics_.keys():
+        proc = metrics_[pname]
+        proc.update(params)
+        metrics_[pname] = proc
+    else:
+        metrics_[pname] = params
+    return {'reply': True}
 
 
 class TestMain(unittest.TestCase):
@@ -745,6 +791,24 @@ class TestMain(unittest.TestCase):
 
     def tearDown(self):
         """Tear down test fixtures, if any."""
+
+    def test_fun(self):
+        a1 = {'up': 39.5527503490448, 'proc': 'RTSP(0)-16380'}
+        callback_set_metrics(a1)
+
+        b1 = {'up': 40.51580286026001, 'proc': 'AI(2)-10104'}
+        callback_set_metrics(b1)
+
+        b2 = {'up': 50.51580286026001, 'down': 1, 'proc': 'AI(2)-10104'}
+        callback_set_metrics(b2)
+
+        a2 = {'up': 60, 'proc': 'RTSP(0)-16380'}
+        callback_set_metrics(a2)
+
+        c1 = {'on': 0, 'proc': 'MQTT(1)-16380'}
+        callback_set_metrics(c1)
+
+        log.log(metrics_)
 
     def test_MainContext(self):
         """Test core.main.MainContext."""

@@ -44,13 +44,17 @@ EBUS_TOPIC_PROC = 'procworker'  # base class topic
 EBUS_TOPIC_BROADCAST = 'broadcast'  # 广播主题
 
 # 特殊的总线事件，用于所有子进程的共性行为
-EBUS_SPECIAL_MSG_STOP = {'code': 0, 'desc': 'END'}               # 在基类实现的特殊事件，退出主循环
+EBUS_SPECIAL_MSG_STOP = {'code': 0, 'desc': 'END'}               # 在基类处理的广播消息，退出主循环
+# EBUS_SPECIAL_MSG_CFG = {'code': 1, 'desc': 'CONFIG'}             # 在子类处理的广播消息
+EBUS_SPECIAL_MSG_METRICS = {'code': 2, 'desc': 'METRICS'}        # 在基类处理的广播消息，采集监控指标
 # 特殊的call_rpc远程方法
 CB_STARTUP_PPL = 'start'
 CB_STOP_PPL = 'stop'
 CB_GET_CFG = 'get_cfg'
 CB_SET_CFG = 'set_cfg'
 CB_STOP_REST = 'stop_rest'
+CB_SET_METRICS = 'set_metrics'
+CB_GET_METRICS = 'get_metrics'
 
 
 class IEventBusMixin:

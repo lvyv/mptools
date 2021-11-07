@@ -260,14 +260,14 @@ async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
                     if cap_status:
                         # 从未缓存
                         if current_video_stream_['url'] is None:
-                            rest_proc_.log(f'-------------1. 没有缓存过，{url}----------------')
+                            rest_proc_.log(f'-------------1. 没有缓存过，{url}----------------')  # noqa
                             current_video_stream_['url'] = url
                             current_video_stream_['videostream'] = vs   # noqa
                         # 缓存了其他流
                         else:
-                            rest_proc_.log(f'-------------1. 缓存过其它流，{url}----------------')
+                            rest_proc_.log(f'-------------1. 缓存过其它流，{url}----------------') # noqa
                             # current_video_stream_['videostream'].release()  # noqa
-                            rest_proc_.log(f'-------------2. 其它流释放，{url}----------------')
+                            rest_proc_.log(f'-------------2. 其它流释放，{url}----------------')  # noqa
                             current_video_stream_['url'] = url
                             current_video_stream_['videostream'] = vs   # noqa
                     else:
@@ -356,7 +356,7 @@ def shutdown():
 
 class RestWorker(ProcWorker):
     def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
-        super().__init__(name, bus.EBUS_TOPIC_REST, dicts, **kwargs)
+        super().__init__(name, bus.EBUS_TOPIC_BROADCAST, dicts, **kwargs)
         self.in_q_ = in_q
         self.out_q_ = out_q
 
@@ -382,4 +382,6 @@ class RestWorker(ProcWorker):
                     ssl_certfile=self.ssl_certfile_,
                     log_level='info'
                     )
-        rest_proc_.call_rpc(bus.CB_STOP_REST, {})  # 好吧，优雅的退出
+        # 好吧，优雅的退出（for windows）这句话在windows下是可以ctrl+c退出。
+        # 但是在linux下不能够正常的退出，需要注释调。
+        # rest_proc_.call_rpc(bus.CB_STOP_REST, {})
