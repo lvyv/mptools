@@ -219,13 +219,13 @@ class MainContext(bus.IEventBusMixin):
          'AI(2)-10104': {'up': 50.51580286026001, 'down': 1},
          'MQTT(1)-16380': {'on': 0}}
 
-        :param params: dict, {'proc': 'RTSP(0)-16380','up': 39.5527503490448, ...}, proc是固定的，除up外还可能增加其它键值。
+        :param params: dict, {'application': 'RTSP(0)-16380','up': 39.5527503490448, ...}, proc是固定的，除up外还可能增加其它键值。
         :return: dict, {'reply': True}
         """
         self.log(params)
 
-        pname = params['proc']
-        params.pop('proc', None)
+        pname = params['application']
+        params.pop('application', None)
         if pname in self.metrics_.keys():
             proc = self.metrics_[pname]
             proc.update(params)
@@ -237,7 +237,7 @@ class MainContext(bus.IEventBusMixin):
     def callback_get_metrics(self, params):
         """
         本函数响应子进程对所有监测指标的获取，后面可选支持正则表达式查询。
-        :param params: dict, {}或{'proc': 'AI*'}
+        :param params: dict, {}或{'application': 'AI*'}
         :return: dict, {'reply': True, 'result': {'AI(0)-16380': {'up': 60},
                                                   'AI(2)-10104': {'up': 50.51580286026001, 'down': 1},
                                                   'AI(1)-16380': {'on': 0}}}

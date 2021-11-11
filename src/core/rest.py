@@ -82,7 +82,7 @@ def cpu_rate() -> Callable[[Info], None]:
     metric = Gauge(
         "cpu_rate",
         "cpu占用率.",
-        labelnames=("proc",)
+        labelnames=("application",)
     )
 
     def instrumentation(info: Info) -> None:
@@ -97,7 +97,7 @@ def mem_rate() -> Callable[[Info], None]:
     metric = Gauge(
         "mem_rate",
         "内存占用率.",
-        labelnames=("proc",)
+        labelnames=("application",)
     )
 
     def instrumentation(info: Info) -> None:
@@ -406,7 +406,7 @@ class RestWorker(ProcWorker):
         metric = Gauge(
             "up_time",
             "开机持续运行时间.",
-            labelnames=("proc",)
+            labelnames=("application",)
         )
         sts_ = int(time.time())  # 秒为单位
         rest_ = self

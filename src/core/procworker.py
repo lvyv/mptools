@@ -90,13 +90,13 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
                 # elif evt == bus.EBUS_SPECIAL_MSG_METRICS:   # 发布子进程采集运行状态广播消息
                 #     # 目前只采集子进程运行持续时间这个指标，其它指标rest进程自己搞定。
                 #     delta = time.time() - self.startts_
-                #     self.call_rpc(bus.CB_SET_METRICS, {'up': delta, 'proc': self.name})
+                #     self.call_rpc(bus.CB_SET_METRICS, {'up': delta, 'application': self.name})
                 #     evt = None                              # 把这个消息消化了，不需要再往之类传
                 self.break_out_ = self.main_func(evt)
 
                 # 在每次循环完毕上报一次运行时间。
                 delta = time.time() - self.startts_
-                self.call_rpc(bus.CB_SET_METRICS, {'up': delta, 'proc': self.name})
+                self.call_rpc(bus.CB_SET_METRICS, {'up': delta, 'application': self.name})
 
             self.log('Leaving main_loop.')
         except KeyboardInterrupt:
