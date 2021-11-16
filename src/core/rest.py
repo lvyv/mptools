@@ -161,6 +161,7 @@ class RestWorker(ProcWorker):
         # EIF3:REST V2V C&M 外部接口-提供UI前端配置V2V需要的截图
         # 本路由为前端ui的路径
         app_.mount('/ui', StaticFiles(directory='../src/ui'), name='ui')
+        app_.mount('/static', StaticFiles(directory='../src/swagger_ui_dep/static'), name='static')
         # 本路由为thumbnail预览图片保存位置，该位置下按nvr的deviceid建立文件夹，放置所有base64的采样图片
         app_.mount(baseurl_of_nvr_samples_, StaticFiles(directory=localroot_of_nvr_samples_), name='nvr')
 

@@ -20,3 +20,5 @@ opentracing~=2.4.0
 jaeger-client~=4.6.1
 prometheus-fastapi-instrumentator~=5.7.1
 psutil~=5.6.6
+puresnmp==1.11.0
+schedule==1.1.0
