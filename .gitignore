@@ -106,3 +106,7 @@ venv.bak/
 # pycharm
 .idea/
 /skip-covered
+
+#tests 
+tests/*.jpg
+tests/nvr_samples

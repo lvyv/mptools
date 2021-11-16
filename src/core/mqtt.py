@@ -42,7 +42,8 @@ class MqttWorker(ProcWorker):
         super().__init__(name, bus.EBUS_TOPIC_BROADCAST, dicts, **kwargs)
         self.in_q_ = in_q
         self.out_q_ = out_q
-        self.mqtt_cid_ = name   # 这个名字无所谓，在网关处会重新mapping key-value到正确的设备号
+        self.mqtt_cid_ = None   # 这个名字无所谓，在网关处会重新mapping key-value到正确的设备号
+        self.mqtt_pwd_ = None
         self.mqtt_host_ = None
         self.mqtt_port_ = None
         self.mqtt_topic_ = None
@@ -52,6 +53,10 @@ class MqttWorker(ProcWorker):
                 self.mqtt_host_ = value
             elif key == 'mqtt_port':
                 self.mqtt_port_ = value
+            elif key == 'mqtt_cid':
+                self.mqtt_cid_ = value
+            elif key == 'mqtt_pwd':
+                self.mqtt_pwd_ = value
             elif key == 'mqtt_topic':
                 self.mqtt_topic_ = value
             elif key == 'fsvr_url':
@@ -74,7 +79,10 @@ class MqttWorker(ProcWorker):
     def startup(self):
         try:
             self.client_ = mqtt_client.Client()
-            self.client_.username_pw_set(self.mqtt_cid_)
+
+            if self.mqtt_cid_ and self.mqtt_pwd_:
+                self.client_.username_pw_set(self.mqtt_cid_, self.mqtt_pwd_)
+
             self.client_.connect(self.mqtt_host_, self.mqtt_port_)
             self.client_.loop_start()
         except Exception as err:
