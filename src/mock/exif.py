@@ -88,6 +88,7 @@ app.add_middleware(
 app.mount('/viewport', StaticFiles(directory='upfiles'), name='local')
 app.mount('/ui', StaticFiles(directory='../ui'), name='ui')
 app.mount('/docs', StaticFiles(directory='../../docs'), name='docs')
+app.mount('/static', StaticFiles(directory='../swagger_ui_dep/static'), name='static')
 
 
 # iot登录
@@ -157,7 +158,7 @@ async def stream_info():
     #             {'deviceid': '54020000001320000001', 'channelid': '54020000001320000001', 'desc': '608停车区',
     #              'url': 'rtsp://user:userpass@192.168.1.225:7554/panel'}
     #         ]}
-    item = {'version': '1.0.0',
+    item = {'version': '1.0.1',
             'channels': [
                 {'deviceid': '34020000001320000001', 'channelid': '34020000001320000001', 'desc': '605房间前门',
                  'url': 'rtsp://127.0.0.1/live'},
