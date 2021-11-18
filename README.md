@@ -82,17 +82,24 @@ scrape_configs:
   ],
 ```
 3.启动v2v主进程，如果一切正常，将从Prometheus查询到cpu_rate，mem_rate，up_time三个v2v指标。
+
 prometheus的主界面访问接口如下示例。
+
 http://192.168.47.144:9090
 
 4.启动v2v的管道操作，如果一切正常，将会在jaeger主控制台看到v2v的mqtt进程上报的数据。
+
 1）访问v2v的7080的api调试端口如下示例。
+
 https://192.168.43.175:7080/docs
+
 执行post /api/v1/v2v/pipeline调用，Request body的命令为{"cmd":"start"}。
 该接口调用将启动v2v的视频解码、ai识别、mqtt数据上报任务流水线，如果传入{"cmd":"stop"}将停止流水线操作。
 
 2）jaeger的主界面访问接口如下示例。
+
 http://192.168.47.144:16686
+
 在Service下拉列表中，过几秒时间就可以看到MQTT(0)-10908这样的服务项，10908是流水线的进程号。
 选择下拉列表的MQTT(0)-xxxxx，点击Find Trace绿色按钮，右侧图形就会显示MQTT发起的链路调用。
 
