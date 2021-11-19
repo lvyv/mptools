@@ -139,7 +139,7 @@ async def uploadfiles_with_params(files: List[UploadFile] = File(...), jsos: str
                 contents = await file.read()
                 f.write(contents)
                 f.close()
-        file.close()
+        # file.close()
     log.log(jsos)
 
     return {"reply": True}
@@ -158,7 +158,7 @@ async def stream_info():
     #             {'deviceid': '54020000001320000001', 'channelid': '54020000001320000001', 'desc': '608停车区',
     #              'url': 'rtsp://user:userpass@192.168.1.225:7554/panel'}
     #         ]}
-    item = {'version': '1.0.1',
+    item = {'version': '1.0.0',
             'channels': [
                 {'deviceid': '34020000001320000001', 'channelid': '34020000001320000001', 'desc': '605房间前门',
                  'url': 'rtsp://127.0.0.1/live'},
@@ -232,7 +232,7 @@ async def object_counting(files: UploadFile = File(...), cfg_info: str = Form(..
 
 @app.post("/api/v1/ai/plc")
 async def indicator_frequency(files: UploadFile = File(...), cfg_info: str = Form(...), req_id: Optional[str] = None):
-    log.log(f'{files.filename}, {files.content_type}, {cfg_info}')
+    log.log(f'{files.filename}, {files.content_type}, {cfg_info}, {req_id}')
     contents = files.file.read()
     # outfile = open(upfile.filename, 'wb')
     # outfile.write(contents)
