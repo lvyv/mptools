@@ -151,9 +151,11 @@ class AiWorker(ProcWorker):
                 files = {'files': (comn.replace_non_ascii(f'{fid}-{fps}'), image_data, 'image/jpg')}
 
                 resp = requests.post(rest, files=files, data=payload, verify=False)
-                result = resp.content.decode('utf-8')
-                self.out_q_.put(resp.content)
-                self.log(result)
+                if resp.status_code == 200:
+                    # result = resp.content.decode('utf-8')
+                    self.out_q_.put(resp.content)
+                else:
+                    self.log(f'[{__file__}]{resp.status_code}', level=log.LOG_LVL_ERRO)
             else:
                 self.badurls_.waitforrecover(rest)     # 并不真的去访问该rest，而是要等累计若干次以后再说。
 
