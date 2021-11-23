@@ -31,6 +31,7 @@ Publish recognized results to iot gateway.
 
 import paho.mqtt.client as mqtt_client
 import json
+import socket
 from utils import bus, log
 from core.procworker import ProcWorker
 from utils.tracing import AdaptorTracingUtility
@@ -70,7 +71,8 @@ class MqttWorker(ProcWorker):
                 # init opentracing jaeger client
                 aip = self.jaeger_['agent_ip']
                 apt = self.jaeger_['agent_port']
-                AdaptorTracingUtility.init_tracer(name, agentip=aip, agentport=apt)
+                servicename = f'v2v-mqtt-{socket.gethostname()}'
+                AdaptorTracingUtility.init_tracer(servicename, agentip=aip, agentport=apt)
                 # 缓存tracer便于后面使用
                 self.tracer_ = global_tracer()
 

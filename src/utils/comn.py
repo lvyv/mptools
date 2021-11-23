@@ -40,7 +40,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 # FIXME:这个地方应该改为从主进程获取配置，主进程是唯一来源，子进程避免直接操作文件系统
 # baseurl_ = 'https://127.0.0.1:7180'
 # localroot_of_nvr_samples_ = ConfigSet.get_cfg()['nvr_samples']
-baseurl_ = ConfigSet.get_cfg()['nvr_samples']
+baseurl_ = ConfigSet.get_cfg()['media_service']
 
 
 def replace_non_ascii(x): return ''.join(i if ord(i) < 128 else '_' for i in x)
