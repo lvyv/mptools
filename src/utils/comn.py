@@ -28,6 +28,7 @@ Some common function and tools of the project.
 
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
+import time
 
 import requests
 import json
@@ -39,8 +40,9 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 # FIXME:这个地方应该改为从主进程获取配置，主进程是唯一来源，子进程避免直接操作文件系统
 # baseurl_ = 'https://127.0.0.1:7180'
-# localroot_of_nvr_samples_ = ConfigSet.get_cfg()['nvr_samples']
 baseurl_ = ConfigSet.get_cfg()['media_service']
+# how many seconds we should wait for ptz complete its operation.
+ipc_ptz_delay_ = ConfigSet.get_cfg()['ipc_ptz_delay']
 
 
 def replace_non_ascii(x): return ''.join(i if ord(i) < 128 else '_' for i in x)
@@ -53,6 +55,7 @@ def run_to_viewpoints(devid, channelid, presetid):
         resp = requests.post(f'{baseurl_}/api/v1/ptz/front_end_command/{devid}/{channelid}',
                              data=payload, verify=False)
         if resp.status_code == 200:
+            time.sleep(ipc_ptz_delay_)
             ret = True
     except KeyError:
         pass

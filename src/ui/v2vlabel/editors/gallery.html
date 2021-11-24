@@ -10,7 +10,7 @@
    <title>视频智能分析软件 | 配置标注</title>
 
    <!-- Bootstrap -->
-   <link href="vendors/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
+   <link href="vendors/bootstrap/bootstrap.min.css" rel="stylesheet">
    <!-- Font Awesome -->
    <link href="vendors/font-awesome/css/font-awesome.min.css" rel="stylesheet">
    <!-- Custom styling plus plugins -->
@@ -143,7 +143,7 @@
                   url = ps.presets[idx];
                   items = url.split('/');
                   presetid = items[items.length - 1];
-                  nd = document.querySelector(`#${presetid}`);
+                  nd = document.querySelector(`#preset${presetid}`);
                   if (nd) {
                      req = mxUtils.load(url);
                      base64 = 'data:image/png;base64, ' + req.getText();
@@ -272,7 +272,7 @@
 
 
             if (nd.getAttribute('ori_image')) {
-               let url = `/viewport/${local_v2v_configuration_.device_id}/${nd.id}.png`
+               let url = `/viewport/${local_v2v_configuration_.device_id}/${nd.id.substring(6)}.png`
                editor.graph.setBackgroundImage(new mxImage(url, nd.getAttribute('ori_width'), nd.getAttribute('ori_height')));
             } else {
                editor.graph.setBackgroundImage(new mxImage('/viewport/add-viewport.png', 680, 480));
@@ -421,6 +421,9 @@
             devs = ['34020000001320000001', '44020000001320000001', '54020000001320000001']
             local_v2v_configuration_.device_id = devs[index];
             local_v2v_configuration_.channel_id = devs[index];
+
+            local_v2v_configuration_.device_id = '34020000001320000001';
+            local_v2v_configuration_.channel_id = '34020000001310000001';
             init_preview(local_v2v_configuration_.device_id, local_v2v_configuration_.channel_id, true);
             // cur = editor.graph.getCursor()
          }
@@ -473,7 +476,7 @@
                   </ul>
                   <div class="clearfix"></div>
                </div>
-               <div class="x_content" id="viewports" deviceid='44020000001320000001' , channelid='44020000001320000001'>
+               <div class="x_content" id="viewports" deviceid='34020000001320000001' , channelid='34020000001310000001'>
                   <div class="row">
                      <table>
                         <tr>
