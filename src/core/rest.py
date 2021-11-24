@@ -35,7 +35,6 @@ import cv2
 import imutils
 import io
 import base64
-import threading
 import os
 import time
 import psutil
@@ -56,10 +55,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from os.path import isfile, join
 from os import listdir
 
-from utils import bus, comn, log, wrapper as wpr
+from utils import bus, comn, log, GrabFrame, wrapper as wpr
 from utils.config import ConfigSet
 from core.procworker import ProcWorker
 from uvicorn.main import Server
+
+# rtsp url timeoff
+OPEN_RTSP_TIMEOFF = 10
 
 # 猴子补丁：在退出本进程的时候，ctrl+c会等待较长时间关闭socket
 original_handler = Server.handle_exit
@@ -111,7 +113,7 @@ def mem_rate() -> Callable[[Info], None]:
 class RestWorker(ProcWorker):
     def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
         super().__init__(name, bus.EBUS_TOPIC_REST, dicts, **kwargs)    # 不订阅rtsp、ai、mqtt等线程主题，避免被停等
-
+        self.cached_cvobjs_ = {}     # 缓存opencv的封装对象
         self.in_q_ = in_q
         self.out_q_ = out_q
 
@@ -152,11 +154,6 @@ class RestWorker(ProcWorker):
         localroot_of_nvr_samples_ = ConfigSet.get_cfg()['nvr_samples']
         ui_config_tpl_ = f'{ConfigSet.get_cfg()["ui_config_dir"]}ui.xml'
         ai_url_config_file_ = f'{ConfigSet.get_cfg()["ui_config_dir"]}diagrameditor.xml'
-
-        # 这个是缓存cv2捕获nvr流的，因为打开一个nvr花费4秒以上太久
-        # 缓存cv2带来负效应：一旦视频捕获开始，需要在定时器中持续消费，否则下次api调用得到的是滞后较久的帧，因此又加了个伪锁
-        current_video_stream_ = {'url': None, 'videostream': None}
-        mutex_ = threading.Lock()
 
         # EIF3:REST V2V C&M 外部接口-提供UI前端配置V2V需要的截图
         # 本路由为前端ui的路径
@@ -300,36 +297,22 @@ class RestWorker(ProcWorker):
                     # 如果是合法的设备号，并且配置有url则启动流，抓图，否则
                     if url and presets:
                         # 如果缓存过，就直接用缓存的流
-                        if url == current_video_stream_['url']:
-                            vs = current_video_stream_['videostream']
-                        # 如果没有缓存就开新的流，但原来缓存的流要关闭
+                        # cached = rest_proc_.cached_cvobjs_
+                        if url in rest_proc_.cached_cvobjs_:
+                            cvobj = rest_proc_.cached_cvobjs_[url]
                         else:
-                            cap_status, vs = wpr.video_capture_open(url)  # cv2.VideoCapture(url)
-                            rest_proc_.log(f'wpr.video_capture_open: {cap_status}, {vs}, {url}')  # noqa
-                            # opened = vs.isOpened()
-                            if cap_status:
-                                # 从未缓存
-                                if current_video_stream_['url'] is None:
-                                    rest_proc_.log(f'-------------1. 没有缓存过，{url}----------------')  # noqa
-                                    current_video_stream_['url'] = url
-                                    current_video_stream_['videostream'] = vs  # noqa
-                                # 缓存了其他流
-                                else:
-                                    rest_proc_.log(f'-------------1. 缓存过其它流，{url}----------------')  # noqa
-                                    # current_video_stream_['videostream'].release()  # noqa
-                                    rest_proc_.log(f'-------------2. 其它流释放，{url}----------------')  # noqa
-                                    current_video_stream_['url'] = url
-                                    current_video_stream_['videostream'] = vs  # noqa
-                            else:
-                                return item
+                            cvobj = GrabFrame.GrabFrame()
+                            opened = cvobj.open_stream(url, OPEN_RTSP_TIMEOFF)
+                            if opened:
+                                rest_proc_.cached_cvobjs_[url] = cvobj
                         # 产生系列预置点图片
                         try:
                             for prs in presets:
                                 ret = comn.run_to_viewpoints(deviceid, channelid, prs['presetid'])
                                 if ret:
-                                    mutex_.acquire()  # 防止流并发访问错误
-                                    grab, frame = vs.read()
-                                    mutex_.release()
+                                    # mutex_.acquire()  # 防止流并发访问错误
+                                    frame = cvobj.read_frame()
+                                    # mutex_.release()
                                     # height, width, channels = frame.shape
                                     # 保存原始图像
                                     filename = f'{target}{prs["presetid"]}.png'
@@ -346,9 +329,7 @@ class RestWorker(ProcWorker):
                                     outfile.close()
                         except cv2.error as cve:
                             rest_proc_.log(f'{cve}')  # noqa
-                            vs.release()
-                            current_video_stream_['url'] = None
-                            current_video_stream_['videostream'] = None
+
                     else:
                         errmsg = f'摄像头{deviceid}-{channelid}查询流地址或预置点失败。'
                         item['reply'] = errmsg
@@ -382,19 +363,18 @@ class RestWorker(ProcWorker):
         def periodic():
             """周期性任务，用于读取系统状态和实现探针程序数据来源的提取，并在空闲时刻消费视频流"""
             # 消耗掉多余的帧
-            if current_video_stream_['url']:
-                cap = current_video_stream_['videostream']
-                fps = cap.get(cv2.cv2.CAP_PROP_FPS) + 5  # noqa 消耗完后 grab会返回非真，退出循环。
-                run = True
-                while fps > 0 and run:
-                    mutex_.acquire()
-                    run = cap.grab()  # noqa
-                    mutex_.release()
-                    if not run:
-                        rest_proc_.log('Catch up the nvr play speed.')  # noqa
-                    fps -= 1
-                # rest_proc_.log(current_video_stream_['url'])
-            # rest_proc_.log(f'Ticker: {current_video_stream_["url"]}')
+            # if current_video_stream_['url']:
+            #     cap = current_video_stream_['videostream']
+            #     fps = cap.get(cv2.cv2.CAP_PROP_FPS) + 5  # noqa 消耗完后 grab会返回非真，退出循环。
+            #     run = True
+            #     while fps > 0 and run:
+            #         mutex_.acquire()
+            #         run = cap.grab()  # noqa
+            #         mutex_.release()
+            #         if not run:
+            #             rest_proc_.log('Catch up the nvr play speed.')  # noqa
+            #         fps -= 1
+            pass
 
         @app_.on_event("shutdown")
         def shutdown():
