@@ -165,3 +165,29 @@ body.loading .waiting {
 body.loading .waiting {
     display: block;
 }
+
+/* add css */
+div.mxWindow, table.mxWindow, table.properties tbody{
+     width: 480px!important;
+}
+
+td.mxWindowPane {
+    padding: 10px !important;
+}
+
+tr td {
+    padding-bottom: 10px !important;
+}
+
+tr td input, td.mxWindowPane textarea {
+    width: 400px!important;
+}
+
+td.mxWindowPane button {
+    padding: 0 20px 0 20px!important;
+    margin-right: 20px!important;
+}
+
+table.properties tbody tr td {
+    padding-right:  10px!important;
+}

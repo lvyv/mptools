@@ -20,430 +20,12 @@
    <script src="js/jquery.js"></script>
    <!-- Bootstrap -->
    <script src="js/bootstrap.js"></script>
-   <script type="text/javascript">
-      var mxBasePath = '../../src';
-
-      var urlParams = (function (url) {
-         var result = new Object();
-         var params = window.location.search.slice(1).split('&');
-
-         for (var i = 0; i < params.length; i++) {
-            idx = params[i].indexOf('=');
-
-            if (idx > 0) {
-               result[params[i].substring(0, idx)] = params[i].substring(idx + 1);
-            }
-         }
-
-         return result;
-      })(window.location.href);
-
-      var mxLanguage = urlParams['lang'];
-   </script>
+   <script type="text/javascript" src="urlparse.js"></script>
    <script type="text/javascript" src="../../src/js/mxClient.js"></script>
    <script type="text/javascript" src="js/app.js"></script>
    <script type="text/javascript" src="js/polygonshape.js"></script>
-
    <script type="text/javascript" src="js/xml2json.js"></script>
-   <script type="text/javascript">
-      let local_v2v_configuration_ = null
-      let v2v_app_ = { "editor": {} };	// 外部程序需要通过init_preview函数调用初始化本页面的这个结构 "deviceid": null, "channelid": null, 放到全局配置
-      // 本函数初始化全局配置变量
-      function load_local_v2v_configuration(editor) {
-         // console.log('loading configuration ...');
-         // window.localStorage.clear();
-         strconfig = window.localStorage.getItem('local_v2v_configuration_');
-         if (strconfig) {
-            local_v2v_configuration_ = JSON.parse(strconfig)
-            local_v2v_configuration_.current_preset = null  // 初始化为正确状态很重要
-         } else {
-            // 如果本地没有完成过配置，则初始化配置信息
-            local_v2v_configuration_ = {
-               device_id: '',  // v2v后端提供，CDM设置
-               channel_id: '',  // v2v后端提供，CDM设置
-               rtsp_url: '',  // v2v后端提供，CDM设置
-               name: '',                    // v2v后端提供，CDM设置
-               sample_rate: 1,                     // 用户设置，CDM中选择
-               presets: {},                        // 用户设置，所有的view_port标注
-               current_preset: null,               // 程序内部使用
-            }
-            // 读取html节点，看有多少个view_port，预置点
-            let container = document.querySelector("#viewports");
-            let matches = container.querySelectorAll(".preview_img");
-            for (let iii = 0; iii < matches.length; iii++) {
-               local_v2v_configuration_.presets[matches[iii].id] = {
-                  seconds: 5,                      // seconds - 要停止在当前预置点多少时间
-                  mxGraphModel: {                  // mxGrapModel - aoi，兴趣点 FIXME
-                     "root": {
-                        "Diagram": {
-                           "mxCell": "",
-                           "_label": "照片标注",
-                           "_href": "https://github.com/lvyv/mptools",
-                           "_id": "0"
-                        },
-                        "Layer": {
-                           "mxCell": {
-                              "_parent": "0"
-                           },
-                           "_label": "Default Layer",
-                           "_id": "1"
-                        }
-                     }
-                  }
-               };
-            }
-         }
-
-      }
-      function sleep(ms) {
-         return new Promise(resolve => setTimeout(resolve, ms));
-      }
-      //把当前editor的模型转化为json对象
-      function get_json_model(editor) {
-         let codec = new mxCodec();
-         let xnode = codec.encode(editor.graph.getModel());
-         let x2js = new X2JS();
-         let jso = x2js.xml2json(xnode);
-         return jso;
-      }
-      //初始化空模型
-      function create_empty_model(editor) {
-         let mdstr = '<mxGraphModel><root>\
-                           <Diagram label="照片标注" href="https://github.com/lvyv/mptools" id="0"><mxCell /></Diagram>\
-                           <Layer label="Default Layer" id="1"><mxCell parent="0" /></Layer>\
-                     </root></mxGraphModel>'
-         let doc = mxUtils.parseXml(mdstr);
-         let dec = new mxCodec(doc);
-         dec.decode(doc.documentElement, editor.graph.getModel());
-      }
-      //设置当前的editor的模型
-      function set_json_model(editor, jso) {
-         if (jso.mxGraphModel) {
-            let x2js = new X2JS();
-            mxjso = { mxGraphModel: jso.mxGraphModel }
-            let xmlo = x2js.json2xml(mxjso);
-            let codec = new mxCodec(xmlo);
-            codec.decode(xmlo.documentElement, editor.graph.getModel());
-         } else {    // 如果没有设置过jso
-            create_empty_model(editor);
-         }
-      }
-      // 本函数实现页面初始化的时候，更新预置点的thumbnail栏。
-      function init_preview(devid, channelid, refresh) {
-         
-         let onload = function (req) {
-            let sc = req.getStatus()
-            if (sc == 200) {
-               document.body.classList.remove("loading");
-               let container = document.querySelector("#viewports");
-               // var matches = container.querySelectorAll(".preview_img");
-               let ps = JSON.parse(req.getText());
-               // let iii;
-               for (idx in ps.presets) {
-                  url = ps.presets[idx];
-                  items = url.split('/');
-                  presetid = items[items.length - 1];
-                  nd = document.querySelector(`#preset${presetid}`);
-                  if (nd) {
-                     req = mxUtils.load(url);
-                     base64 = 'data:image/png;base64, ' + req.getText();
-                     nd.setAttribute('src', base64);
-                     nd.setAttribute('ori_width', ps.width);
-                     nd.setAttribute('ori_height', ps.height);
-                     nd.setAttribute('ori_image', true);    //说明存在png大图
-                  }
-               }
-            }
-         }
-         let onerror = function (req) {
-            mxUtils.alert('Error');
-         }
-         let url = `/api/v1/v2v/presets/${devid}/${channelid}?refresh=${refresh}`;
-         mxUtils.get(url, onload, onerror);
-         document.body.classList.add("loading");
-      };
-
-      // Program starts here. The document.onLoad executes the
-      // createEditor function with a given configuration.
-      // In the config file, the mxEditor.onInit method is
-      // overridden to invoke this global function as the
-      // last step in the editor constructor.
-      function onInit(editor) {
-         // Enables rotation handle
-         mxVertexHandler.prototype.rotationEnabled = true;
-
-         // Enables guides
-         mxGraphHandler.prototype.guidesEnabled = true;
-
-         // Alt disables guides
-         mxGuide.prototype.isEnabledForEvent = function (evt) {
-            return !mxEvent.isAltDown(evt);
-         };
-
-         // Enables snapping waypoints to terminals
-         mxEdgeHandler.prototype.snapToTerminals = true;
-
-         // Defines an icon for creating new connections in the connection handler.
-         // This will automatically disable the highlighting of the source vertex.
-         mxConnectionHandler.prototype.connectImage = new mxImage('images/connector.gif', 16, 16);
-
-         // Enables connections in the graph and disables
-         // reset of zoom and translate on root change
-         // (ie. switch between XML and graphical mode).
-         editor.graph.setConnectable(false);
-
-         // Clones the source if new connection has no target
-         editor.graph.connectionHandler.setCreateTarget(true);
-
-         editor.graph.setGridSize(1);
-
-         // Handles keystroke events
-         var keyHandler = new mxKeyHandler(editor.graph);
-
-         // Handles cursor keys
-         var nudge = function (keyCode) {
-            if (!editor.graph.isSelectionEmpty()) {
-               var dx = 0;
-               var dy = 0;
-
-               if (keyCode == 37) {
-                  dx = -1;
-               }
-               else if (keyCode == 38) {
-                  dy = -1;
-               }
-               else if (keyCode == 39) {
-                  dx = 1;
-               }
-               else if (keyCode == 40) {
-                  dy = 1;
-               }
-
-               editor.graph.moveCells(editor.graph.getSelectionCells(), dx, dy);
-            }
-         };
-
-         // Ignores enter keystroke. Remove this line if you want the
-         // enter keystroke to stop editing
-         keyHandler.enter = function () { };
-
-         keyHandler.bindKey(37, function () {
-            nudge(37);
-         });
-
-         keyHandler.bindKey(38, function () {
-            nudge(38);
-         });
-
-         keyHandler.bindKey(39, function () {
-            nudge(39);
-         });
-
-         keyHandler.bindKey(40, function () {
-            nudge(40);
-         });
-
-
-         /***** 定义预置点操作 *****/
-         let container = document.querySelector("#viewports");
-         let matches = container.querySelectorAll(".preview_img");
-         for (let iii = 0; iii < matches.length; iii++) {
-            mxEvent.addListener(matches[iii], 'click', function (evt) {
-               nd = evt.currentTarget;
-               editor.execute('loadImage', nd);
-            });
-         }
-         // 定义预置点的预览图片被点击的事件处理函数
-         let funct = function (editor, nd) {
-            // 一旦选中某个预置点，正确处理逻辑是保存现有的
-            let curid = local_v2v_configuration_.current_preset;
-            if (!curid) {
-               curid = nd.id; // 启动以来从来没有点击选择过
-               let md = local_v2v_configuration_.presets[nd.id];
-               set_json_model(editor, md)
-            }
-            let jso = get_json_model(editor);
-            local_v2v_configuration_.presets[curid].mxGraphModel = jso;
-
-            local_v2v_configuration_.current_preset = nd.id;
-            let md = local_v2v_configuration_.presets[nd.id];
-            set_json_model(editor, md);
-
-
-
-            if (nd.getAttribute('ori_image')) {
-               let url = `/viewport/${local_v2v_configuration_.device_id}/${nd.id.substring(6)}.png`
-               editor.graph.setBackgroundImage(new mxImage(url, nd.getAttribute('ori_width'), nd.getAttribute('ori_height')));
-            } else {
-               editor.graph.setBackgroundImage(new mxImage('/viewport/add-viewport.png', 680, 480));
-            }
-            editor.execute('fit');
-            editor.graph.view.validate();	//必须调用以刷新视图背景
-
-         };
-         editor.addAction('loadImage', funct);
-
-         // Defines a new action to switch between
-         // XML and graphical display
-         let textNode = document.getElementById('xml');
-         let graphNode = editor.graph.container;
-         let sourceInput = document.getElementById('source');
-         sourceInput.checked = false;
-
-         let funct_switch = function (editor) {
-            if (sourceInput.checked) {
-               graphNode.style.display = 'none';
-               textNode.style.display = 'inline';
-
-               let enc = new mxCodec();
-               let node = enc.encode(editor.graph.getModel());
-
-               textNode.value = mxUtils.getPrettyXml(node);
-               textNode.originalValue = textNode.value;
-               textNode.focus();
-            }
-            else {
-               graphNode.style.display = '';
-
-               if (textNode.value != textNode.originalValue) {
-                  let doc = mxUtils.parseXml(textNode.value);
-                  let dec = new mxCodec(doc);
-                  dec.decode(doc.documentElement, editor.graph.getModel());
-               }
-
-               textNode.originalValue = null;
-
-               // Makes sure nothing is selected in IE
-               if (mxClient.IS_IE) {
-                  mxUtils.clearSelection();
-               }
-
-               textNode.style.display = 'none';
-
-               // Moves the focus back to the graph
-               editor.graph.container.focus();
-            }
-         };
-
-         editor.addAction('switchView', funct_switch);
-
-         // Defines a new action to switch between
-         // XML and graphical display
-         mxEvent.addListener(sourceInput, 'click', function () {
-            editor.execute('switchView');
-         });
-
-
-         $('#group_labels').click(function () {
-            editor.execute('group');
-         });
-         $('#ungroup_labels').click(function () {
-            editor.execute('ungroup');
-         });
-         $('#select_all').click(function () {
-            editor.execute('selectAll');
-         });
-         $('#deselect_all').click(function () {
-            editor.execute('selectNone');
-         });
-         $('#zoom_in').click(function () {
-            editor.execute('zoomIn');
-         });
-         $('#zoom_out').click(function () {
-            editor.execute('zoomOut');
-         });
-         $('#original_size').click(function () {
-            editor.execute('actualSize');
-         });
-         $('#fit_window').click(function () {
-            editor.execute('fit');
-         });
-         $('#set_cfg').click(function () {
-
-            let curid = local_v2v_configuration_.current_preset;
-            if(curid) {
-               let jso = get_json_model(editor);
-               local_v2v_configuration_.presets[curid].mxGraphModel = jso;
-            }
-            let rest = '/api/v1/v2v/setup_single_channel';
-            let the_presets = local_v2v_configuration_.presets;
-            let report_presets = {};
-            let pre_key = Object.keys(the_presets);   // preset1,2,3,...
-            let filtered = pre_key.filter(function (value, index, arr) {
-               let keyset = Object.keys(the_presets[value].mxGraphModel.root) //FIXME
-               labeled = keyset.filter(value => {
-                  return (value !== 'Diagram' & value !== 'Layer')
-               })
-               return labeled.length > 0;
-            })
-            filtered.forEach(function (key) {
-               report_presets[key] = the_presets[key];
-            })
-            df = {
-               "rtsp_url": local_v2v_configuration_.rtsp_url,
-               "device_id": local_v2v_configuration_.device_id,
-               "channel_id": local_v2v_configuration_.channel_id,
-               "name": local_v2v_configuration_.name,
-               "sample_rate": local_v2v_configuration_.sample_rate,
-               "view_ports": JSON.stringify(report_presets)
-            }
-            let dd = JSON.stringify(df);
-            $.ajax({
-
-               type: "post",
-               url: rest,
-               async: true,
-               headers: { "Content-Type": "application/json", "accept": "application/json", "name": "666" },
-               dataType: "json",
-               data: dd,  //http 请求 记住要把数据转换为json格式数据
-               success: function (res) {
-                  console.log('成功检测');
-                  console.log(res);
-
-               },
-               error: function () {
-                  alert("返回数据失败")
-               }
-
-            })
-         });
-
-
-         /* 自定义初始化操作 */
-         load_local_v2v_configuration(editor)
-         let viewports = document.getElementById('viewports')
-         if (viewports) {
-            // viewports.style.cursor = 'wait'
-            local_v2v_configuration_.device_id = viewports.getAttribute('deviceid');
-            local_v2v_configuration_.channel_id = viewports.getAttribute('channelid');
-            //改变流地址进行测试
-            index = Math.floor(Math.random() * 3)
-            devs = ['34020000001320000001', '44020000001320000001', '54020000001320000001']
-            local_v2v_configuration_.device_id = devs[index];
-            local_v2v_configuration_.channel_id = devs[index];
-
-            local_v2v_configuration_.device_id = '34020000001320000001';
-            local_v2v_configuration_.channel_id = '34020000001310000001';
-            init_preview(local_v2v_configuration_.device_id, local_v2v_configuration_.channel_id, true);
-            // cur = editor.graph.getCursor()
-         }
-      }
-
-      window.onbeforeunload = function () {
-         // window.localStorage.clear();
-         let curid = local_v2v_configuration_.current_preset;
-         if (curid) {
-            let jso = get_json_model(v2v_app_.editor);
-            local_v2v_configuration_.presets[curid].mxGraphModel = jso;
-         }
-         let jso_cfg = JSON.stringify(local_v2v_configuration_);
-         window.localStorage.setItem('local_v2v_configuration_', jso_cfg);
-         console.log(jso_cfg);
-         // let msg = mxResources.get('changesLost');
-         // return msg;
-      };
-   </script>
-
+   <script type="text/javascript" src="main.js"></script>
 </head>
 
 <body onload="v2v_app_.editor = createEditor('config/diagrameditor.xml');">
@@ -455,12 +37,8 @@
             <div class="x_panel" style="width:720px">
                <div class="x_title">
                   <ul class="nav panel_toolbox">
-
-
-
                      <li><a id="group_labels"><i class="fa fa-object-group"></i></a></li>
                      <li><a id="ungroup_labels"><i class="fa fa-object-ungroup"></i></a></li>
-
                      <li><a id="select_all"><i class="fa fa-check-circle"></i></a></li>
                      <li><a id="deselect_all"><i class="fa fa-ban"></i></a></li>
                      <li><a id="zoom_in"><i class="fa fa-search-plus"></i></a></li>
@@ -468,15 +46,10 @@
                      <li><a id="original_size"><i class="fa fa-codepen"></i></a></li>
                      <li><a id="fit_window"><i class="fa fa-arrows-alt"></i></a></li>
                      <li><a id="set_cfg"><i class="fa-solid fa-pencil"></i></a></li>
-
-
-
-
-
                   </ul>
                   <div class="clearfix"></div>
                </div>
-               <div class="x_content" id="viewports" deviceid='34020000001320000001' , channelid='34020000001310000001'>
+               <div class="x_content" id="viewports">
                   <div class="row">
                      <table>
                         <tr>
@@ -562,7 +135,6 @@
                         </tr>
                      </table>
                   </div>
-
                   <div class="row">
                      <div>
                         <input id="source" style="margin-top: 10px" type="checkbox" /> 源数据
@@ -570,14 +142,10 @@
                   </div>
                </div>
             </div>
-
-
          </div>
          <!-- /page content -->
       </div>
    </div>
    <div class="waiting"><!-- Place at bottom of page --></div>
-   
 </body>
-
 </html>
