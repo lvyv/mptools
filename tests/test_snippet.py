@@ -507,6 +507,12 @@ def fastapi_mainloop():
     print('finally')
 
 
+def stream_null_inject(stream):
+    (ret, frame) = stream.read()
+    # frame = None    # inject null frame test.
+    return ret, frame
+
+
 def nvr_stream_func():
     # rtspurl = 'rtsp://192.168.1.225:7554/plc'
     rtspurl = 'rtsp://user:userpass@192.168.1.225:7554/person'
@@ -517,7 +523,10 @@ def nvr_stream_func():
     if opened:
         while True:
             try:
-                ret, frame = cap.read()
+                # ret, frame = cap.read()
+                ret, frame = stream_null_inject(cap)
+                if frame is None:
+                    raise cv2.error(f'Null frame got.')
                 height, width, channels = frame.shape
                 logging.info(f'{height},{width}')
                 cv2.imshow('frame', frame)

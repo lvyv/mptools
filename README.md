@@ -19,6 +19,10 @@ V2V测试联调指南
 (v2v) bda@c3daace9a16d:~/work$ cd tests
 (v2v) bda@c3daace9a16d:~/work/tests$ python test_bus.py
 ```
+如果是windows的命令行环境，则通过如下方式设置环境变量。
+```
+(venv) E:\_proj\odoo-14.0.post20201231\v2v\tests>set PYTHONPATH=%PYTHONPATH%;..\src
+```
 2.在命令行终端界面上，进行功能测试。
 
 第一、启动仿真接口

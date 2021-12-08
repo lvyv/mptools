@@ -312,6 +312,10 @@ class RestWorker(ProcWorker):
                                 if ret:
                                     # mutex_.acquire()  # 防止流并发访问错误
                                     frame = cvobj.read_frame()
+                                    if frame is None:
+                                        cvobj.stop_stream()
+                                        rest_proc_.cached_cvobjs_.pop(url, None)    # 如果没有读出数据，清空缓存
+                                        raise cv2.error(f'Got null frame from cv2.')
                                     # mutex_.release()
                                     # height, width, channels = frame.shape
                                     # 保存原始图像
@@ -328,7 +332,7 @@ class RestWorker(ProcWorker):
                                     outfile.write(image_data)
                                     outfile.close()
                         except cv2.error as cve:
-                            rest_proc_.log(f'{cve}')  # noqa
+                            rest_proc_.log(f'[{__file__}]{cve}', level=log.LOG_LVL_ERRO)    # no qa
 
                     else:
                         errmsg = f'摄像头{deviceid}-{channelid}查询流地址或预置点失败。'
