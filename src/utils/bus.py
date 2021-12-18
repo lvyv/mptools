@@ -118,7 +118,6 @@ class IEventBusMixin:
         if isinstance(retobj, dict):
             kl = 'continue'
             if kl in retobj.keys():
-                print(f'rpc_service:{retobj}')
                 return retobj[kl]     # 返回是否继续提供远程调用服务，如果返回False，就不能在响应客户端call_rpc了。
             else:
                 return True

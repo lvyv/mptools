@@ -33,77 +33,18 @@ ChildA，ChildB，ChildC是独立子进程。
 # Author: Awen <26896225@qq.com>
 # License: MIT
 
-import os
 import unittest
 import multiprocessing
 import functools
-# import time
-from core.procworker import ProcWorker
+
 from utils import bus, log
+from utils.wrapper import proc_worker_wrapper as worker_wrapper
+from children import ChildB, ChildA, ChildC
 
-
-def worker_wrapper(proc_worker_class, name, dicts=None):
-    pid = os.getpid()
-    proc_worker = proc_worker_class(f'{name}-{pid}', dicts)
-    return proc_worker.run()
-
-
-class ChildA(ProcWorker, bus.IEventBusMixin):
-    cnt_ = 0
-
-    def __init__(self, name, dicts=None, **kwargs):
-        super().__init__(name, 'ChildA', dicts, **kwargs)
-
-    def main_func(self, event=None, **kwargs):
-        # 返回False，继续循环，返回True，停止循环。
-        retobj = self.call_rpc('TestBus', {'p1': 1, 'p2': 'hello'})
-        self.log(f'{retobj}({ChildA.cnt_})')
-        ChildA.cnt_ += 1
-        if ChildA.cnt_ <= 2:
-            return False
-        else:
-            return True
-
-
-class ChildB(ProcWorker, bus.IEventBusMixin):
-    def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
-        super().__init__(name, 'ChildB', dicts, **kwargs)
-        self.in_q_ = in_q
-        self.out_q_ = out_q
-
-    def run(self, **kwargs):
-        cnt = 3
-        while cnt > 0:
-            self.call_rpc('testbus', {'p1': 0, 'p2': 'hello'})
-            cnt -= 1
-
-
-class ChildC(ProcWorker, bus.IEventBusMixin):
-    def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
-        super().__init__(name, 'CTOPIC', dicts, **kwargs)
-        self.in_q_ = in_q
-        self.out_q_ = out_q
-        self.cnt_ = 0
-
-    def startup(self):
-        self.log('startup called.')
-        self.call_rpc('gotchild', {'up': True})
-
-    def main_func(self, event=None, *args):
-        # 返回False，继续循环，返回True，停止循环。
-        # retobj = self.subscribe()
-        if event:
-            self.log(f'subscribed msg:{event}')
-            self.cnt_ += 1
-            if self.cnt_ < 3:
-                return False
-            else:
-                return True
-        else:
-            return False
-
-    def shutdown(self):
-        self.log('shutdown called.')
+# def worker_wrapper(proc_worker_class, name, dicts=None):
+#     pid = os.getpid()
+#     proc_worker = proc_worker_class(f'{name}-{pid}', dicts)
+#     return proc_worker.run()
 
 
 class TestBus(unittest.TestCase, bus.IEventBusMixin):
@@ -171,9 +112,10 @@ class TestBus(unittest.TestCase, bus.IEventBusMixin):
 
     def test_Bus_ClientCall(self):
         """Test ChildA will make 3 rpc calls and exit."""
-        callcounts = 3
+        callcounts = 6
         pool = multiprocessing.Pool(processes=10)
-        pool.apply_async(worker_wrapper, (ChildA, f'A1'))
+        # pool.apply_async(worker_wrapper, (ChildA, f'A1'))
+        pool.starmap_async(worker_wrapper, [(ChildA, f'A1')])
         cnt = 0
         while cnt < callcounts:  # 响应三次调用
             # svr wait for calling and reply
