@@ -5,7 +5,7 @@ Credits
 Development Lead
 ----------------
 
-* Pamela D McA'Nulty <pamela@mcanulty.org>
+* Awen <26896225@qq.com>
 
 Contributors
 ------------

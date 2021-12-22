@@ -160,10 +160,19 @@ async def stream_info():
     #             {'deviceid': '54020000001320000001', 'channelid': '54020000001320000001', 'desc': '608停车区',
     #              'url': 'rtsp://user:userpass@192.168.1.225:7554/panel'}
     #         ]}
+    # item = {'version': '1.0.0',
+    #         'channels': [
+    #             {'deviceid': '34020000001320000001', 'channelid': '34020000001310000001', 'desc': '1710房间前门',
+    #              'url': 'rtsp://admin:admin123@192.168.1.39/cam/realmonitor?channel=1&subtype=0'},
+    #             {'deviceid': '44020000001320000001', 'channelid': '44020000001320000001', 'desc': '605大厅',
+    #              'url': 'rtsp://127.0.0.1/live'},
+    #             {'deviceid': '54020000001320000001', 'channelid': '54020000001320000001', 'desc': '608停车区',
+    #              'url': 'rtsp://127.0.0.1/live'}
+    #         ]}
     item = {'version': '1.0.0',
             'channels': [
                 {'deviceid': '34020000001320000001', 'channelid': '34020000001310000001', 'desc': '1710房间前门',
-                 'url': 'rtsp://admin:admin123@192.168.1.39/cam/realmonitor?channel=1&subtype=0'},
+                 'url': 'rtsp://127.0.0.1/live'},
                 {'deviceid': '44020000001320000001', 'channelid': '44020000001320000001', 'desc': '605大厅',
                  'url': 'rtsp://127.0.0.1/live'},
                 {'deviceid': '54020000001320000001', 'channelid': '54020000001320000001', 'desc': '608停车区',
@@ -206,18 +215,19 @@ async def get_all_presets(deviceid: str, channelid: str):
 @app.post("/api/v1/ptz/front_end_command/{deviceid}/{channelid}")
 async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(...)):
     """模拟视频调度的跳转到预置点接口"""
-    item = {"deviceId": deviceid, "channelId": channelid, "cmdCode": 130, "parameter1": 0, "parameter2": int(viewpoint),
-            "combindCode2": 0}
-    ret = None
-    try:
-        url = f'https://192.168.1.225:18180/api/ptz/front_end_command/{deviceid}/{channelid}'
-        resp = requests.post(url, data=item, verify=False)
-        if resp.status_code == 200:
-            ret = True
-    except KeyError:
-        pass
-    finally:
-        return ret
+    # item = {"deviceId": deviceid, "channelId": channelid, "cmdCode": 130, "parameter1": 0, "parameter2": int(viewpoint),
+    #         "combindCode2": 0}
+    # ret = None
+    # try:
+    #     url = f'https://192.168.1.225:18180/api/ptz/front_end_command/{deviceid}/{channelid}'
+    #     resp = requests.post(url, data=item, verify=False)
+    #     if resp.status_code == 200:
+    #         ret = True
+    # except KeyError:
+    #     pass
+    # finally:
+    #     return ret
+    return True
 
 
 # IF2 REST API  内部接口-智能识别

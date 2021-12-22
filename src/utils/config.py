@@ -53,9 +53,11 @@ class ConfigSet:
 
     @classmethod
     def save_json(cls):
+        formatted_cfg = json.dumps(cls.cfg_, ensure_ascii=False, indent=2)
         if cls.path2cfg_:
             with open(cls.path2cfg_, 'w', encoding='utf-8') as fp:
-                json.dump(cls.cfg_, fp, ensure_ascii=False)
+                fp.write(formatted_cfg)
+                # json.dump(cls.cfg_, fp, ensure_ascii=False)
             pass
 
     @classmethod
@@ -234,7 +236,7 @@ class ConfigSet:
         RuntimeError
             待定.
         """
-        ret = params
+        ret = None
         try:
             # 全局配置直接就替换了，但是因为所有的配置项都是字符类型，需要先json对象化
             if 'rtsp_urls' in params.keys():
@@ -258,22 +260,10 @@ class ConfigSet:
                           'mqtt_svrs': o_mqtt_svrs,
                           'micro_service': o_micro_service,
                           'nvr_samples': params['nvr_samples'],
-                          'ui_config_dir': params['ui_config_dir']}
-
-                # 全局更新的情况，目前不支持热更新，即当前正在调度识别的流地址（按上次配置的地址）不会改，要重启服务
-                if cls.path2cfg_:
-                    # 首先备份旧配置文件
-                    with open(cls.path2cfg_, 'r', encoding='UTF-8') as fp:
-                        oldcfg = json.load(fp)
-                        fp.close()
-                    with open(f'{cls.path2cfg_}.bak', 'w', encoding='utf-8') as fp:
-                        json.dump(oldcfg, fp, ensure_ascii=False)
-                        fp.close()
-                    # 其次保存新配置文件
-                    with open(cls.path2cfg_, 'w', encoding='utf-8') as fp:
-                        cfgobj = cls.validate_cfg(cfgobj)
-                        json.dump(cfgobj, fp, ensure_ascii=False)
-                        fp.close()
+                          'ui_config_dir': params['ui_config_dir'],
+                          'media_service': params['media_service'],
+                          'ipc_ptz_delay': params['ipc_ptz_delay']}
+                cls.cfg_ = cfgobj
             elif 'view_ports' in params.keys():
                 # 根据params新设置过来的device_id和channel_id，更新cls.cfg_下面的各项值，或插入新项
                 exist = False
@@ -281,8 +271,11 @@ class ConfigSet:
                 # 更新
                 for it in cls.cfg_['rtsp_urls']:
                     if it['device_id'] == params['device_id'] and it['channel_id'] == params['channel_id']:  # update
-                        it['rtsp_url'] = params['rtsp_url']
-                        it['name'] = params['name']
+                        # 在目前的ui测试界面，没有设置rtsp_url和name，默认为''
+                        if params['rtsp_url'] != '':
+                            it['rtsp_url'] = params['rtsp_url']
+                        if params['name'] != '':
+                            it['name'] = params['name']
                         it['sample_rate'] = params['sample_rate']
                         it['view_ports'] = cls.ui2ai(json.loads(params['view_ports']))
                         exist = True
@@ -297,11 +290,10 @@ class ConfigSet:
                         'view_ports': cls.ui2ai(json.loads(params['view_ports']))
                     }
                     cls.cfg_['rtsp_urls'].append(obj)
-                # 保存配置文件
-                cls.save_json()     # FIXME:有点野蛮，没有进行合法性校核，可能导致程序无法启动
-                ret = cls.cfg_
-            else:
-                ret = None
+            # 保存配置文件
+            cls.cfg_ = cls.validate_cfg(cls.cfg_)
+            cls.save_json()     # FIXME:有点野蛮，没有进行合法性校核，可能导致程序无法启动
+            ret = cls.cfg_
         except KeyError as err:
             log.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
             ret = None

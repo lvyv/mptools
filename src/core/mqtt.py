@@ -71,7 +71,8 @@ class MqttWorker(ProcWorker):
                 # init opentracing jaeger client
                 aip = self.jaeger_['agent_ip']
                 apt = self.jaeger_['agent_port']
-                servicename = f'v2v-mqtt-{socket.gethostname()}'
+                nodename = self.jaeger_['node_name']
+                servicename = f'v2v_{nodename}'
                 AdaptorTracingUtility.init_tracer(servicename, agentip=aip, agentport=apt)
                 # 缓存tracer便于后面使用
                 self.tracer_ = global_tracer()
@@ -83,7 +84,8 @@ class MqttWorker(ProcWorker):
             self.client_ = mqtt_client.Client()
 
             if self.mqtt_cid_ and self.mqtt_pwd_:
-                self.client_.username_pw_set(self.mqtt_cid_, self.mqtt_pwd_)
+                if self.mqtt_cid_ != '' and self.mqtt_pwd_ != '':
+                    self.client_.username_pw_set(self.mqtt_cid_, self.mqtt_pwd_)
 
             self.client_.connect(self.mqtt_host_, self.mqtt_port_)
             self.client_.loop_start()
@@ -100,8 +102,11 @@ class MqttWorker(ProcWorker):
         data = {'payload': payload}
 
         if 'tracer_' in dir(self):    # 如果配置项有jaeger，将记录
-            with self.tracer_.start_active_span('v2v_mqtt_publish_msg') as scope:       # 带内数据插入trace id
+            nodename = self.jaeger_['node_name']
+            with self.tracer_.start_active_span(f'v2v_mqtt_{nodename}_send_msg') as scope:       # 带内数据插入trace id
                 scope.span.set_tag('originalMsg', vec.decode('utf-8'))
+                scope.span.set_tag('link.localHost', socket.gethostname())
+                scope.span.set_tag('link.remoteHost', self.mqtt_host_)
                 span = self.tracer_.active_span
                 AdaptorTracingUtility.inject_span_ctx(self.tracer_, span, data)
 

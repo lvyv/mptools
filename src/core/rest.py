@@ -204,6 +204,8 @@ class RestWorker(ProcWorker):
             micro_service: str = '{}'
             nvr_samples: str = ''
             ui_config_dir: str = ''
+            media_service: str = ''
+            ipc_ptz_delay: int = 3
 
         @app_.post("/api/v1/v2v/setup_all_channels")
         async def setup_all_channels(cfg: Channels):
