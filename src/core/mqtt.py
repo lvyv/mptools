@@ -32,7 +32,7 @@ Publish recognized results to iot gateway.
 import paho.mqtt.client as mqtt_client
 import json
 import socket
-from utils import bus, log
+from utils import bus, log, V2VErr
 from core.procworker import ProcWorker
 from utils.tracing import AdaptorTracingUtility
 from opentracing import global_tracer
@@ -82,17 +82,29 @@ class MqttWorker(ProcWorker):
 
     def startup(self):
         try:
+            # 1.尝试获取配置数据
+            self.log(f'{self.name} started......')
+            cfg = self.call_rpc(bus.CB_GET_CFG, {})
+            mqttcfg = cfg['mqtt_svrs'][0]
+            self.mqtt_host_ = mqttcfg['mqtt_svr']
+            self.mqtt_port_ = mqttcfg['mqtt_port']
+            self.mqtt_cid_ = mqttcfg['mqtt_cid']
+            self.mqtt_pwd_ = mqttcfg['mqtt_pwd']
+
+            self.mqtt_topic_ = mqttcfg['mqtt_tp']
+            self.fsvr_url_ = mqttcfg['fsvr_url']
             self.client_ = mqtt_client.Client()
 
-            if self.mqtt_cid_ and self.mqtt_pwd_:
-                if self.mqtt_cid_ != '' and self.mqtt_pwd_ != '':
-                    self.client_.username_pw_set(self.mqtt_cid_, self.mqtt_pwd_)
-
+            self.client_.username_pw_set(self.mqtt_cid_, self.mqtt_pwd_)
             self.client_.connect(self.mqtt_host_, self.mqtt_port_)
             self.client_.loop_start()
-        except Exception as err:
+        except (socket.gaierror, TimeoutError, UnicodeError, ConnectionRefusedError) as err:
             self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
-            raise RuntimeError(f'Cannot connect to mqtt svr:{self.mqtt_host_}:{self.mqtt_port_}')
+            msg = f'Cannot connect to {self.mqtt_host_}:{self.mqtt_port_} with {self.mqtt_cid_}/{self.mqtt_pwd_}'
+            raise V2VErr.V2VConfigurationIllegalError(msg)
+        except (KeyError, ValueError, Exception) as err:
+            self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+            raise V2VErr.V2VConfigurationIllegalError(err)
 
     def main_func(self, event=None, *args):
         # 全速

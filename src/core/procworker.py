@@ -31,8 +31,7 @@ All common behaviors of sub process.
 
 import functools
 import time
-# import collections
-from utils import bus, log
+from utils import bus, log, V2VErr
 
 
 class BaseProcWorker:
@@ -61,16 +60,16 @@ class BaseProcWorker:
         raise NotImplementedError(f"{self.__class__.__name__}.main_func is not implemented")
 
     def run(self):
-        self.startup()
-        restart = self.main_loop()
-        self.shutdown()
-        # 以下代码是当主循环收到配置更新等消息的时候触发重启动，则返回restart标志
-        if restart:
+        try:
+            self.startup()
+            self.main_loop()
+            self.shutdown()
+        except (V2VErr.V2VConfigurationChangedError, V2VErr.V2VConfigurationIllegalError):
+            # 发生运行时配置更新或配置不合法，并不停进程，而是等待配置下发正确
             self.run()
 
 
 class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
-
     def __init__(self, name, topic, dicts, **kwargs):
         super().__init__(name, dicts, **kwargs)
         self.startts_ = time.time()                                      # 记录进程启动的时间戳
@@ -89,9 +88,7 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
                 if evt == bus.EBUS_SPECIAL_MSG_STOP:        # 共性操作：停止子进程
                     break
                 elif evt == bus.EBUS_SPECIAL_MSG_CFG:       # 共性操作：配置发生更新
-                    restart = True
-                    self.log(f'Process: {self.name} got configuration updated message.---------------')
-                    return restart
+                    raise V2VErr.V2VConfigurationChangedError(evt)
                 elif evt:                                   # 其它广播事件，比如停止某个通道
                     self.log(f'Got message: {evt}.')
                 self.break_out_ = self.main_func(evt)

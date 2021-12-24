@@ -185,8 +185,9 @@ class MainContext(bus.IEventBusMixin):
 
     def callback_get_cfg(self, params):
         self.log(params)
-        if self.cfg_:
-            return self.cfg_
+        cfgobj = ConfigSet.get_cfg()
+        if cfgobj:
+            return cfgobj
         else:
             return {'reply': False}
 

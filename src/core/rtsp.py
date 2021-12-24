@@ -70,7 +70,7 @@ class RtspWorker(ProcWorker):
 
     def startup(self):
         # 1.尝试获取配置数据
-        self.log(f'{self.name} started.')
+        self.log(f'{self.name} started......')
         cfg = self.call_rpc(bus.CB_GET_CFG, {})
         # 2.访问对应的rtsp流
         # 当创建这个管道流水线的时候，分配了一个特定的url处理任务
