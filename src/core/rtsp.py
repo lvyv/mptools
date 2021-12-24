@@ -69,8 +69,12 @@ class RtspWorker(ProcWorker):
                 # self.sample_rate_ = value['sample_rate']
 
     def startup(self):
-        """启动进程后，访问对应的rtsp流."""
+        # 1.尝试获取配置数据
         self.log(f'{self.name} started.')
+        cfg = self.call_rpc(bus.CB_GET_CFG, {})
+        # 2.访问对应的rtsp流
+        # 当创建这个管道流水线的时候，分配了一个特定的url处理任务
+        # 如果现在重新打乱
         url = self.args_['rtsp_url']
         # self.vs_ = VideoStream(src=url, framerate=24).start()
         self.log(f'openning rtsp stream: {url}')
@@ -151,7 +155,7 @@ class RtspWorker(ProcWorker):
         except (cv2.error, AttributeError, UnboundLocalError) as err:
             self.log(f'1.[{__file__}]cv2.error:({err}){self.args_["rtsp_url"]}', level=log.LOG_LVL_ERRO)
             self.vs_.release()
-            self.startup()
+            # self.startup()
         # except UnboundLocalError as err:
         #     self.log(f'{err}', level=log.LOG_LVL_ERRO)
         except TypeError as err:

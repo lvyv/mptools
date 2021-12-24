@@ -43,8 +43,11 @@ $ ffmpeg.exe -re -i /stream/plc.ts -rtsp_transport tcp -vcodec copy -f rtsp rtsp
 (v2v) bda@c3daace9a16d:~/work/tests$ python test_main.py
 ```
 
-3.缺省通过浏览器访问
-https://127.0.0.1:7080/ui/index.html
+3.缺省通过浏览器访问所有的rest接口
+https://127.0.0.1:7080/docs
+
+4.缺省的配置界面
+https://127.0.0.1:7080/ui/v2vlabel/editors/gallery.html
 
 v2v运行监控
 --------

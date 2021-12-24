@@ -49,6 +49,7 @@ class MqttWorker(ProcWorker):
         self.mqtt_port_ = None
         self.mqtt_topic_ = None
         self.fsvr_url_ = None
+        self.jaeger_ = None
         for key, value in dicts.items():
             if key == 'mqtt_host':
                 self.mqtt_host_ = value
@@ -102,6 +103,8 @@ class MqttWorker(ProcWorker):
         data = {'payload': payload}
 
         if 'tracer_' in dir(self):    # 如果配置项有jaeger，将记录
+            # inject和extract配合使用，先extract去取出数据包中的metadata的traceid的span上下文，
+            # 然后再对上下文进行操作，并把它注入到下一个环节，因为mqtt这个进程是本模块的起点，因此只有inject。
             nodename = self.jaeger_['node_name']
             with self.tracer_.start_active_span(f'v2v_mqtt_{nodename}_send_msg') as scope:       # 带内数据插入trace id
                 scope.span.set_tag('originalMsg', vec.decode('utf-8'))

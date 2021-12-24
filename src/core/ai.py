@@ -40,6 +40,11 @@ from core.procworker import ProcWorker
 
 
 class UrlStatisticsHelper:
+    """对于url地址失效的简单处理.
+
+    如果ai进程的url服务暂时失效，会导致调用方阻塞很久，从而让整个流水线出现阻塞。
+    因此加入一个处罚机制，如果连续多次（3）调用失败，将放入黑名单，等持续调用很多次J（100）后再放出来。
+    """
     def __init__(self, criterion=100):
         self.urls_ = []
         self.criterion_ = criterion     # 连续几次（比如3）访问失败，就不再允许访问，直到发现请求持续超过（100）次，重新放行。

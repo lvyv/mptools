@@ -62,8 +62,11 @@ class BaseProcWorker:
 
     def run(self):
         self.startup()
-        self.main_loop()
+        restart = self.main_loop()
         self.shutdown()
+        # 以下代码是当主循环收到配置更新等消息的时候触发重启动，则返回restart标志
+        if restart:
+            self.run()
 
 
 class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
@@ -73,7 +76,6 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
         self.startts_ = time.time()                                      # 记录进程启动的时间戳
         self.beeper_ = bus.IEventBusMixin.get_beeper()                   # req-rep客户端。
         self.subscriber_ = bus.IEventBusMixin.get_subscriber(topic)      # pub-sub订阅端。
-        # self.bus_topic_ = topic
 
     def call_rpc(self, method, param):
         self.send_cmd(method, param)
@@ -84,16 +86,15 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
         try:
             while self.break_out_ is False:
                 evt = self.subscribe()
-                if evt == bus.EBUS_SPECIAL_MSG_STOP:        # 停止子进程
+                if evt == bus.EBUS_SPECIAL_MSG_STOP:        # 共性操作：停止子进程
                     break
-                # 不通过消息方式采集监测指标，防止队列堆积。
-                # elif evt == bus.EBUS_SPECIAL_MSG_METRICS:   # 发布子进程采集运行状态广播消息
-                #     # 目前只采集子进程运行持续时间这个指标，其它指标rest进程自己搞定。
-                #     delta = time.time() - self.startts_
-                #     self.call_rpc(bus.CB_SET_METRICS, {'up': delta, 'application': self.name})
-                #     evt = None                              # 把这个消息消化了，不需要再往之类传
+                elif evt == bus.EBUS_SPECIAL_MSG_CFG:       # 共性操作：配置发生更新
+                    restart = True
+                    self.log(f'Process: {self.name} got configuration updated message.---------------')
+                    return restart
+                elif evt:                                   # 其它广播事件，比如停止某个通道
+                    self.log(f'Got message: {evt}.')
                 self.break_out_ = self.main_func(evt)
-
                 # 在每次循环完毕上报一次运行时间。
                 delta = time.time() - self.startts_
                 self.call_rpc(bus.CB_SET_METRICS, {'up': delta, 'application': self.name})

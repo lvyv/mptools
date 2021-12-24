@@ -287,16 +287,21 @@ class RestWorker(ProcWorker):
         @app_.get("/api/v1/v2v/presets/{deviceid}/{channelid}")
         async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
             """获取该视频通道所有预置点，然后逐个预置点取图，保存为base64，加入流断处理，加入流缓存以及互斥锁保护全局缓存流"""
-            item = {'version': '1.0.0', 'reply': 'pending.'}
+            item = {'version': '1.0.0', 'reply': 'pending.', 'rtsp_url': None}
             try:
                 target = f'{localroot_of_nvr_samples_}{deviceid}/'
                 if refresh:
                     # 如果是刷新，这需要从nvr取图片保存到本地目录(nvr_samples目录下按设备号创建目录)
+                    # 1.通知主调度，停止pipeline流水线对本摄像头的识别操作
+                    pipeline_cmd = {'cmd': 'pause', 'deviceid': deviceid, 'channelid': channelid}
+                    isok = rest_proc_.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)  # noqa 调用主进程函数，传配置给它。
+                    if not isok['reply']:
+                        raise RuntimeError(f'Cannot get the control of IPC: {deviceid}, {channelid}.')
+                    # 2.开始抓图
                     url = comn.get_url(deviceid, channelid)
                     presets = None
                     if url:  # url都得不到，就不需要得presets了
                         presets = comn.get_presets(deviceid, channelid)
-                    # 如果是合法的设备号，并且配置有url则启动流，抓图，否则
                     if url and presets:
                         # 如果缓存过，就直接用缓存的流
                         # cached = rest_proc_.cached_cvobjs_
@@ -309,6 +314,7 @@ class RestWorker(ProcWorker):
                                 rest_proc_.cached_cvobjs_[url] = cvobj
                         # 产生系列预置点图片
                         try:
+                            item['rtsp_url'] = url  # 前端需要了解是否有合法url，才方便下发配置的时候填入正确的配置值
                             for prs in presets:
                                 ret = comn.run_to_viewpoints(deviceid, channelid, prs['presetid'])
                                 if ret:
@@ -335,11 +341,16 @@ class RestWorker(ProcWorker):
                                     outfile.close()
                         except cv2.error as cve:
                             rest_proc_.log(f'[{__file__}]{cve}', level=log.LOG_LVL_ERRO)    # no qa
-
                     else:
+                        # 不是合法的设备号
                         errmsg = f'摄像头{deviceid}-{channelid}查询流地址或预置点失败。'
                         item['reply'] = errmsg
                         raise ValueError(errmsg)
+                    # 3.通知主调度，恢复pipeline流水线对本摄像头的识别操作
+                    pipeline_cmd['cmd'] = 'resume'
+                    isok = rest_proc_.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)  # noqa 调用主进程函数，传配置给它。
+                    if not isok['reply']:
+                        raise RuntimeError(f'Cannot get the control of IPC: {deviceid}, {channelid}.')
                 onlyfiles = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}'
                              for f in listdir(target) if isfile(join(target, f)) and ('.png' not in f)]
                 # 返回视频的原始分辨率，便于在前端界面了解和载入
@@ -357,6 +368,8 @@ class RestWorker(ProcWorker):
             except FileNotFoundError as fs:
                 rest_proc_.log(f'{fs}')  # noqa
             except ValueError as err:
+                rest_proc_.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)  # noqa
+            except RuntimeError as err:
                 rest_proc_.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)  # noqa
             else:
                 rest_proc_.log(f'[{__file__}]{fs}', level=log.LOG_LVL_ERRO)  # noqa

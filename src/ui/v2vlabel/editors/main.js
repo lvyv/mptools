@@ -110,6 +110,7 @@ function init_preview(devid, channelid, refresh) {
     let onload = function (req) {
         if (req.getStatus() == 200) {
             let data = JSON.parse(req.getText());
+            local_v2v_configuration_.rtsp_url = data.rtsp_url
             setThumbnail(data);
         }
         unLoadingLogo();
@@ -324,6 +325,7 @@ function onInit(editor) {
     local_v2v_configuration_.channel_id = '34020000001310000001';
     //预览初始化
     init_preview(local_v2v_configuration_.device_id, local_v2v_configuration_.channel_id, true);
+
 }
 
 //离开当前页面(刷新或关闭)时执行

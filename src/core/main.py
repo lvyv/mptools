@@ -177,8 +177,8 @@ class MainContext(bus.IEventBusMixin):
         newcfg = ConfigSet.update_cfg(params)
         if newcfg:
             self.log(f'got config from ui:{newcfg}')
-            # msg = bus.EBUS_SPECIAL_MSG_CFG
-            self.broadcast(bus.EBUS_TOPIC_BROADCAST, newcfg)  # 微服务进程与主进程同时存在，不会停
+            msg = bus.EBUS_SPECIAL_MSG_CFG
+            self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)   # 广播配置信息给所有子进程
             return {'reply': True, 'desc': '已广播通知配置更新。'}
         else:
             return {'reply': False, 'desc': '不能识别的配置格式。'}
@@ -249,6 +249,16 @@ class MainContext(bus.IEventBusMixin):
             ret = self.metrics_
         return {'reply': True, 'result': ret}
 
+    def callback_pause_resume_pipe(self, params):
+        """
+        本函数响应子进程rest停止或者重启某个管道的请求。
+        :param params: dict, {'cmd': 'pause', 'deviceid': 'xxx', 'channelid': 'yyy'}
+                             {'cmd': 'resume', 'deviceid': 'xxx', 'channelid': 'yyy'}
+        :return: dict, {'reply': True}
+        """
+        self.log(params)
+        return {'reply': True}
+
     # def signal_handler(self, sig, frame):
     #     sys.exit(0)
 
@@ -266,6 +276,7 @@ class MainContext(bus.IEventBusMixin):
         MainContext.register(bus.CB_STOP_REST, self.callback_stop_rest)
         MainContext.register(bus.CB_SET_METRICS, self.callback_set_metrics)
         MainContext.register(bus.CB_GET_METRICS, self.callback_get_metrics)
+        MainContext.register(bus.CB_PAUSE_RESUME_PIPE, self.callback_pause_resume_pipe)
 
         self.cfg_ = None  # 配置文件内容
         self.pic_q_ = multiprocessing.Manager().Queue()  # Is JoinableQueue better?
