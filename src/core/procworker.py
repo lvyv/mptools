@@ -59,14 +59,22 @@ class BaseProcWorker:
         self.log("Entering main_func.")
         raise NotImplementedError(f"{self.__class__.__name__}.main_func is not implemented")
 
-    def run(self):
+    def running_logic(self):
+        re_run = False
         try:
             self.startup()
             self.main_loop()
             self.shutdown()
         except (V2VErr.V2VConfigurationChangedError, V2VErr.V2VConfigurationIllegalError):
             # 发生运行时配置更新或配置不合法，并不停进程，而是等待配置下发正确
-            self.run()
+            re_run = True
+        finally:
+            return re_run
+
+    def run(self):
+        re_run = True
+        while re_run:
+            re_run = self.running_logic()
 
 
 class ProcWorker(BaseProcWorker, bus.IEventBusMixin):

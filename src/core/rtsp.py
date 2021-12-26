@@ -70,14 +70,14 @@ class RtspWorker(ProcWorker):
         self.task_ = {}
 
     def startup(self):
+        task = None
         try:
             # 1.尝试获取配置数据，找主进程获取一个流水线任务
             self.log(f'{self.name} started......')
             cfg = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_task', 'source': self.name, 'assigned': self.task_})
             # self.log(cfg['rtsp_urls'][0])
             # 2.访问对应的rtsp流
-            # 当创建这个管道流水线的时候，分配了一个特定的url处理任务
-            # 主进程每次会过滤所有需要访问的urls，确保只有一个url链接任务返回
+            # 当创建这个管道流水线的时候，主进程每次会过滤所有需要访问的urls，确保只有一个url链接任务返回
             # url = self.args_['rtsp_url']
             task = cfg['rtsp_urls'][0]
             self.vs_ = cv2.VideoCapture(task['rtsp_url'])
@@ -85,7 +85,7 @@ class RtspWorker(ProcWorker):
             self.task_.update(task)
             # opened = self.vs_.isOpened()  # 暂时不检查是否正确打开流
         except (cv2.error, IndexError, AttributeError) as err:
-            self.log(f'[{__file__}]Rtsp start up error:({task}', level=log.LOG_LVL_ERRO)
+            self.log(f'[{__file__}]Rtsp start up task error:({task})', level=log.LOG_LVL_ERRO)
             raise V2VErr.V2VConfigurationIllegalError(err)
 
     def main_func(self, event=None, *args):
@@ -109,16 +109,21 @@ class RtspWorker(ProcWorker):
             # 4.读取流并设置处理该图片的参数
 
             # 是否有配置信息更新的广播消息，如果是通道信息，则需要判断是否是自己负责的通道self.args_['rtsp_url']
-            if event:
-                self.log(event)     # 如果是属于自己的配置更新广播，更新初始化时的数据信息，包括：self.args_和self.fps_。
-                for rtsp in event['rtsp_urls']:
-                    if rtsp['device_id'] == self.args_['device_id'] and rtsp['channel_id'] == self.args_['channel_id']:
-                        self.handle_cfg_update(rtsp)
-                        break
-            did = self.args_['device_id']
-            cid = self.args_['channel_id']
-            vps = self.args_['view_ports']
-            sar = self.args_['sample_rate']
+            # if event:
+            #     self.log(event)     # 如果是属于自己的配置更新广播，更新初始化时的数据信息，包括：self.args_和self.fps_。
+            #     for rtsp in event['rtsp_urls']:
+            #         if rtsp['device_id'] == self.args_['device_id'] and rtsp['channel_id'] \
+            #                 == self.args_['channel_id']:
+            #             self.handle_cfg_update(rtsp)
+            #             break
+            # did = self.args_['device_id']
+            # cid = self.args_['channel_id']
+            # vps = self.args_['view_ports']
+            # sar = self.args_['sample_rate']
+            did = self.task_['device_id']
+            cid = self.task_['channel_id']
+            vps = self.task_['view_ports']
+            sar = self.task_['sample_rate']
             # 采样的周期（秒），比如采样率1Hz，则睡1秒工作一次
             inteval = 1 / sar
             # 计算需要丢弃的帧数
@@ -144,8 +149,8 @@ class RtspWorker(ProcWorker):
 
                     # 为实现ai效率最大化，把图片中不同ai仪表识别任务分包，一个vp，不同类ai模型给不同的ai线程去处理
                     # 这样会导致同一图片重复放到工作队列中（只是aoi不同）。
-                    tasks = vp[presetid]
-                    for task in tasks:
+                    aitasks = vp[presetid]
+                    for task in aitasks:
                         if task['ai_service'] != '':
                             # 把图像数据和任务信息通过队列传给后续进程，fid和fps可以用来计算流开始以来的时间
                             if frame is not None:
@@ -159,7 +164,7 @@ class RtspWorker(ProcWorker):
                 if current_frame_pos is None:
                     raise cv2.error
         except (cv2.error, AttributeError, UnboundLocalError) as err:
-            self.log(f'1.[{__file__}]cv2.error:({err}){self.args_["rtsp_url"]}', level=log.LOG_LVL_ERRO)
+            self.log(f'1.[{__file__}]cv2.error:({err}){self.task_}', level=log.LOG_LVL_ERRO)
             self.vs_.release()
             # self.startup()
         # except UnboundLocalError as err:

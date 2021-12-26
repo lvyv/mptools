@@ -420,7 +420,7 @@ class RestWorker(ProcWorker):
             metric.labels('main').set(delta)
 
             # 收集子进程监测数据(数据结构是{'result':{'AIxx':{'up': 1.1, 'xx': 2}, ... }})
-            proc_metrics = rest_.call_rpc(bus.CB_GET_METRICS, {})
+            proc_metrics = rest_.call_rpc(bus.CB_GET_METRICS, {'cmd': 'get_metrics', 'desc': 'rest api is called.'})
             res = proc_metrics['result']
             for key in res.keys():
                 item = res[key]
@@ -431,7 +431,7 @@ class RestWorker(ProcWorker):
 
     def run(self):
         localapp = self.create_app()
-
+        # 只要有rest请求，就会触发添加的这几个统计函数，向主进程请求监测数据。
         instrumentator = Instrumentator(
             # excluded_handlers=[".*admin.*", "/metrics"],
         )
