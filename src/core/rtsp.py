@@ -36,7 +36,7 @@ import cv2
 # from imutils.video import VideoStream
 # from matplotlib import pyplot as plt
 from time import time, sleep
-from utils import bus, comn, log
+from utils import bus, comn, log, V2VErr
 from core.procworker import ProcWorker
 
 
@@ -67,20 +67,26 @@ class RtspWorker(ProcWorker):
             if key == 'rtsp_params':
                 self.args_ = value
                 # self.sample_rate_ = value['sample_rate']
+        self.task_ = {}
 
     def startup(self):
-        # 1.尝试获取配置数据
-        self.log(f'{self.name} started......')
-        cfg = self.call_rpc(bus.CB_GET_CFG, {})
-        # 2.访问对应的rtsp流
-        # 当创建这个管道流水线的时候，分配了一个特定的url处理任务
-        # 如果现在重新打乱
-        url = self.args_['rtsp_url']
-        # self.vs_ = VideoStream(src=url, framerate=24).start()
-        self.log(f'openning rtsp stream: {url}')
-        self.vs_ = cv2.VideoCapture(url)
-        self.fps_ = self.vs_.get(cv2.cv2.CAP_PROP_FPS)
-        # opened = self.vs_.isOpened()  # 暂时不检查是否正确打开流
+        try:
+            # 1.尝试获取配置数据，找主进程获取一个流水线任务
+            self.log(f'{self.name} started......')
+            cfg = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_task', 'source': self.name, 'assigned': self.task_})
+            # self.log(cfg['rtsp_urls'][0])
+            # 2.访问对应的rtsp流
+            # 当创建这个管道流水线的时候，分配了一个特定的url处理任务
+            # 主进程每次会过滤所有需要访问的urls，确保只有一个url链接任务返回
+            # url = self.args_['rtsp_url']
+            task = cfg['rtsp_urls'][0]
+            self.vs_ = cv2.VideoCapture(task['rtsp_url'])
+            self.fps_ = self.vs_.get(cv2.cv2.CAP_PROP_FPS)
+            self.task_.update(task)
+            # opened = self.vs_.isOpened()  # 暂时不检查是否正确打开流
+        except (cv2.error, IndexError, AttributeError) as err:
+            self.log(f'[{__file__}]Rtsp start up error:({task}', level=log.LOG_LVL_ERRO)
+            raise V2VErr.V2VConfigurationIllegalError(err)
 
     def main_func(self, event=None, *args):
         """
