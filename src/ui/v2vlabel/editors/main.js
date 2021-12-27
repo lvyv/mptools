@@ -211,7 +211,8 @@ function onInit(editor) {
         set_json_model(editor, md);
         if (nd.getAttribute('ori_image')) {
             let url = `/viewport/${local_v2v_configuration_.device_id}/${nd.id.substring(6)}.png`
-            editor.graph.setBackgroundImage(new mxImage(url, nd.getAttribute('ori_width'), nd.getAttribute('ori_height')));
+            //editor.graph.setBackgroundImage(new mxImage(url, nd.getAttribute('ori_width'), nd.getAttribute('ori_height')));
+            editor.graph.setBackgroundImage(new mxImage(url, 680, 480));
         } else {
             editor.graph.setBackgroundImage(new mxImage('/viewport/add-viewport.png', 680, 480));
         }
