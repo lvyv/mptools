@@ -142,7 +142,8 @@ class MainContext(bus.IEventBusMixin):
     def callback_start_pipeline(self, params):
         self.log(params)
         if self.status_.test_status(FSM.STATUS_INITIAL):
-            self.start_procs(self.cfg_)
+            cfgobj = ConfigSet.get_cfg()
+            self.start_procs(cfgobj)
             self.status_.set_status(FSM.STATUS_FULL_SPEED)
             return {'reply': True}
         else:
@@ -176,7 +177,9 @@ class MainContext(bus.IEventBusMixin):
         """
         newcfg = ConfigSet.update_cfg(params)
         if newcfg:
-            self.log(f'got config from ui:{newcfg}')
+            # 配置更新事件发生，需要对任务列表初始化，重新分配任务。
+            self.tasks_ = {}
+            # 广播到流水线进程，所有流水线上的所有进程将重启。
             msg = bus.EBUS_SPECIAL_MSG_CFG
             self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)   # 广播配置信息给所有子进程
             return {'reply': True, 'desc': '已广播通知配置更新。'}
@@ -184,12 +187,31 @@ class MainContext(bus.IEventBusMixin):
             return {'reply': False, 'desc': '不能识别的配置格式。'}
 
     def callback_get_cfg(self, params):
-        self.log(params)
-        cfgobj = ConfigSet.get_cfg()
-        if cfgobj:
+        """
+        本函数返回子进程对配置数据的请求。
+
+        Parameters
+        ----------
+        params:  Dict类型。
+            cmd键值为'get_cfg'或'get_task'。
+            当为get_task时，assigned键值为子进程当前的任务(也是主进程以前派发的)，取值{}或v2v.cfg中rtsp_urls数组的1元素.
+            source键值为子进程的名称唯一标识。
+        Returns
+        -------
+        Dict
+            通用格式。
+        Raises
+        ----------
+        RuntimeError
+            待定.
+        """
+        cmd = params['cmd']
+        if cmd == 'get_cfg':
+            cfgobj = ConfigSet.get_cfg()
             return cfgobj
-        else:
-            return {'reply': False}
+        elif cmd == 'get_task':
+            task = self.assign_task(params['source'], params['assigned'])
+            return task
 
     def callback_stop_rest(self, params):
         """
@@ -258,7 +280,10 @@ class MainContext(bus.IEventBusMixin):
         :return: dict, {'reply': True}
         """
         self.log(params)
-        return {'reply': True}
+        msg = bus.EBUS_SPECIAL_MSG_STOP_RESUME_PIPE
+        msg.update(params)
+        self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)  # 广播启停某通道消息给所有子进程
+        return {'reply': True, 'desc': '广播启停某通道消息给所有子进程。'}
 
     # def signal_handler(self, sig, frame):
     #     sys.exit(0)
@@ -279,7 +304,8 @@ class MainContext(bus.IEventBusMixin):
         MainContext.register(bus.CB_GET_METRICS, self.callback_get_metrics)
         MainContext.register(bus.CB_PAUSE_RESUME_PIPE, self.callback_pause_resume_pipe)
 
-        self.cfg_ = None  # 配置文件内容
+        # self.cfg_ = None  # 配置文件内容
+        self.tasks_ = {}  # 动态管理所有流水线任务
         self.pic_q_ = multiprocessing.Manager().Queue()  # Is JoinableQueue better?
         self.vec_q_ = multiprocessing.Manager().Queue()
 
@@ -361,17 +387,16 @@ class MainContext(bus.IEventBusMixin):
             for channel in cfg['rtsp_urls']:
                 # sr = channel['sample_rate']
                 self.switchon_procs('RTSP', rtsp_params=channel)  # 不提供cnt=x参数，缺省1个通道启1个进程 , sample_rate=sr
-                num = 3  # AI比较慢，安排两个进程处理
+                num = 3  # AI比较慢，安排三个进程处理
                 self.switchon_procs('AI', cnt=num)
                 num = 2  # MQTT比较慢，上传文件，安排两个进程处理
                 mqtt = cfg['mqtt_svrs'][0]
                 jaeger_cfg = None   # jaeger配置项是否存在决定是否引入它
                 if 'jaeger' in mqtt.keys():
                     jaeger_cfg = mqtt['jaeger']
-                self.switchon_procs('MQTT', cnt=num,
-                                    mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'],
-                                    mqtt_cid=mqtt['mqtt_cid'], mqtt_pwd=mqtt['mqtt_pwd'], mqtt_topic=mqtt['mqtt_tp'],
-                                    jaeger=jaeger_cfg)
+                self.switchon_procs('MQTT', cnt=num, mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'],
+                                    mqtt_cid=mqtt['mqtt_cid'], mqtt_pwd=mqtt['mqtt_pwd'],
+                                    mqtt_topic=mqtt['mqtt_tp'], jaeger=jaeger_cfg)
         except KeyError as err:
             self.log(f'2.[{__file__}]{err}', level=log.LOG_LVL_ERRO)
 
@@ -392,6 +417,52 @@ class MainContext(bus.IEventBusMixin):
             self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)  # 通知子进程
             time.sleep(interval)
 
+    def assign_task(self, source, assigned=None):
+        """
+        根据子进程的请求，返回需要的配置信息。如果发现没有可分配的任务，则返回None。
+
+        Parameters
+        ----------
+        source:  子进程名称，可唯一标识子进程。
+        assigned: 子进程此前分配的任务。
+
+        Returns
+        -------
+        Dict
+            带全部配置信息，但rtsp_urls数组中只有一个元素rtsp_url。
+        Raises
+        ----------
+        RuntimeError
+            待定.
+        """
+        cfgobj = ConfigSet.get_cfg()
+        tasklist = self.tasks_
+        cfgtask = None
+        for channel in cfgobj['rtsp_urls']:
+            if channel:
+                url = channel['rtsp_url']
+                if tasklist:
+                    # 已经有子进程分配了任务，检查该url是否有主了。
+                    if url in tasklist.keys():
+                        # 如果tasklist中有这个值，说明有人先注册处理这个任务，再找下个待分配任务。
+                        continue
+                    else:
+                        tasklist.update({url: source})
+                        self.log(f'yyyyy-----:{self.tasks_}')
+                        cfgtask = channel
+                        break
+                else:
+                    # tasklist={}，还没有分配过任务。
+                    tasklist.update({url: source})
+                    self.log(f'xxxxx-----:{self.tasks_}')
+                    cfgtask = channel
+                    break
+        if cfgtask:
+            cfgobj['rtsp_urls'] = [cfgtask]
+        else:
+            cfgobj['rtsp_urls'] = []
+        return cfgobj
+
     def run(self, path2cfg):
         """
         主进程入口 —— 读取配置，启动rest后台服务进程，数据采集线程，进入子进程之间通信机制的主事件循环。
@@ -400,8 +471,8 @@ class MainContext(bus.IEventBusMixin):
         """
         try:
             # 读取配置并启动rest。
-            self.cfg_ = ConfigSet.get_cfg(path2cfg)  # 读取配置文件内容
-            api = self.cfg_['micro_service']
+            cfgobj = ConfigSet.get_cfg(path2cfg)  # 读取配置文件内容
+            api = cfgobj['micro_service']
             (ap, key, cer) = (api['http_port'], api['ssl_keyfile'], api['ssl_certfile'])  # 配置微服务
             self.rest_api(port=ap, ssl_keyfile=key, ssl_certfile=cer)                     # 启动1个Rest进程，提供微服务调用
 

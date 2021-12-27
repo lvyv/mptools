@@ -84,7 +84,7 @@ class MqttWorker(ProcWorker):
         try:
             # 1.尝试获取配置数据
             self.log(f'{self.name} started......')
-            cfg = self.call_rpc(bus.CB_GET_CFG, {})
+            cfg = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
             mqttcfg = cfg['mqtt_svrs'][0]
             self.mqtt_host_ = mqttcfg['mqtt_svr']
             self.mqtt_port_ = mqttcfg['mqtt_port']

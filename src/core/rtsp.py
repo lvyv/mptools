@@ -83,10 +83,12 @@ class RtspWorker(ProcWorker):
             self.vs_ = cv2.VideoCapture(task['rtsp_url'])
             self.fps_ = self.vs_.get(cv2.cv2.CAP_PROP_FPS)
             self.task_.update(task)
-            # opened = self.vs_.isOpened()  # 暂时不检查是否正确打开流
-        except (cv2.error, IndexError, AttributeError) as err:
+        except (cv2.error, AttributeError) as err:
             self.log(f'[{__file__}]Rtsp start up task error:({task})', level=log.LOG_LVL_ERRO)
             raise V2VErr.V2VConfigurationIllegalError(err)
+        except IndexError as err:
+            # 这个错误是因为返回的配置信息中的任务没有，已经分配完了（cfg['rtsp_urls][0]不存在）。
+            raise V2VErr.V2VTaskNullRtspUrl(err)
 
     def main_func(self, event=None, *args):
         """

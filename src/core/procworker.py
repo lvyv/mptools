@@ -65,9 +65,17 @@ class BaseProcWorker:
             self.startup()
             self.main_loop()
             self.shutdown()
-        except (V2VErr.V2VConfigurationChangedError, V2VErr.V2VConfigurationIllegalError):
-            # 发生运行时配置更新或配置不合法，并不停进程，而是等待配置下发正确
+        except V2VErr.V2VConfigurationIllegalError:
+            # 发生配置不合法，等待配置下发正确，发生在startup，可以不shutdown，避免引入新的错误。
             re_run = True
+        except V2VErr.V2VConfigurationChangedError:
+            # 发生运行时配置更新，先shutdown，完成资源回收，再重启动，发生在main_loop。
+            re_run = True
+            self.shutdown()
+        except V2VErr.V2VTaskNullRtspUrl:
+            # 暂时没活干也不要退出，毕竟流水线后面还起了ai，mqtt几个等着吧。
+            re_run = True
+            time.sleep(5)
         finally:
             return re_run
 

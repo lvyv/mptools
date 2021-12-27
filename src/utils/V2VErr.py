@@ -54,6 +54,18 @@ class V2VConfigurationIllegalError(Exception):
         self.message_ = message
 
 
+class V2VTaskNullRtspUrl(Exception):
+    """Raised when no more rtsp task could be assigned.
+
+    Attributes:
+        message -- explanation of what is going on.
+    """
+
+    def __init__(self, message):
+        super().__init__(self)
+        self.message_ = message
+
+
 if __name__ == '__main__':
     try:
         raise V2VConfigurationChangedError(f'进程运行时，相关配置文件更新错误触发。')
