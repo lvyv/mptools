@@ -52,12 +52,24 @@ function setThumbnailToSelector(nodeSelector, data , width, height) {
     nodeSelector.setAttribute('ori_image', true);    //说明存在png大图
 }
 
+function setPresetId(id){
+
+    if(local_v2v_configuration_.defaultPresetId == undefined || local_v2v_configuration_.defaultPresetId == null)
+    {
+        local_v2v_configuration_.defaultPresetId = id;
+    }else
+    {
+        local_v2v_configuration_.defaultPresetId = Math.min(local_v2v_configuration_.defaultPresetId, id);
+    }
+}
+
 function setThumbnail(data) {
     for (let idx in data.presets) {
         let  url = data.presets[idx];
         let items = url.split('/');
         setThumbnailToSelector(getPresetSelector(items[items.length - 1]),
             mxUtils.load(url).getText(), data.width, data.height);
+        setPresetId(items[items.length - 1]);
     }
 }
 
@@ -77,6 +89,7 @@ function load_local_v2v_configuration() {
         sample_rate: 1,                     // 用户设置，CDM中选择
         presets: {},                        // 用户设置，所有的view_port标注
         current_preset: null,               // 程序内部使用
+        defaultPresetId : null
     };
     // 读取html节点，看有多少个view_port，预置点
     let matches = getMatches(getContainer());
@@ -104,25 +117,6 @@ function set_json_model(editor, jso) {
         new mxCodec(doc).decode(doc.documentElement, editor.graph.getModel());
     }
 }
-
-// 本函数实现页面初始化的时候，更新预置点的thumbnail栏。
-function init_preview(devid, channelid, refresh) {
-    let onload = function (req) {
-        if (req.getStatus() == 200) {
-            let data = JSON.parse(req.getText());
-            local_v2v_configuration_.rtsp_url = data.rtsp_url
-            setThumbnail(data);
-        }
-        unLoadingLogo();
-    }
-    let onerror = function () {
-        mxUtils.alert('Error');
-        unLoadingLogo();
-    }
-    let url = API_GET_PRESETS_PIC_PREFIX +`${devid}/${channelid}?refresh=${refresh}`;
-    onLoadingLogo();
-    mxUtils.get(url, onload, onerror);
-};
 
 // Program starts here. The document.onLoad executes the
 // createEditor function with a given configuration.
@@ -217,7 +211,8 @@ function onInit(editor) {
         set_json_model(editor, md);
         if (nd.getAttribute('ori_image')) {
             let url = `/viewport/${local_v2v_configuration_.device_id}/${nd.id.substring(6)}.png`
-            editor.graph.setBackgroundImage(new mxImage(url, nd.getAttribute('ori_width'), nd.getAttribute('ori_height')));
+            //editor.graph.setBackgroundImage(new mxImage(url, nd.getAttribute('ori_width'), nd.getAttribute('ori_height')));
+            editor.graph.setBackgroundImage(new mxImage(url, 680, 480));
         } else {
             editor.graph.setBackgroundImage(new mxImage('/viewport/add-viewport.png', 680, 480));
         }
@@ -323,8 +318,30 @@ function onInit(editor) {
     //add 测试数据
     local_v2v_configuration_.device_id = '34020000001320000001';
     local_v2v_configuration_.channel_id = '34020000001310000001';
+
     //预览初始化
     init_preview(local_v2v_configuration_.device_id, local_v2v_configuration_.channel_id, true);
+
+
+    // 本函数实现页面初始化的时候，更新预置点的thumbnail栏。
+    function init_preview(devid, channelid, refresh) {
+        let onload = function (req) {
+            if (req.getStatus() == 200) {
+                let data = JSON.parse(req.getText());
+                local_v2v_configuration_.rtsp_url = data.rtsp_url
+                setThumbnail(data);
+                loadImageCallback(editor, getPresetSelector(local_v2v_configuration_.defaultPresetId))
+            }
+            unLoadingLogo();
+        }
+        let onerror = function () {
+            mxUtils.alert('Error');
+            unLoadingLogo();
+        }
+        let url = API_GET_PRESETS_PIC_PREFIX +`${devid}/${channelid}?refresh=${refresh}`;
+        onLoadingLogo();
+        mxUtils.get(url, onload, onerror);
+    };
 
 }
 
