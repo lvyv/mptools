@@ -43,7 +43,6 @@ from utils import wrapper as wpr
 from utils import log
 # from core.procworker import ProcWorker
 
-# import sys
 import json
 import zmq
 import random
@@ -81,6 +80,7 @@ from prometheus_client import Gauge, Counter
 from typing import Callable
 from fastapi.testclient import TestClient
 import psutil
+from children import sample_rtsp_frame
 
 app = FastAPI()
 
@@ -611,7 +611,7 @@ def test_url_statistics():
 
 
 def test_opencv_capture_timeout():
-    rtsp = 'rtsp://127.0.0.1/live'
+    rtsp = 'rtsp://user:userpass@192.168.1.225:7554/plc'
     try:
         cap_status, cap = wpr.video_capture_open(rtsp)
         if not cap_status:
@@ -787,6 +787,34 @@ def callback_set_metrics(params):
     return {'reply': True}
 
 
+# 测试rtsp读流出现错误的问题
+# 测试通过：sample_rtsp_frame能够支持3路流的打开同时播放抽帧。
+def test_rtsp_process():
+    """
+    RTSP 进程取流总是出现错误，需要单元测试一下。
+    """
+    print("Initializng 3 workers")
+    # vec_q_ = multiprocessing.Manager().Queue()
+    # original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    # original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    pool = multiprocessing.Pool(4)
+    # signal.signal(signal.SIGINT, original_sigint_handler)
+    try:
+        # res = pool.starmap_async(sample_rtsp_frame, [('rtsp://127.0.0.1/live', 1000)])
+        res = pool.starmap_async(sample_rtsp_frame, [('rtsp://127.0.0.1/live', 1000),
+                                                     ('rtsp://user:userpass@192.168.1.225:7554/person', 1000),
+                                                     ('rtsp://user:userpass@192.168.1.225:7554/plc', 1000)])
+        res.get(6000)  # Without the timeout this blocking call ignores all signals.
+        print('-------------------OK--------------------------')
+    except KeyboardInterrupt:
+        print("-------------------Caught KeyboardInterrupt, terminating workers-----------------")
+        pool.terminate()
+    else:
+        print("Normal termination")
+        pool.close()
+    pool.join()
+
+
 class TestMain(unittest.TestCase):
     """
     Tests for `v2v` entrypoint.
@@ -803,35 +831,32 @@ class TestMain(unittest.TestCase):
         """Tear down test fixtures, if any."""
 
     def test_fun(self):
+        log.log(f'case: test_fun-{metrics_}')
         a1 = {'up': 39.5527503490448, 'proc': 'RTSP(0)-16380'}
         callback_set_metrics(a1)
-
         b1 = {'up': 40.51580286026001, 'proc': 'AI(2)-10104'}
         callback_set_metrics(b1)
-
         b2 = {'up': 50.51580286026001, 'down': 1, 'proc': 'AI(2)-10104'}
         callback_set_metrics(b2)
-
         a2 = {'up': 60, 'proc': 'RTSP(0)-16380'}
         callback_set_metrics(a2)
-
         c1 = {'on': 0, 'proc': 'MQTT(1)-16380'}
         callback_set_metrics(c1)
 
-        log.log(metrics_)
-
     def test_MainContext(self):
         """Test core.main.MainContext."""
+        log.log(f'case: test_MainContext.')
         # main()
         # pub_sub_pools()
         # fastapi_mainloop()
-        nvr_stream_func()
+        # nvr_stream_func()
         # uploadfiles_withparams()
         # save_json()
         # test_url_statistics()
         # test_opencv_capture_timeout()
         # test_jaeger()
         # test_promethues_exporter()
+        test_rtsp_process()
 
 
 if __name__ == '__main__':

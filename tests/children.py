@@ -35,7 +35,10 @@ ChildA，ChildB，ChildC是独立子进程。
 
 from core.procworker import ProcWorker
 from utils import bus
+from utils import GrabFrame
 import time
+import os
+import cv2
 
 
 class ChildA(ProcWorker, bus.IEventBusMixin):
@@ -95,3 +98,23 @@ class ChildC(ProcWorker, bus.IEventBusMixin):
 
     def shutdown(self):
         self.log('shutdown called.')
+
+
+def sample_rtsp_frame(url, duration_ms):
+    try:
+        # print(f'In a worker process- {url}', os.getpid())
+        cvobj = GrabFrame.GrabFrame()
+        opened = cvobj.open_stream(url, 10)
+        info = cvobj.get_stream_info()
+        while True:
+            frame = cvobj.read_frame()
+            if frame is not None:
+                cv2.imshow('sample_frame', frame)
+                # filename = f'{url.split("/")[-1]}.png'
+                # cv2.imwrite(filename, frame)
+                cv2.waitKey(duration_ms)
+        cvobj.stop_stream()
+        cv2.destroyAllWindows()
+
+    except KeyboardInterrupt:
+        print("-------------------Caught KeyboardInterrupt, terminating workers-----------------")

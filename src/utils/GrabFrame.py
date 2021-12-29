@@ -47,6 +47,7 @@ class VideoCaptureThread(threading.Thread):
         print('Start VideoCaptureThread.')
         cap_obj = cv2.VideoCapture(self.__rtsp_url)
         if self.__is_exit is True:
+            # 在阻塞连接流这段时间，上层已经等不及而关闭该线程
             if cap_obj is not None:
                 print('Force kill capture obj.')
                 cap_obj.release()
@@ -68,6 +69,9 @@ class VideoCaptureThread(threading.Thread):
                     self.__is_grab_frame = False
                     self.__queue.queue.clear()
                     self.__queue.put_nowait(img)
+                else:
+                    # 退出线程主循环
+                    self.close()
             else:
                 # 丢弃帧
                 cap_obj.grab()
@@ -84,6 +88,9 @@ class GrabFrame:
         self.__queue = queue.Queue(2)
         # 取帧线程
         self.__capture_thread = None
+        # 缓存当前的url和延时设置
+        self.rtsp_url_ = None
+        self.timeout_ = None
 
     def open_stream(self, url, timeout) -> bool:
         """
@@ -111,6 +118,9 @@ class GrabFrame:
             return False
         else:
             print(f'cv2.VideoCapture: open stream ({url}) successes. ')
+            # 缓存timeout和url，如果需要重连，则使用它们。
+            self.timeout_ = timeout
+            self.rtsp_url_ = url
             return True
         finally:
             # 释放资源
@@ -131,7 +141,12 @@ class GrabFrame:
         try:
             _frame = self.__queue.get(block=True, timeout=timeout if timeout > 0 else None)
         except queue.Empty:
-            print(f'cv2.read: could not read frame. Timeout after {timeout}s')
+            # print(f'cv2.read: could not read frame. Timeout after {timeout}s,{self.__capture_thread}')
+            # 如果线程已经退出，就应该重新起线程。
+            if not self.__capture_thread.isAlive():
+                self.__capture_thread = None
+                if self.rtsp_url_ and self.timeout_:
+                    self.open_stream(self.rtsp_url_, self.timeout_)
         else:
             self.__queue.queue.clear()
         return _frame

@@ -28,7 +28,7 @@ Entry point of the project.
 
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
-
+import copy
 import multiprocessing
 import functools
 import signal
@@ -137,7 +137,7 @@ class MainContext(bus.IEventBusMixin):
     完成对所有运行子进程的下发配置和查询状态（主要是事件总线和图片及向量队列）。
     """
 
-    NUMBER_OF_PROCESSES = 12
+    NUMBER_OF_PROCESSES = 18
 
     def callback_start_pipeline(self, params):
         self.log(params)
@@ -387,9 +387,9 @@ class MainContext(bus.IEventBusMixin):
             for channel in cfg['rtsp_urls']:
                 # sr = channel['sample_rate']
                 self.switchon_procs('RTSP', rtsp_params=channel)  # 不提供cnt=x参数，缺省1个通道启1个进程 , sample_rate=sr
-                num = 3  # AI比较慢，安排三个进程处理
+                num = 2  # AI比较慢，安排三个进程处理
                 self.switchon_procs('AI', cnt=num)
-                num = 2  # MQTT比较慢，上传文件，安排两个进程处理
+                num = 1  # 上传文件，安排一个进程处理，不要多个进程，防止服务器端互相踢
                 mqtt = cfg['mqtt_svrs'][0]
                 jaeger_cfg = None   # jaeger配置项是否存在决定是否引入它
                 if 'jaeger' in mqtt.keys():
@@ -436,6 +436,7 @@ class MainContext(bus.IEventBusMixin):
             待定.
         """
         cfgobj = ConfigSet.get_cfg()
+        cfgobj = copy.deepcopy(cfgobj)
         tasklist = self.tasks_
         cfgtask = None
         for channel in cfgobj['rtsp_urls']:

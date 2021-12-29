@@ -171,12 +171,12 @@ async def stream_info():
     #         ]}
     item = {'version': '1.0.0',
             'channels': [
-                {'deviceid': '34020000001320000001', 'channelid': '34020000001310000001', 'desc': '1710房间前门',
+                {'deviceid': '34020000001320000001', 'channelid': '34020000001310000001', 'desc': '仪表识别',
                  'url': 'rtsp://127.0.0.1/live'},
-                {'deviceid': '44020000001320000001', 'channelid': '44020000001320000001', 'desc': '605大厅',
-                 'url': 'rtsp://127.0.0.1/live'},
-                {'deviceid': '54020000001320000001', 'channelid': '54020000001320000001', 'desc': '608停车区',
-                 'url': 'rtsp://127.0.0.1/live'}
+                {'deviceid': '44020000001320000001', 'channelid': '44020000001310000001', 'desc': '人员识别',
+                 'url': 'rtsp://user:userpass@192.168.1.225:7554/person'},
+                {'deviceid': '54020000001320000001', 'channelid': '54020000001310000001', 'desc': 'PLC',
+                 'url': 'rtsp://user:userpass@192.168.1.225:7554/panel'}
             ]}
     return item
 
