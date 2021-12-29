@@ -36,7 +36,7 @@ import cv2
 # from imutils.video import VideoStream
 # from matplotlib import pyplot as plt
 from time import time, sleep
-from utils import bus, comn, log, V2VErr
+from utils import bus, comn, log, V2VErr, GrabFrame
 from core.procworker import ProcWorker
 
 
@@ -80,8 +80,16 @@ class RtspWorker(ProcWorker):
             # 当创建这个管道流水线的时候，主进程每次会过滤所有需要访问的urls，确保只有一个url链接任务返回
             # url = self.args_['rtsp_url']
             task = cfg['rtsp_urls'][0]
-            self.vs_ = cv2.VideoCapture(task['rtsp_url'])
-            self.fps_ = self.vs_.get(cv2.cv2.CAP_PROP_FPS)
+            url = task['rtsp_url']
+            # self.vs_ = cv2.VideoCapture(url)
+            # self.fps_ = self.vs_.get(cv2.cv2.CAP_PROP_FPS)
+            cvobj = GrabFrame.GrabFrame()
+            opened = cvobj.open_stream(url, 10)
+            if opened:
+                w, h, self.fps_ = cvobj.get_stream_info()
+                self.vs_ = cvobj
+            else:
+                raise V2VErr.V2VConfigurationIllegalError(f'Can not open the {url} stream.')
             self.task_.update(task)
         except (cv2.error, AttributeError) as err:
             self.log(f'[{__file__}]Rtsp start up task error:({task})', level=log.LOG_LVL_ERRO)
@@ -129,7 +137,7 @@ class RtspWorker(ProcWorker):
             # 采样的周期（秒），比如采样率1Hz，则睡1秒工作一次
             inteval = 1 / sar
             # 计算需要丢弃的帧数
-            skip = self.fps_ / sar
+            # skip = self.fps_ / sar
             for vp in vps:
                 presetid = list(vp.keys())[0]   # 目前配置文件格式规定：每个vp对象只有1个presetX的主键，value是一个json对象
                 # 让摄像头就位
@@ -137,16 +145,18 @@ class RtspWorker(ProcWorker):
                 # 读取停留时间
                 duration = vp[presetid][0]['seconds']   # 对某个具体的预置点vp，子分类aoi停留时间都是一样的，随便取一个即可。
                 st, delta = time(), 0
-
+                current_frame_pos = -1
                 while duration > delta:
                     # 开始丢帧：如前面计算，当skip>0，比如fps/sample_rate=每都少帧一个抽样
-                    frame, current_frame_pos = None, None
-                    while skip >= 1 and self.vs_.grab():
-                        current_frame_pos = self.vs_.get(cv2.cv2.CAP_PROP_POS_FRAMES)
-                        if current_frame_pos % skip == 0:
-                            ret, frame = self.vs_.retrieve()
-                            self.log(f'framepos---{current_frame_pos}---')
-                            break
+                    # frame, current_frame_pos = None, None
+                    # while skip >= 1 and self.vs_.grab():
+                    #     current_frame_pos = self.vs_.get(cv2.CAP_PROP_POS_FRAMES)
+                    #     if current_frame_pos % skip == 0:
+                    #         ret, frame = self.vs_.retrieve()
+                    #         self.log(f'framepos---{current_frame_pos}---')
+                    #         break
+                    frame = self.vs_.read_frame(0.1)
+                    current_frame_pos = self.vs_.get_stream_frame_pos()
                     sleep(inteval - time() % inteval)               # 动态调速，休眠采样间隔的时间
 
                     # 为实现ai效率最大化，把图片中不同ai仪表识别任务分包，一个vp，不同类ai模型给不同的ai线程去处理
@@ -163,11 +173,11 @@ class RtspWorker(ProcWorker):
                     delta = time() - st                             # 消耗的时间（秒）
                 self.log(f'preset {presetid} spend time: {delta} and current frame pos: {current_frame_pos}')
                 # 如果读流发现错误，则需要重新连接流，不再往下发错误数据
-                if current_frame_pos is None:
-                    raise cv2.error
+                # if current_frame_pos is None:
+                #     raise cv2.error
         except (cv2.error, AttributeError, UnboundLocalError) as err:
             self.log(f'1.[{__file__}]cv2.error:({err}){self.task_}', level=log.LOG_LVL_ERRO)
-            self.vs_.release()
+            # self.vs_.release()
             # self.startup()
         # except UnboundLocalError as err:
         #     self.log(f'{err}', level=log.LOG_LVL_ERRO)
@@ -184,4 +194,4 @@ class RtspWorker(ProcWorker):
 
     def shutdown(self):
         # cv2.destroyAllWindows()
-        self.vs_.release()
+        self.vs_.stop_stream()

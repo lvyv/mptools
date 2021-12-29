@@ -110,3 +110,6 @@ venv.bak/
 #tests 
 tests/*.jpg
 tests/nvr_samples
+
+#sonarQube
+.scannerwork

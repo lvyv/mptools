@@ -21,6 +21,7 @@ class VideoCaptureThread(threading.Thread):
         self.__width = 0
         self.__height = 0
         self.__fps = 0
+        self.__current_frame_pos = 0
 
     def close(self):
         """
@@ -43,6 +44,13 @@ class VideoCaptureThread(threading.Thread):
         """
         return self.__width, self.__height, self.__fps
 
+    def get_stream_frame_pos(self) -> int:
+        """
+        返回帧位置
+        :return: int
+        """
+        return self.__current_frame_pos
+
     def run(self):
         print('Start VideoCaptureThread.')
         cap_obj = cv2.VideoCapture(self.__rtsp_url)
@@ -62,6 +70,7 @@ class VideoCaptureThread(threading.Thread):
         cap_obj.set(cv2.CAP_PROP_BUFFERSIZE, 0)
         # 循环读
         while self.__is_exit is False:
+            self.__current_frame_pos = cap_obj.get(cv2.CAP_PROP_POS_FRAMES)
             # 是否要取最新一帧
             if self.__is_grab_frame is True:
                 (success, img) = cap_obj.read()
@@ -160,6 +169,16 @@ class GrabFrame:
             return self.__capture_thread.get_stream_info()
         else:
             return 0, 0, 0
+
+    def get_stream_frame_pos(self) -> int:
+        """
+        返回帧位置
+        :return: int
+        """
+        if self.__capture_thread.isAlive():
+            return self.__capture_thread.get_stream_frame_pos()
+        else:
+            return -1
 
     def stop_stream(self):
         """

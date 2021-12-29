@@ -32,8 +32,7 @@ import copy
 import multiprocessing
 import functools
 import signal
-# import sys
-# import threading
+import os
 import time
 
 from core.rtsp import RtspWorker
@@ -102,6 +101,7 @@ class ProcSimpleFactory:
     @classmethod
     def create_daemon(cls, worker_class, name, **kwargs):
         if cls.rest_ is None:
+            name = f'{name}-{os.getpid()}'
             dp = multiprocessing.Process(target=daemon_wrapper, args=(worker_class, name), kwargs=kwargs)
             dp.daemon = True
             dp.start()
@@ -177,8 +177,8 @@ class MainContext(bus.IEventBusMixin):
         """
         newcfg = ConfigSet.update_cfg(params)
         if newcfg:
-            # 配置更新事件发生，需要对任务列表初始化，重新分配任务。
-            self.tasks_ = {}
+            # 配置更新事件发生，需要对任务列表初始化，便于重新分配任务。
+            self.clear_tasks()
             # 广播到流水线进程，所有流水线上的所有进程将重启。
             msg = bus.EBUS_SPECIAL_MSG_CFG
             self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)   # 广播配置信息给所有子进程
@@ -245,7 +245,7 @@ class MainContext(bus.IEventBusMixin):
         :param params: dict, {'application': 'RTSP(0)-16380','up': 39.5527503490448, ...}, proc是固定的，除up外还可能增加其它键值。
         :return: dict, {'reply': True}
         """
-        self.log(params)
+        # self.log(f'callback_set_metrics: {params}')
 
         pname = params['application']
         params.pop('application', None)
@@ -265,7 +265,7 @@ class MainContext(bus.IEventBusMixin):
                                                   'AI(2)-10104': {'up': 50.51580286026001, 'down': 1},
                                                   'AI(1)-16380': {'on': 0}}}
         """
-        self.log(params)
+        # self.log(f'callback_get_metrics: {params}')
         if {} == params:
             ret = self.metrics_
         else:
@@ -279,7 +279,7 @@ class MainContext(bus.IEventBusMixin):
                              {'cmd': 'resume', 'deviceid': 'xxx', 'channelid': 'yyy'}
         :return: dict, {'reply': True}
         """
-        self.log(params)
+        # self.log(params)
         msg = bus.EBUS_SPECIAL_MSG_STOP_RESUME_PIPE
         msg.update(params)
         self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)  # 广播启停某通道消息给所有子进程
@@ -289,7 +289,7 @@ class MainContext(bus.IEventBusMixin):
     #     sys.exit(0)
 
     def __init__(self):
-        self.log = functools.partial(log.logger, f'MAIN')
+        self.log = functools.partial(log.logger, f'MAIN-{os.getpid()}')
         if MainContext.center_ is None:
             MainContext.center_ = bus.IEventBusMixin.get_center()
         if MainContext.broadcaster_ is None:
@@ -401,6 +401,9 @@ class MainContext(bus.IEventBusMixin):
             self.log(f'2.[{__file__}]{err}', level=log.LOG_LVL_ERRO)
 
     def stop_procs(self):
+        # 停止流水线子进程，需要对任务列表初始化，便于重新分配任务。
+        self.clear_tasks()
+
         msg = bus.EBUS_SPECIAL_MSG_STOP
         self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)  # 微服务进程与主进程同时存在，不会停
         return True
@@ -416,6 +419,44 @@ class MainContext(bus.IEventBusMixin):
             msg = bus.EBUS_SPECIAL_MSG_METRICS
             self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)  # 通知子进程
             time.sleep(interval)
+
+    def clear_tasks(self):
+        """
+        清除所有任务列表。在stop pipeline的时候，配置下发设置的时候，需要调用。
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+
+        Raises
+        ----------
+        """
+        self.tasks_ = {}
+
+    def get_pre_assigned_cfg(self, source):
+        """
+        如果某个子进程被分派了任务又重新申请，则还是返回原来任务给他。
+
+        Parameters
+        ----------
+        proc : 子进程的名称标识。
+
+        Returns
+        -------
+
+        Raises
+        ----------
+        """
+        taskcfg = None
+        for url, proc in self.tasks_.items():
+            if proc == source:
+                cfg = ConfigSet.get_cfg()
+                for channel in cfg['rtsp_urls']:
+                    if channel and url == channel['rtsp_url']:
+                        taskcfg = channel
+        return taskcfg
 
     def assign_task(self, source, assigned=None):
         """
@@ -448,6 +489,10 @@ class MainContext(bus.IEventBusMixin):
                         # 如果tasklist中有这个值，说明有人先注册处理这个任务，再找下个待分配任务。
                         continue
                     else:
+                        cfgtask = self.get_pre_assigned_cfg(source)
+                        if cfgtask:
+                            self.log(f'zzzzz-----:{self.tasks_}')
+                            break
                         tasklist.update({url: source})
                         self.log(f'yyyyy-----:{self.tasks_}')
                         cfgtask = channel
