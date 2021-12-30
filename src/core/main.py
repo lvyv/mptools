@@ -437,11 +437,12 @@ class MainContext(bus.IEventBusMixin):
 
     def get_pre_assigned_cfg(self, source):
         """
-        如果某个子进程被分派了任务又重新申请，则还是返回原来任务给他。
+        如果某个子进程被分派了任务又重新申请，则还是返回原来任务给它。
+        如果这个子进程没有出现在任务注册表中，返回空。
 
         Parameters
         ----------
-        proc : 子进程的名称标识。
+        source : 子进程的名称标识。
 
         Returns
         -------
@@ -450,11 +451,11 @@ class MainContext(bus.IEventBusMixin):
         ----------
         """
         taskcfg = None
-        for url, proc in self.tasks_.items():
-            if proc == source:
-                cfg = ConfigSet.get_cfg()
+        cfg = ConfigSet.get_cfg()               # 待分配任务表
+        for url, proc in self.tasks_.items():   # self.tasks_ 注册任务表
+            if proc == source:                  # 这个子进程注册过吗？
                 for channel in cfg['rtsp_urls']:
-                    if channel and url == channel['rtsp_url']:
+                    if channel and url == channel['rtsp_url']:  # 注册的这个url对应的配置取出来
                         taskcfg = channel
         return taskcfg
 
@@ -483,26 +484,24 @@ class MainContext(bus.IEventBusMixin):
         for channel in cfgobj['rtsp_urls']:
             if channel:
                 url = channel['rtsp_url']
-                if tasklist:
-                    # 已经有子进程分配了任务，检查该url是否有主了。
-                    if url in tasklist.keys():
-                        # 如果tasklist中有这个值，说明有人先注册处理这个任务，再找下个待分配任务。
-                        continue
-                    else:
-                        cfgtask = self.get_pre_assigned_cfg(source)
-                        if cfgtask:
-                            self.log(f'zzzzz-----:{self.tasks_}')
-                            break
+                # if tasklist:
+                #     # 已经有子进程分配了任务，检查该url是否有主了。
+                if url in tasklist.keys():
+                    # 如果tasklist中有这个值，说明有人先注册处理这个任务，再找下个待分配任务。
+                    continue
+                else:
+                    cfgtask = self.get_pre_assigned_cfg(source)
+                    if cfgtask is None:
+                        cfgtask = channel
                         tasklist.update({url: source})
                         self.log(f'yyyyy-----:{self.tasks_}')
-                        cfgtask = channel
                         break
-                else:
-                    # tasklist={}，还没有分配过任务。
-                    tasklist.update({url: source})
-                    self.log(f'xxxxx-----:{self.tasks_}')
-                    cfgtask = channel
-                    break
+                # else:
+                #     # tasklist={}，还没有分配过任务。
+                #     tasklist.update({url: source})
+                #     self.log(f'xxxxx-----:{self.tasks_}')
+                #     cfgtask = channel
+                #     break
         if cfgtask:
             cfgobj['rtsp_urls'] = [cfgtask]
         else:

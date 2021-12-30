@@ -75,14 +75,20 @@ class RtspWorker(ProcWorker):
             # 1.尝试获取配置数据，找主进程获取一个流水线任务
             self.log(f'{self.name} started......')
             cfg = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_task', 'source': self.name, 'assigned': self.task_})
-            # self.log(cfg['rtsp_urls'][0])
             # 2.访问对应的rtsp流
-            # 当创建这个管道流水线的时候，主进程每次会过滤所有需要访问的urls，确保只有一个url链接任务返回
-            # url = self.args_['rtsp_url']
-            task = cfg['rtsp_urls'][0]
-            url = task['rtsp_url']
-            # self.vs_ = cv2.VideoCapture(url)
-            # self.fps_ = self.vs_.get(cv2.cv2.CAP_PROP_FPS)
+            # 如果此前已经分配过任务，但因为下发配置事件、配置不合法、网络断流等导致重新初始化。
+            # 则有新分配任务，按新任务执行，没有新任务，按老任务执行。
+            url = None
+            if self.task_:
+                url = self.task_['rtsp_url']
+            if cfg['rtsp_urls']:
+                task = cfg['rtsp_urls'][0]
+                url = task['rtsp_url']      # 分配给自己的任务
+                self.task_.update(task)     # 记录分配到的任务
+            if url is None:
+                # 这个错误是因为返回的配置信息中的任务没有，已经分配完了，或者原来分配任务，但新下发配置终止了原来任务（shutdown调用）
+                raise V2VErr.V2VTaskNullRtspUrl(f'No more task left.')
+
             cvobj = GrabFrame.GrabFrame()
             opened = cvobj.open_stream(url, 10)
             if opened:
@@ -90,13 +96,10 @@ class RtspWorker(ProcWorker):
                 self.vs_ = cvobj
             else:
                 raise V2VErr.V2VConfigurationIllegalError(f'Can not open the {url} stream.')
-            self.task_.update(task)
-        except (cv2.error, AttributeError) as err:
+
+        except (cv2.error, IndexError, AttributeError) as err:
             self.log(f'[{__file__}]Rtsp start up task error:({task})', level=log.LOG_LVL_ERRO)
             raise V2VErr.V2VConfigurationIllegalError(err)
-        except IndexError as err:
-            # 这个错误是因为返回的配置信息中的任务没有，已经分配完了（cfg['rtsp_urls][0]不存在）。
-            raise V2VErr.V2VTaskNullRtspUrl(err)
 
     def main_func(self, event=None, *args):
         """
@@ -195,3 +198,6 @@ class RtspWorker(ProcWorker):
     def shutdown(self):
         # cv2.destroyAllWindows()
         self.vs_.stop_stream()
+        self.task_ = {}     # 很重要，清空任务列表
+        self.fps_ = None
+        self.vs_ = None
