@@ -461,7 +461,7 @@ class MainContext(bus.IEventBusMixin):
 
     def assign_task(self, source, assigned=None):
         """
-        根据子进程的请求，返回需要的配置信息。如果发现没有可分配的任务，则返回None。
+        根据子进程的请求，返回一个含url的任务配置信息。如果发现没有可分配的任务，则返回[]。
 
         Parameters
         ----------
