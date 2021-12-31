@@ -44,6 +44,7 @@ class MqttWorker(ProcWorker):
         self.in_q_ = in_q
         self.out_q_ = out_q
         self.mqtt_cid_ = None   # 这个名字无所谓，在网关处会重新mapping key-value到正确的设备号
+        self.mqtt_usr_ = None
         self.mqtt_pwd_ = None
         self.mqtt_host_ = None
         self.mqtt_port_ = None
@@ -57,6 +58,8 @@ class MqttWorker(ProcWorker):
                 self.mqtt_port_ = value
             elif key == 'mqtt_cid':
                 self.mqtt_cid_ = value
+            elif key == 'mqtt_cid':
+                self.mqtt_usr_ = value
             elif key == 'mqtt_pwd':
                 self.mqtt_pwd_ = value
             elif key == 'mqtt_topic':
@@ -89,13 +92,14 @@ class MqttWorker(ProcWorker):
             self.mqtt_host_ = mqttcfg['mqtt_svr']
             self.mqtt_port_ = mqttcfg['mqtt_port']
             self.mqtt_cid_ = mqttcfg['mqtt_cid']
+            self.mqtt_usr_ = mqttcfg['mqtt_usr']
             self.mqtt_pwd_ = mqttcfg['mqtt_pwd']
 
             self.mqtt_topic_ = mqttcfg['mqtt_tp']
             self.fsvr_url_ = mqttcfg['fsvr_url']
-            self.client_ = mqtt_client.Client()
+            self.client_ = mqtt_client.Client(self.mqtt_cid_)
 
-            self.client_.username_pw_set(self.mqtt_cid_, self.mqtt_pwd_)
+            self.client_.username_pw_set(self.mqtt_usr_, self.mqtt_pwd_)
             self.client_.connect(self.mqtt_host_, self.mqtt_port_)
             self.client_.loop_start()
         except (socket.gaierror, TimeoutError, UnicodeError, ConnectionRefusedError) as err:
