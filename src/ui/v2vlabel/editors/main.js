@@ -211,8 +211,8 @@ function onInit(editor) {
         set_json_model(editor, md);
         if (nd.getAttribute('ori_image')) {
             let url = `/viewport/${local_v2v_configuration_.device_id}/${nd.id.substring(6)}.png`
-            //editor.graph.setBackgroundImage(new mxImage(url, nd.getAttribute('ori_width'), nd.getAttribute('ori_height')));
-            editor.graph.setBackgroundImage(new mxImage(url, 680, 480));
+            editor.graph.setBackgroundImage(new mxImage(url, nd.getAttribute('ori_width'), nd.getAttribute('ori_height')));
+            //editor.graph.setBackgroundImage(new mxImage(url, 680, 480));
         } else {
             editor.graph.setBackgroundImage(new mxImage('/viewport/add-viewport.png', 680, 480));
         }
@@ -316,8 +316,9 @@ function onInit(editor) {
     /* 自定义初始化操作 */
     load_local_v2v_configuration();
     //add 测试数据
-    local_v2v_configuration_.device_id = '34020000001320000001';
-    local_v2v_configuration_.channel_id = '34020000001310000001';
+    const inputs = prompt("输入设备号和通道号，用,分开。","34020000001320000001,34020000001310000001").split(",")
+    local_v2v_configuration_.device_id = inputs[0]  //'34020000001320000001';
+    local_v2v_configuration_.channel_id = inputs[1] //'34020000001310000001';
 
     //预览初始化
     init_preview(local_v2v_configuration_.device_id, local_v2v_configuration_.channel_id, true);

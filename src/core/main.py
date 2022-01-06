@@ -138,6 +138,8 @@ class MainContext(bus.IEventBusMixin):
     """
 
     NUMBER_OF_PROCESSES = 18
+    PIC_QUEUE_SIZE = 20         # 允许RTSP存多少帧图像给AI，避免AI算不过来，RTSP把内存给撑死
+    VEC_QUEUE_SIZE = 50        # 允许AI识别放多少结果到MQTT，避免MQTT死了，AI撑死内存
 
     def callback_start_pipeline(self, params):
         self.log(params)
@@ -306,8 +308,8 @@ class MainContext(bus.IEventBusMixin):
 
         # self.cfg_ = None  # 配置文件内容
         self.tasks_ = {}  # 动态管理所有流水线任务
-        self.pic_q_ = multiprocessing.Manager().Queue()  # Is JoinableQueue better?
-        self.vec_q_ = multiprocessing.Manager().Queue()
+        self.pic_q_ = multiprocessing.Manager().Queue(self.PIC_QUEUE_SIZE)  # Is JoinableQueue better?
+        self.vec_q_ = multiprocessing.Manager().Queue(self.VEC_QUEUE_SIZE)  # mqtt阻塞
 
         # self.queues_ = []  # 子进程间数据传递队列
         # self.queues_.append(self.pic_q_)  # 图片

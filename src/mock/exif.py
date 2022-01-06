@@ -45,31 +45,40 @@ def call_aimeter(contents):
     # print(contents)
     if contents:
         pass
-    ret = [
-        {'id': 1, 'key1': 31.2, 'loc': [14, 23]},
-        {'id': 2, 'key2': 20, 'loc': [102, 538]}
-    ]
+    ret = {'req_id': None,
+           'api_type': 'panel',
+           'obj_info': [{'name': 'OCR_001', 'type': 'OCR', 'score': 0.889299750328064, 'pos': [26, 263, 416, 422],
+                         'value': '0.27',
+                         'inter_type': None}],
+           'stats_info': None,
+           'ET': '(0.146s)'}
     return ret
 
 
 def call_objcounting(contents):
     if contents:
         pass
-    ret = [
-        {'id': 1, 'person': 12},
-        {'id': 2, 'car': 1}
-    ]
+    ret = {'req_id': None,
+           'api_type': 'person',
+           'obj_info': [{'name': 'CNT_001', 'type': 'COMPUTER', 'score': 0.889299750328064,
+                         'pos': (26, 263, 416, 422,  2, 3, 1, 1,    2, 3, 1, 1,),
+                         'value': '3',
+                         'inter_type': None}],
+           'stats_info': None,
+           'ET': '(0.146s)'}
     return ret
 
 
 def call_indicator_freq(contents):
     if contents:
         pass
-    ret = [
-        {'id': 1, '油泵指示灯': 3},  # 3 表示3Hz
-        {'id': 2, '电源指示灯': -1},  # -1 表示常亮
-        {'id': 3, '通信指示灯': 0}  # 0 表示常灭
-    ]
+    ret = {'req_id': None,
+           'api_type': 'plc',
+           'obj_info': [{'name': 'PLC_001', 'type': 'plc', 'score': 0.889299750328064, 'pos': [26, 263, 416, 422],
+                         'value': '0.27',
+                         'inter_type': None}],
+           'stats_info': None,
+           'ET': '(0.146s)'}
     return ret
 
 
@@ -171,12 +180,16 @@ async def stream_info():
     #         ]}
     item = {'version': '1.0.0',
             'channels': [
-                {'deviceid': '34020000001320000001', 'channelid': '34020000001310000001', 'desc': '仪表识别',
+                {'deviceid': '34020000001320000001', 'channelid': '34020000001310000001', 'desc': '本地仪表识别',
                  'url': 'rtsp://127.0.0.1/live'},
                 {'deviceid': '44020000001320000001', 'channelid': '44020000001310000001', 'desc': '人员识别',
                  'url': 'rtsp://user:userpass@192.168.1.225:7554/person'},
-                {'deviceid': '54020000001320000001', 'channelid': '54020000001310000001', 'desc': 'PLC',
-                 'url': 'rtsp://user:userpass@192.168.1.225:7554/panel'}
+                {'deviceid': '54020000001320000001', 'channelid': '54020000001310000001', 'desc': '测试静态仪表识别',
+                 'url': 'rtsp://user:userpass@192.168.1.225:7554/panel'},
+                {'deviceid': '64020000001320000001', 'channelid': '64020000001310000001', 'desc': 'PLC',
+                 'url': 'rtsp://user:userpass@192.168.1.225:7554/plc'},
+                {'deviceid': '74020000001320000001', 'channelid': '74020000001310000001', 'desc': '前门摄像头',
+                 'url': 'rtsp://admin:admin123@192.168.101.39/cam/realmonitor?channel=1&subtype=0'}
             ]}
     return item
 

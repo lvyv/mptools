@@ -151,9 +151,14 @@ class RestWorker(ProcWorker):
         # cfg_ = None
         baseurl_of_nvr_samples_ = '/viewport'
         # FIXME:这个地方应该改为从主进程获取配置，主进程是唯一来源，子进程避免直接操作文件系统
-        localroot_of_nvr_samples_ = ConfigSet.get_cfg()['nvr_samples']
-        ui_config_tpl_ = f'{ConfigSet.get_cfg()["ui_config_dir"]}ui.xml'
-        ai_url_config_file_ = f'{ConfigSet.get_cfg()["ui_config_dir"]}diagrameditor.xml'
+        cfgobj = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
+        localroot_of_nvr_samples_ = cfgobj['nvr_samples']
+        ui_config_tpl_ = f'{cfgobj["ui_config_dir"]}ui.xml'
+        ai_url_config_file_ = f'{cfgobj["ui_config_dir"]}diagrameditor.xml'
+
+        # localroot_of_nvr_samples_ = ConfigSet.get_cfg()['nvr_samples']
+        # ui_config_tpl_ = f'{ConfigSet.get_cfg()["ui_config_dir"]}ui.xml'
+        # ai_url_config_file_ = f'{ConfigSet.get_cfg()["ui_config_dir"]}diagrameditor.xml'
 
         # EIF3:REST V2V C&M 外部接口-提供UI前端配置V2V需要的截图
         # 本路由为前端ui的路径
@@ -279,6 +284,8 @@ class RestWorker(ProcWorker):
         async def stream_info():
             """获取所有的视频通道列表"""
             item = {'version': '1.0.0', 'reply': 'pending.'}
+            cfg = rest_proc_.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': rest_proc_.name})
+            comn.set_common_cfg(cfg)    # 只是设置全局变量，便于配置的热更新（视频调度管理软件的摄像头停留时间和视频调度服务器地址）
             streams = comn.get_urls()
             item['streams'] = streams
             item['reply'] = True
@@ -291,6 +298,8 @@ class RestWorker(ProcWorker):
             try:
                 target = f'{localroot_of_nvr_samples_}{deviceid}/'
                 if refresh:
+                    cfg = rest_proc_.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': rest_proc_.name})
+                    comn.set_common_cfg(cfg)  # 只是设置全局变量，便于配置的热更新（视频调度管理软件的摄像头停留时间和视频调度服务器地址）
                     # 如果是刷新，这需要从nvr取图片保存到本地目录(nvr_samples目录下按设备号创建目录)
                     # 1.通知主调度，停止pipeline流水线对本摄像头的识别操作
                     pipeline_cmd = {'cmd': 'pause', 'deviceid': deviceid, 'channelid': channelid}

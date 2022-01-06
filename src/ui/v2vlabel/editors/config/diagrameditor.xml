@@ -33,14 +33,14 @@
 		</add>
 
 		<add as="person">
-			<person href="https://127.0.0.1:7180/api/v1/ai/person" label="CNT_">
+			<person href="https://192.168.1.22:7180/api/v1/ai/person" label="CNT_">
 				<mxCell style="actor" vertex="1">
 					<mxGeometry as="geometry" height="60" width="40" />
 				</mxCell>
 			</person>
 		</add>
 		<add as="plc">
-			<PLC href="https://127.0.0.1:7180/api/v1/ai/plc" label="PLC_">
+			<PLC href="https://192.168.1.22:7180/api/v1/ai/plc" label="PLC_">
 				<mxCell style="rounded" vertex="1">		
 					<mxGeometry as="geometry" height="40" width="80" />
 				</mxCell>
@@ -48,35 +48,35 @@
 		</add>
 
 		<add as="ocr">
-			<OCR href="https://127.0.0.1:7180/api/v1/ai/panel" label="OCR_">
+			<OCR href="https://192.168.1.22:7180/api/v1/ai/panel" label="OCR_">
 				<mxCell vertex="1">
 					<mxGeometry as="geometry" height="40" width="80" />
 				</mxCell>
 			</OCR>
 		</add>
 		<add as="llm">
-			<LLM href="https://127.0.0.1:7180/api/v1/ai/panel" label="LLM_">
+			<LLM href="https://192.168.1.22:7180/api/v1/ai/panel" label="LLM_">
 				<mxCell style="polygon" vertex="1">
 					<mxGeometry as="geometry" height="100" width="60" />
 				</mxCell>
 			</LLM>
 		</add>
 		<add as="pointer">
-			<METER href="https://127.0.0.1:7180/api/v1/ai/panel" label="PT_">
+			<METER href="https://192.168.1.22:7180/api/v1/ai/panel" label="PT_">
 				<mxCell vertex="1">
 					<mxGeometry as="geometry" height="40" width="80" />
 				</mxCell>
 			</METER>
 		</add>
 		<add as="switch">
-			<SWITCH href="https://127.0.0.1:7180/api/v1/ai/panel" label="SW_">
+			<SWITCH href="https://192.168.1.22:7180/api/v1/ai/panel" label="SW_">
 				<mxCell vertex="1">
 					<mxGeometry as="geometry" height="40" width="80" />
 				</mxCell>
 			</SWITCH>
 		</add>
 		<add as="indicator">
-			<IDL href="https://127.0.0.1:7180/api/v1/ai/panel" label="LED_">
+			<IDL href="https://192.168.1.22:7180/api/v1/ai/panel" label="LED_">
 				<mxCell vertex="1">
 					<mxGeometry as="geometry" height="40" width="80" />
 				</mxCell>

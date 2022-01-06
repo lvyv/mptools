@@ -90,7 +90,7 @@ class RtspWorker(ProcWorker):
                 raise V2VErr.V2VTaskNullRtspUrl(f'No more task left.')
 
             cvobj = GrabFrame.GrabFrame()
-            opened = cvobj.open_stream(url, 10)
+            opened = cvobj.open_stream(url, 30)
             if opened:
                 w, h, self.fps_ = cvobj.get_stream_info()
                 self.vs_ = cvobj
@@ -158,8 +158,12 @@ class RtspWorker(ProcWorker):
                     #         ret, frame = self.vs_.retrieve()
                     #         self.log(f'framepos---{current_frame_pos}---')
                     #         break
+
                     frame = self.vs_.read_frame(0.1)
+                    # 请求用时间戳，便于后续Ai识别后还能够知道是哪一个时间点的视频帧
+                    requestid = int(time() * 1000)
                     current_frame_pos = self.vs_.get_stream_frame_pos()
+
                     sleep(inteval - time() % inteval)               # 动态调速，休眠采样间隔的时间
 
                     # 为实现ai效率最大化，把图片中不同ai仪表识别任务分包，一个vp，不同类ai模型给不同的ai线程去处理
@@ -169,7 +173,9 @@ class RtspWorker(ProcWorker):
                         if task['ai_service'] != '':
                             # 把图像数据和任务信息通过队列传给后续进程，fid和fps可以用来计算流开始以来的时间
                             if frame is not None:
-                                pic = {'task': task, 'fid': current_frame_pos, 'fps': self.fps_, 'frame': frame}
+                                pic = {'requestid': requestid,
+                                       'task': task, 'fid': current_frame_pos, 'fps': self.fps_, 'frame': frame}
+                                self.log(f'The size of picture queue between rtsp & ai is: {self.out_q_.qsize()}.')
                                 self.out_q_.put(pic)
 
                     # 计算是否到设定的时间了

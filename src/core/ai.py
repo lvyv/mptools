@@ -43,9 +43,9 @@ class UrlStatisticsHelper:
     """对于url地址失效的简单处理.
 
     如果ai进程的url服务暂时失效，会导致调用方阻塞很久，从而让整个流水线出现阻塞。
-    因此加入一个处罚机制，如果连续多次（3）调用失败，将放入黑名单，等持续调用很多次J（100）后再放出来。
+    因此加入一个处罚机制，如果连续多次（3）调用失败，将放入黑名单，等持续调用很多次J（20）后再放出来。
     """
-    def __init__(self, criterion=100):
+    def __init__(self, criterion=20):
         self.urls_ = []
         self.criterion_ = criterion     # 连续几次（比如3）访问失败，就不再允许访问，直到发现请求持续超过（100）次，重新放行。
 
@@ -133,8 +133,9 @@ class AiWorker(ProcWorker):
             fid = pic['fid']
             fps = pic['fps']
             frame = pic['frame']
+            requestid = pic['requestid']
 
-            rest = task['ai_service']
+            rest = f'{task["ai_service"]}'
             template_in = task['area_of_interest']
 
             if self.badurls_.get_cnts(rest) < 3:    # 事不过三。
@@ -144,28 +145,30 @@ class AiWorker(ProcWorker):
                     # self.log(f'in:{template_in}')
                     sub_image, template = self.plc_sub_image(frame, template_in)
                     plt.imsave(buf, sub_image, format='jpg', cmap=cm.gray)  # noqa
-                    cv2.imwrite(f'{self.name}-plc-extract.jpg', sub_image)
-                    self.log(f'plc:{template}--{rest}')
-                    payload = {'cfg_info': str(template), 'req_id': None}
+                    # cv2.imwrite(f'{self.name}-plc-extract.jpg', sub_image)
+                    # self.log(f'plc:{template}--{rest}')
+                    payload = {'cfg_info': str(template), 'req_id': requestid}
                 else:
                     plt.imsave(buf, pic['frame'], format='jpg')
-                    self.log(f'panel & others:{template_in}')
-                    payload = {'cfg_info': str(template_in), 'req_id': None}
+                    # self.log(f'panel & others:{template_in}--{rest}')
+                    payload = {'cfg_info': str(template_in), 'req_id': requestid}
 
                 image_data = buf.getvalue()
                 files = {'files': (comn.replace_non_ascii(f'{fid}-{fps}'), image_data, 'image/jpg')}
-
+                rest = f'{rest}/?req_id={requestid}'
+                self.log(f'Going to call {rest} by {template_in}.')
                 resp = requests.post(rest, files=files, data=payload, verify=False)
                 if resp.status_code == 200:
                     # result = resp.content.decode('utf-8')
                     self.out_q_.put(resp.content)
                 else:
-                    self.log(f'[{__file__}]{resp.status_code}', level=log.LOG_LVL_ERRO)
+                    self.log(f'ai服务访问失败，错误号：{resp.status_code}', level=log.LOG_LVL_WARN)
             else:
                 self.badurls_.waitforrecover(rest)     # 并不真的去访问该rest，而是要等累计若干次以后再说。
 
         except requests.exceptions.ConnectionError as err:
-            self.badurls_.add(rest)     # noqa
+            # 把出错的url取出来记下，但是要去掉/?req_id
+            self.badurls_.add(rest.split('/?req_id=')[0])     # noqa
             self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
         except Exception as err:
             self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)

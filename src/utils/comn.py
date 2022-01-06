@@ -45,12 +45,22 @@ baseurl_ = ConfigSet.get_cfg()['media_service']
 ipc_ptz_delay_ = ConfigSet.get_cfg()['ipc_ptz_delay']
 
 
+def set_common_cfg(cfg):
+    global baseurl_
+    global ipc_ptz_delay_
+    baseurl_ = cfg['media_service']
+    ipc_ptz_delay_ = cfg['ipc_ptz_delay']
+
+
 def replace_non_ascii(x): return ''.join(i if ord(i) < 128 else '_' for i in x)
 
 
-def run_to_viewpoints(devid, channelid, presetid):
+def run_to_viewpoints(devid, channelid, presetid, burl=None):
     ret = None
+    global baseurl_
     try:
+        if burl:
+            baseurl_ = burl
         payload = {'viewpoint': presetid}
         resp = requests.post(f'{baseurl_}/api/v1/ptz/front_end_command/{devid}/{channelid}',
                              data=payload, verify=False)
@@ -63,10 +73,12 @@ def run_to_viewpoints(devid, channelid, presetid):
         return ret
 
 
-def get_url(devid, channelid):
+def get_url(devid, channelid, burl=None):
     ret = None
+    global baseurl_
     try:
-
+        if burl:
+            baseurl_ = burl
         url = f'{baseurl_}/api/v1/ptz/streaminfo'
         resp = requests.get(url, verify=False)
         resp = json.loads(resp.content)['channels']
@@ -82,9 +94,12 @@ def get_url(devid, channelid):
         return ret
 
 
-def get_urls():
+def get_urls(burl=None):
     resp = None
+    global baseurl_
     try:
+        if burl:
+            baseurl_ = burl
         url = f'{baseurl_}/api/v1/ptz/streaminfo'
         resp = requests.get(url, verify=False)
         resp = json.loads(resp.content)['channels']
@@ -94,9 +109,12 @@ def get_urls():
         return resp
 
 
-def get_presets(devid, channelid):
+def get_presets(devid, channelid, burl=None):
     resp = None
+    global baseurl_
     try:
+        if burl:
+            baseurl_ = burl
         url = f'{baseurl_}/api/v1/ptz/front_end_command/{devid}/{channelid}'
         resp = requests.get(url, verify=False)
         resp = json.loads(resp.content)['presetlist']
