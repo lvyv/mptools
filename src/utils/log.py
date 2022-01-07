@@ -38,14 +38,20 @@ LOG_LVL_DBG = logging.DEBUG
 LOG_LVL_WARN = logging.WARNING
 LOG_LVL_ERRO = logging.ERROR
 
-
-log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-lg = logging.getLogger('v2v')
-lg.setLevel(logging.INFO)               # 发布的时候可以修改这个值以便于抑制过多日志
-file_handler = logging.StreamHandler()  # 可以使用RotatingFileHandler，或者UDP/TCP的handler
-formatter = logging.Formatter(log_format)
+# 创建一个日志器
+lg_ = logging.getLogger('v2v')
+# 清空以前的handler，避免重复打印
+if lg_.hasHandlers():
+    # Logger is already configured, remove all handlers
+    lg_.handlers = []
+# 构造一个handler，处理显示打印任务，需要调用方提供格式
+log_format_ = '%(asctime)s - [v2v] - %(levelname)s - %(message)s'
+formatter = logging.Formatter(log_format_)
+file_handler = logging.StreamHandler()      # 可以使用RotatingFileHandler，或者UDP/TCP的handler
 file_handler.setFormatter(formatter)
-lg.addHandler(file_handler)
+
+lg_.addHandler(file_handler)
+lg_.setLevel(logging.INFO)                  # 发布的时候可以修改这个值以便于抑制过多日志
 
 start_time = time.monotonic()
 
@@ -54,9 +60,17 @@ def logger(name, msg, level=LOG_LVL_INFO, exc_info=None):
     elapsed = time.monotonic() - start_time
     hours = int(elapsed // 60)
     seconds = elapsed - (hours * 60)
-    lg.log(level, f'{hours:3}:{seconds:06.3f} {name:10} {msg}', exc_info=exc_info)
+    lg_.log(level, f'{name:10} {msg}', exc_info=exc_info)
 
 
 def log(msg, level=LOG_LVL_INFO):
     pid = os.getpid()
     logger(name=pid, msg=msg, level=level)
+
+
+def get_v2v_logger():
+    return lg_
+
+
+def get_v2v_logger_formatter():
+    return log_format_

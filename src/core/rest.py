@@ -56,7 +56,7 @@ from os.path import isfile, join
 from os import listdir
 
 from utils import bus, comn, log, GrabFrame, wrapper as wpr
-from utils.config import ConfigSet
+# from utils.config import ConfigSet
 from core.procworker import ProcWorker
 from uvicorn.main import Server
 
@@ -321,35 +321,34 @@ class RestWorker(ProcWorker):
                             opened = cvobj.open_stream(url, OPEN_RTSP_TIMEOFF)
                             if opened:
                                 rest_proc_.cached_cvobjs_[url] = cvobj
+                            else:
+                                raise cv2.error(f'Failed to open {url}.')
                         # 产生系列预置点图片
-                        try:
-                            item['rtsp_url'] = url  # 前端需要了解是否有合法url，才方便下发配置的时候填入正确的配置值
-                            for prs in presets:
-                                ret = comn.run_to_viewpoints(deviceid, channelid, prs['presetid'])
-                                if ret:
-                                    # mutex_.acquire()  # 防止流并发访问错误
-                                    frame = cvobj.read_frame()
-                                    if frame is None:
-                                        cvobj.stop_stream()
-                                        rest_proc_.cached_cvobjs_.pop(url, None)    # 如果没有读出数据，清空缓存
-                                        raise cv2.error(f'Got null frame from cv2.')
-                                    # mutex_.release()
-                                    # height, width, channels = frame.shape
-                                    # 保存原始图像
-                                    filename = f'{target}{prs["presetid"]}.png'
-                                    os.makedirs(os.path.dirname(filename), exist_ok=True)
-                                    cv2.imwrite(filename, frame)
-                                    # 保存缩略图，1920x1080的长宽缩小20倍
-                                    frame = imutils.resize(frame, width=96, height=54)
-                                    buf = io.BytesIO()
-                                    plt.imsave(buf, frame, format='png')
-                                    image_data = buf.getvalue()
-                                    image_data = base64.b64encode(image_data)
-                                    outfile = open(f'{target}{prs["presetid"]}', 'wb')
-                                    outfile.write(image_data)
-                                    outfile.close()
-                        except cv2.error as cve:
-                            rest_proc_.log(f'[{__file__}]{cve}', level=log.LOG_LVL_ERRO)    # no qa
+                        item['rtsp_url'] = url  # 前端需要了解是否有合法url，才方便下发配置的时候填入正确的配置值
+                        for prs in presets:
+                            ret = comn.run_to_viewpoints(deviceid, channelid, prs['presetid'])
+                            if ret:
+                                # mutex_.acquire()  # 防止流并发访问错误
+                                frame = cvobj.read_frame()
+                                if frame is None:
+                                    cvobj.stop_stream()
+                                    rest_proc_.cached_cvobjs_.pop(url, None)    # 如果没有读出数据，清空缓存
+                                    raise cv2.error(f'Got null frame from cv2.')
+                                # mutex_.release()
+                                # height, width, channels = frame.shape
+                                # 保存原始图像
+                                filename = f'{target}{prs["presetid"]}.png'
+                                os.makedirs(os.path.dirname(filename), exist_ok=True)
+                                cv2.imwrite(filename, frame)
+                                # 保存缩略图，1920x1080的长宽缩小20倍
+                                frame = imutils.resize(frame, width=96, height=54)
+                                buf = io.BytesIO()
+                                plt.imsave(buf, frame, format='png')
+                                image_data = buf.getvalue()
+                                image_data = base64.b64encode(image_data)
+                                outfile = open(f'{target}{prs["presetid"]}', 'wb')
+                                outfile.write(image_data)
+                                outfile.close()
                     else:
                         # 不是合法的设备号
                         errmsg = f'摄像头{deviceid}-{channelid}查询流地址或预置点失败。'
@@ -363,7 +362,6 @@ class RestWorker(ProcWorker):
                 onlyfiles = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}'
                              for f in listdir(target) if isfile(join(target, f)) and ('.png' not in f)]
                 # 返回视频的原始分辨率，便于在前端界面了解和载入
-
                 # 有问题，如果没有初始化流（fresh=False）,为了获取png文件尺寸，选第一个文件来查询其尺寸
                 pngfiles = [fn for fn in listdir(target) if isfile(join(target, fn)) and ('.png' in fn)]
                 if len(pngfiles) > 0:
@@ -375,15 +373,16 @@ class RestWorker(ProcWorker):
                     item['reply'] = False
                     item['desc'] = '没有生成可标注的图片。'
             except FileNotFoundError as fs:
-                rest_proc_.log(f'{fs}')  # noqa
+                rest_proc_.log(f'{fs}')
             except ValueError as err:
                 rest_proc_.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)  # noqa
             except RuntimeError as err:
                 rest_proc_.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)  # noqa
+            except cv2.error as cve:
+                rest_proc_.log(f'[{__file__}]{cve}', level=log.LOG_LVL_ERRO)
             else:
-                rest_proc_.log(f'[{__file__}]{fs}', level=log.LOG_LVL_ERRO)  # noqa
+                rest_proc_.log(f'Preset pictures done.')
             finally:
-                # current_video_stream_['consume_lock'] = True  # 允许定时器再同时消费视频流（grab）。
                 return item
 
         @app_.on_event("startup")
@@ -420,8 +419,8 @@ class RestWorker(ProcWorker):
         sts_ = int(time.time())  # 秒为单位
         rest_ = self
 
-        def instrumentation(info: Info) -> None:
-            rest_.log(f'Promethues scrape request: {info.request.url}')
+        def instrumentation(info: Info) -> None:    # noqa
+            # rest_.log(f'Promethues scrape request: {info.request.url}')
             # 主进程的运行时间累计
             nonlocal sts_
             current = int(time.time())
@@ -449,10 +448,14 @@ class RestWorker(ProcWorker):
         instrumentator.add(mem_rate())
         instrumentator.instrument(localapp).expose(localapp)
 
+        log_config = uvicorn.config.LOGGING_CONFIG
+        log_config["formatters"]["default"]["fmt"] = log.get_v2v_logger_formatter()
+        log_config["formatters"]["access"]["fmt"] = log.get_v2v_logger_formatter()
         uvicorn.run(localapp,  # noqa 标准用法
                     host="0.0.0.0",
                     port=self.port_,
                     ssl_keyfile=self.ssl_keyfile_,
                     ssl_certfile=self.ssl_certfile_,
-                    log_level='info'
+                    log_level='info',
+                    log_config=log_config
                     )
