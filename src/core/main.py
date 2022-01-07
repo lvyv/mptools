@@ -393,12 +393,12 @@ class MainContext(bus.IEventBusMixin):
                 self.switchon_procs('AI', cnt=num)
                 num = 1  # 上传文件，安排一个进程处理，不要多个进程，防止服务器端互相踢
                 mqtt = cfg['mqtt_svrs'][0]
-                jaeger_cfg = None   # jaeger配置项是否存在决定是否引入它
-                if 'jaeger' in mqtt.keys():
-                    jaeger_cfg = mqtt['jaeger']
+                # jaeger_cfg = None   # jaeger配置项是否存在决定是否引入它
+                # if 'jaeger' in mqtt.keys():
+                #     jaeger_cfg = mqtt['jaeger']
                 self.switchon_procs('MQTT', cnt=num, mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'],
                                     mqtt_cid=mqtt['mqtt_cid'], mqtt_usr=mqtt['mqtt_usr'], mqtt_pwd=mqtt['mqtt_pwd'],
-                                    mqtt_topic=mqtt['mqtt_tp'], jaeger=jaeger_cfg)
+                                    mqtt_topic=mqtt['mqtt_tp'], node_name=mqtt['node_name'])
         except KeyError as err:
             self.log(f'2.[{__file__}]{err}', level=log.LOG_LVL_ERRO)
 

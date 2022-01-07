@@ -35,6 +35,7 @@ import socket
 from utils import bus, log, V2VErr
 from core.procworker import ProcWorker
 from utils.tracing import AdaptorTracingUtility
+from utils.config import ConfigSet
 from opentracing import global_tracer
 
 
@@ -50,7 +51,9 @@ class MqttWorker(ProcWorker):
         self.mqtt_port_ = None
         self.mqtt_topic_ = None
         self.fsvr_url_ = None
+        self.node_name_ = None
         self.jaeger_ = None
+        self.tracer_ = None
         for key, value in dicts.items():
             if key == 'mqtt_host':
                 self.mqtt_host_ = value
@@ -66,20 +69,8 @@ class MqttWorker(ProcWorker):
                 self.mqtt_topic_ = value
             elif key == 'fsvr_url':
                 self.fsvr_url_ = value
-            elif key == 'jaeger':
-                self.jaeger_ = value
-
-        # cfg = self.call_rpc(bus.CB_GET_CFG, {})                               # 进程创建的时候传入配置参数，不需要实时获取
-        if self.jaeger_:
-            if self.jaeger_['enable']:
-                # init opentracing jaeger client
-                aip = self.jaeger_['agent_ip']
-                apt = self.jaeger_['agent_port']
-                nodename = self.jaeger_['node_name']
-                servicename = f'v2v_{nodename}'
-                AdaptorTracingUtility.init_tracer(servicename, agentip=aip, agentport=apt)
-                # 缓存tracer便于后面使用
-                self.tracer_ = global_tracer()
+            elif key == 'node_name':
+                self.node_name_ = value
 
         self.client_ = None
 
@@ -94,10 +85,21 @@ class MqttWorker(ProcWorker):
             self.mqtt_cid_ = mqttcfg['mqtt_cid']
             self.mqtt_usr_ = mqttcfg['mqtt_usr']
             self.mqtt_pwd_ = mqttcfg['mqtt_pwd']
-
+            self.node_name_ = mqttcfg['node_name']
             self.mqtt_topic_ = mqttcfg['mqtt_tp']
             self.fsvr_url_ = mqttcfg['fsvr_url']
             self.client_ = mqtt_client.Client(self.mqtt_cid_)
+
+            self.jaeger_ = ConfigSet.get_basecfg()['jaeger']
+            if self.jaeger_['enable']:
+                # init opentracing jaeger client
+                aip = self.jaeger_['agent_ip']
+                apt = self.jaeger_['agent_port']
+                nodename = self.node_name_
+                servicename = f'v2v_{nodename}'
+                AdaptorTracingUtility.init_tracer(servicename, agentip=aip, agentport=apt)
+                # 缓存tracer便于后面使用
+                self.tracer_ = global_tracer()
 
             self.client_.username_pw_set(self.mqtt_usr_, self.mqtt_pwd_)
             self.client_.connect(self.mqtt_host_, self.mqtt_port_)
@@ -121,7 +123,7 @@ class MqttWorker(ProcWorker):
         if 'tracer_' in dir(self):    # 如果配置项有jaeger，将记录
             # inject和extract配合使用，先extract去取出数据包中的metadata的traceid的span上下文，
             # 然后再对上下文进行操作，并把它注入到下一个环节，因为mqtt这个进程是本模块的起点，因此只有inject。
-            nodename = self.jaeger_['node_name']
+            nodename = self.node_name_
             with self.tracer_.start_active_span(f'v2v_mqtt_{nodename}_send_msg') as scope:       # 带内数据插入trace id
                 scope.span.set_tag('originalMsg', vec.decode('utf-8'))
                 scope.span.set_tag('link.localHost', socket.gethostname())

@@ -37,7 +37,8 @@ from utils import log
 
 
 class ConfigSet:
-    cfg_ = None
+    baseconfig_ = None      # 本地配置
+    cfg_ = None             # 下发配置
     path2cfg_ = None
 
     @classmethod
@@ -59,6 +60,12 @@ class ConfigSet:
                 fp.write(formatted_cfg)
                 # json.dump(cls.cfg_, fp, ensure_ascii=False)
             pass
+
+    @classmethod
+    def get_basecfg(cls, pathtocfg='baseconfig.cfg'):
+        if cls.baseconfig_ is None:
+            cls.baseconfig_ = cls.load_json(pathtocfg)
+        return cls.baseconfig_
 
     @classmethod
     def get_cfg(cls, pathtocfg='v2v.cfg'):
