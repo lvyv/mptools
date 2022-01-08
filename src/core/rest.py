@@ -299,10 +299,14 @@ class RestWorker(ProcWorker):
                 target = f'{localroot_of_nvr_samples_}{deviceid}/'
                 if refresh:
                     cfg = rest_proc_.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': rest_proc_.name})
-                    comn.set_common_cfg(cfg)  # 只是设置全局变量，便于配置的热更新（视频调度管理软件的摄像头停留时间和视频调度服务器地址）
+                    # 只是设置全局变量，便于配置的热更新（视频调度管理软件的摄像头停留时间和视频调度服务器地址）
+                    # 为了更新comn中的全局变量
+                    comn.set_common_cfg(cfg)
                     # 如果是刷新，这需要从nvr取图片保存到本地目录(nvr_samples目录下按设备号创建目录)
                     # 1.通知主调度，停止pipeline流水线对本摄像头的识别操作
-                    pipeline_cmd = {'cmd': 'pause', 'deviceid': deviceid, 'channelid': channelid}
+                    # 根据配置信息计算要让rtsp流水线进程停留多少时间不控制摄像头
+                    pausetime = self.calculate_delay_time(cfg, deviceid, channelid)
+                    pipeline_cmd = {'cmd': 'pause', 'deviceid': deviceid, 'channelid': channelid, 'timeout': pausetime}
                     isok = rest_proc_.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)  # noqa 调用主进程函数，传配置给它。
                     if not isok['reply']:
                         raise RuntimeError(f'Cannot get the control of IPC: {deviceid}, {channelid}.')
@@ -410,6 +414,12 @@ class RestWorker(ProcWorker):
 
         return app_
 
+    def calculate_delay_time(self, cfgobj, did, cid):
+        """
+        根据配置信息，计算某设备号，通道号对应视频要等多少时间
+        """
+        return 0
+
     def up_time(self) -> Callable[[Info], None]:
         metric = Gauge(
             "up_time",
@@ -451,6 +461,7 @@ class RestWorker(ProcWorker):
         log_config = uvicorn.config.LOGGING_CONFIG
         log_config["formatters"]["default"]["fmt"] = log.get_v2v_logger_formatter()
         log_config["formatters"]["access"]["fmt"] = log.get_v2v_logger_formatter()
+        log_config["loggers"]['uvicorn.error'].update({"propagate": False, "handlers": ["default"]})
         uvicorn.run(localapp,  # noqa 标准用法
                     host="0.0.0.0",
                     port=self.port_,

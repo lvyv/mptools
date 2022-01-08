@@ -38,8 +38,9 @@ from utils import log
 
 class ConfigSet:
     baseconfig_ = None      # 本地配置
+    path2basecfg_ = None    # 本地配置路径
     cfg_ = None             # 下发配置
-    path2cfg_ = None
+    path2cfg_ = None        # 下发配置路径
 
     @classmethod
     def load_json(cls, fp):
@@ -58,14 +59,33 @@ class ConfigSet:
         if cls.path2cfg_:
             with open(cls.path2cfg_, 'w', encoding='utf-8') as fp:
                 fp.write(formatted_cfg)
-                # json.dump(cls.cfg_, fp, ensure_ascii=False)
-            pass
+                fp.close()
 
     @classmethod
-    def get_basecfg(cls, pathtocfg='baseconfig.cfg'):
-        if cls.baseconfig_ is None:
-            cls.baseconfig_ = cls.load_json(pathtocfg)
-        return cls.baseconfig_
+    def get_basecfg(cls, pathtobasecfg='baseconfig.cfg'):
+        load_dict = None
+        try:
+            if cls.baseconfig_ is None:
+                with open(pathtobasecfg, 'r', encoding='UTF-8') as load_f:
+                    load_dict = json.load(load_f)
+                cls.baseconfig_ = load_dict
+                cls.path2basecfg_ = pathtobasecfg
+            else:
+                load_dict = cls.baseconfig_
+        finally:
+            return load_dict
+
+    @classmethod
+    def save_basecfg(cls):
+        ret = False
+        try:
+            formatted_cfg = json.dumps(cls.baseconfig_, ensure_ascii=False, indent=2)
+            if cls.path2basecfg_:
+                with open(cls.path2basecfg_, 'w', encoding='utf-8') as fp:
+                    fp.write(formatted_cfg)
+            ret = True
+        finally:
+            return ret
 
     @classmethod
     def get_cfg(cls, pathtocfg='v2v.cfg'):
@@ -85,8 +105,12 @@ class ConfigSet:
         if '_height' not in geometry.keys():
             geometry['_height'] = 0
 
-        ret = [int(geometry['_x']), int(geometry['_y']),
-               int(geometry['_x']) + int(geometry['_width']), int(geometry['_y']) + int(geometry['_height'])]
+        ret = [
+            int(float(geometry['_x'])),
+            int(float(geometry['_y'])),
+            int(float(geometry['_x']) + float(geometry['_width'])),
+            int(float(geometry['_y']) + float(geometry['_height']))
+        ]
 
         # 如果是特殊的液位计，需要多边形内部的座标
         try:

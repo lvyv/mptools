@@ -156,10 +156,11 @@ class AiWorker(ProcWorker):
                 image_data = buf.getvalue()
                 files = {'files': (comn.replace_non_ascii(f'{fid}-{fps}'), image_data, 'image/jpg')}
                 rest = f'{rest}/?req_id={requestid}'
-                self.log(f'Going to call {rest} by {template_in}.')
+                self.log(f'Going to call {rest}.')  # by {template_in}.')
                 resp = requests.post(rest, files=files, data=payload, verify=False)
                 if resp.status_code == 200:
                     # result = resp.content.decode('utf-8')
+                    self.log(f'The size of vector queue between ai & mqtt is: {self.out_q_.qsize()}.')
                     self.out_q_.put(resp.content)
                 else:
                     self.log(f'ai服务访问失败，错误号：{resp.status_code}', level=log.LOG_LVL_WARN)

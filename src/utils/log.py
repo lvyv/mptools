@@ -29,8 +29,9 @@ Log util for the project.
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
 
-import time
-import logging
+# import time
+# import logging
+import logging.config
 import os
 
 LOG_LVL_INFO = logging.INFO
@@ -38,28 +39,48 @@ LOG_LVL_DBG = logging.DEBUG
 LOG_LVL_WARN = logging.WARNING
 LOG_LVL_ERRO = logging.ERROR
 
+logging.config.fileConfig('logging.conf')
 # 创建一个日志器
 lg_ = logging.getLogger('v2v')
+# 创建第二个日志器
+jlg_ = logging.getLogger('jaeger_tracing')
+
 # 清空以前的handler，避免重复打印
-if lg_.hasHandlers():
-    # Logger is already configured, remove all handlers
-    lg_.handlers = []
-# 构造一个handler，处理显示打印任务，需要调用方提供格式
-log_format_ = '%(asctime)s - [v2v] - %(levelname)s - %(message)s'
-formatter = logging.Formatter(log_format_)
-file_handler = logging.StreamHandler()      # 可以使用RotatingFileHandler，或者UDP/TCP的handler
-file_handler.setFormatter(formatter)
+# if lg_.hasHandlers():
+#     lg_.handlers = []
+# if jlg_.hasHandlers():
+#     jlg_.handlers = []
 
-lg_.addHandler(file_handler)
-lg_.setLevel(logging.INFO)                  # 发布的时候可以修改这个值以便于抑制过多日志
+# # 可以使用RotatingFileHandler，或者UDP/TCP的handler
+# CH = logging.StreamHandler()
+# # 构造一个handler，处理显示打印任务，需要调用方提供格式
+# log_format_ = '%(asctime)s - [%(name)s] - %(levelname)s - %(message)s'
+# formatter = logging.Formatter(log_format_)
+# CH.setFormatter(formatter)
 
-start_time = time.monotonic()
+# 发布的时候可以修改这个值以便于抑制过多日志，或者为不同logger设置不同handler
+# lg_.addHandler(CH)
+# lg_.setLevel(logging.INFO)
+# lg_.propagate = False
+# jlg_.addHandler(CH)
+# jlg_.setLevel(logging.INFO)
+# jlg_.propagate = False
+
+# start_time = time.monotonic()
+
+
+# Logger = logging.getLogger()    # root Logger
+# Logger.warning('this is warning')
+
+# Logger2 = logging.getLogger('logger01')     # logger01 Logger
+# Logger2.debug('this is debug')
+# Logger2.info('this is info')
 
 
 def logger(name, msg, level=LOG_LVL_INFO, exc_info=None):
-    elapsed = time.monotonic() - start_time
-    hours = int(elapsed // 60)
-    seconds = elapsed - (hours * 60)
+    # elapsed = time.monotonic() - start_time
+    # hours = int(elapsed // 60)
+    # seconds = elapsed - (hours * 60)
     lg_.log(level, f'{name:10} {msg}', exc_info=exc_info)
 
 
@@ -68,9 +89,11 @@ def log(msg, level=LOG_LVL_INFO):
     logger(name=pid, msg=msg, level=level)
 
 
-def get_v2v_logger():
-    return lg_
+# def get_v2v_logger():
+#     return lg_
 
 
 def get_v2v_logger_formatter():
-    return log_format_
+    # 为fastapi的logger进行格式化
+    global lg_
+    return vars(lg_.handlers[0].formatter)['_fmt']

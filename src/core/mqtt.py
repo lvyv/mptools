@@ -36,10 +36,18 @@ from utils import bus, log, V2VErr
 from core.procworker import ProcWorker
 from utils.tracing import AdaptorTracingUtility
 from utils.config import ConfigSet
-from opentracing import global_tracer
+# from opentracing import global_tracer
 
 
 class MqttWorker(ProcWorker):
+
+    @classmethod
+    def reset_jaeger(cls, aip, apt, nodename):
+        servicename = f'v2v_{nodename}'
+        # AdaptorTracingUtility.init_tracer(servicename, agentip=aip, agentport=apt)
+        # return global_tracer()
+        return AdaptorTracingUtility.init_tracer(servicename, agentip=aip, agentport=apt)
+
     def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
         super().__init__(name, bus.EBUS_TOPIC_BROADCAST, dicts, **kwargs)
         self.in_q_ = in_q
@@ -54,6 +62,7 @@ class MqttWorker(ProcWorker):
         self.node_name_ = None
         self.jaeger_ = None
         self.tracer_ = None
+        self.client_ = None
         for key, value in dicts.items():
             if key == 'mqtt_host':
                 self.mqtt_host_ = value
@@ -72,7 +81,17 @@ class MqttWorker(ProcWorker):
             elif key == 'node_name':
                 self.node_name_ = value
 
-        self.client_ = None
+        self.jaeger_ = ConfigSet.get_basecfg()['jaeger']
+        if self.jaeger_['enable']:
+            # init opentracing jaeger client
+            aip = self.jaeger_['agent_ip']
+            apt = self.jaeger_['agent_port']
+            nodename = self.jaeger_['node_name']
+            servicename = f'v2v_{nodename}'
+            # 缓存tracer便于后面使用
+            # AdaptorTracingUtility.init_tracer(servicename, agentip=aip, agentport=apt)
+            # self.tracer_ = global_tracer()
+            self.tracer_ = AdaptorTracingUtility.init_tracer(servicename, agentip=aip, agentport=apt)
 
     def startup(self):
         try:
@@ -88,21 +107,18 @@ class MqttWorker(ProcWorker):
             self.node_name_ = mqttcfg['node_name']
             self.mqtt_topic_ = mqttcfg['mqtt_tp']
             self.fsvr_url_ = mqttcfg['fsvr_url']
-            self.client_ = mqtt_client.Client(self.mqtt_cid_)
-
-            self.jaeger_ = ConfigSet.get_basecfg()['jaeger']
-            if self.jaeger_['enable']:
-                # init opentracing jaeger client
-                aip = self.jaeger_['agent_ip']
-                apt = self.jaeger_['agent_port']
-                nodename = self.node_name_
-                servicename = f'v2v_{nodename}'
-                AdaptorTracingUtility.init_tracer(servicename, agentip=aip, agentport=apt)
+            # 更新service name
+            # 下发的node name 与原来（系统安装的时候）配置不一样了
+            if self.node_name_ != self.jaeger_['node_name']:
                 # 缓存tracer便于后面使用
-                self.tracer_ = global_tracer()
-
+                self.tracer_ = self.reset_jaeger(self.jaeger_['agent_ip'], self.jaeger_['agent_port'], self.node_name_)
+                self.jaeger_['node_name'] = self.node_name_     # FIXME 更新下发node name（是否需要写配置文件？）
+                ConfigSet.save_basecfg()
+            self.client_ = mqtt_client.Client(self.mqtt_cid_)
             self.client_.username_pw_set(self.mqtt_usr_, self.mqtt_pwd_)
             self.client_.connect(self.mqtt_host_, self.mqtt_port_)
+
+            # 进入主循环
             self.client_.loop_start()
         except (socket.gaierror, TimeoutError, UnicodeError, ConnectionRefusedError) as err:
             self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)

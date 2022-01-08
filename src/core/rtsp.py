@@ -55,6 +55,20 @@ class RtspWorker(ProcWorker):
         self.args_ = channel
         pass
 
+    def handle_event(self, evt):
+        """
+        处理外部事件。
+        :param evt:
+        :return:
+        """
+        cmd = evt['cmd']
+        if cmd == 'pause':
+            did = evt['deviceid']
+            cid = evt['channelid']
+            if did == self.task_['device_id'] and cid == self.task_['channel_id']:
+                sleep(evt['timeout'])
+        pass
+
     def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
         super().__init__(name, bus.EBUS_TOPIC_BROADCAST, dicts, **kwargs)
         self.in_q_ = in_q
@@ -72,7 +86,7 @@ class RtspWorker(ProcWorker):
     def startup(self):
         task = None
         try:
-            # 1.尝试获取配置数据，找主进程获取一个流水线任务
+            # 1.尝试获取配置数据，找主进程获取一个流水线任务，复用了获取配置文件的命令
             self.log(f'{self.name} started......')
             cfg = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_task', 'source': self.name, 'assigned': self.task_})
             # 2.访问对应的rtsp流
@@ -120,19 +134,9 @@ class RtspWorker(ProcWorker):
             # 2.等待摄像头执行到预置点位
             # 3.假设fps比如是30帧，而采样率1Hz，则需要丢弃fps-sample_rate帧图像
             # 4.读取流并设置处理该图片的参数
+            if event:
+                self.handle_event(event)    # 主要处理暂停事件，当rest发过来请求暂停流水线
 
-            # 是否有配置信息更新的广播消息，如果是通道信息，则需要判断是否是自己负责的通道self.args_['rtsp_url']
-            # if event:
-            #     self.log(event)     # 如果是属于自己的配置更新广播，更新初始化时的数据信息，包括：self.args_和self.fps_。
-            #     for rtsp in event['rtsp_urls']:
-            #         if rtsp['device_id'] == self.args_['device_id'] and rtsp['channel_id'] \
-            #                 == self.args_['channel_id']:
-            #             self.handle_cfg_update(rtsp)
-            #             break
-            # did = self.args_['device_id']
-            # cid = self.args_['channel_id']
-            # vps = self.args_['view_ports']
-            # sar = self.args_['sample_rate']
             did = self.task_['device_id']
             cid = self.task_['channel_id']
             vps = self.task_['view_ports']
@@ -150,15 +154,6 @@ class RtspWorker(ProcWorker):
                 st, delta = time(), 0
                 current_frame_pos = -1
                 while duration > delta:
-                    # 开始丢帧：如前面计算，当skip>0，比如fps/sample_rate=每都少帧一个抽样
-                    # frame, current_frame_pos = None, None
-                    # while skip >= 1 and self.vs_.grab():
-                    #     current_frame_pos = self.vs_.get(cv2.CAP_PROP_POS_FRAMES)
-                    #     if current_frame_pos % skip == 0:
-                    #         ret, frame = self.vs_.retrieve()
-                    #         self.log(f'framepos---{current_frame_pos}---')
-                    #         break
-
                     frame = self.vs_.read_frame(0.1)
                     # 请求用时间戳，便于后续Ai识别后还能够知道是哪一个时间点的视频帧
                     requestid = int(time() * 1000)
@@ -166,7 +161,7 @@ class RtspWorker(ProcWorker):
 
                     sleep(inteval - time() % inteval)               # 动态调速，休眠采样间隔的时间
 
-                    # 为实现ai效率最大化，把图片中不同ai仪表识别任务分包，一个vp，不同类ai模型给不同的ai线程去处理
+                    # 为实现ai效率最大化，把图片中不同ai仪表识别任务分包，一个vp，不同类ai标注类型给不同的ai进程去处理
                     # 这样会导致同一图片重复放到工作队列中（只是aoi不同）。
                     aitasks = vp[presetid]
                     for task in aitasks:

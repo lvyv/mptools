@@ -32,7 +32,7 @@ encapsulate jaeger client, prometheus fastapi client.
 
 import logging
 from jaeger_client import Config
-from opentracing import set_global_tracer, Format
+from opentracing import Format
 
 from prometheus_fastapi_instrumentator.metrics import Info
 from prometheus_client import Gauge, Counter
@@ -46,9 +46,6 @@ class AdaptorTracingUtility:
 
     @staticmethod
     def init_tracer(service, agentip='127.0.0.1', agentport=6831):
-        logging.getLogger('').handlers = []
-        logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
-
         config = Config(
             config={
                 'sampler': {
@@ -64,7 +61,11 @@ class AdaptorTracingUtility:
             },
             service_name=service,
         )
-        set_global_tracer(config.initialize_tracer())
+        # 测试，原库不支持重新调用，但应用层又需要重新改node name和service name。
+        # tracer = config.initialize_tracer()
+        # set_global_tracer(tracer)
+        tracer = config.new_tracer()
+        return tracer
 
     @staticmethod
     def extract_span_ctx(tracer, msg):
