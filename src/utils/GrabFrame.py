@@ -136,7 +136,7 @@ class GrabFrame:
             self.__queue.queue.clear()
             return ret
 
-    def read_frame(self, timeout=1) -> None or any:
+    def read_frame(self, timeout=5) -> None or any:
         """
         读取当前流最新的一帧图像数据
         :param timeout: 取帧的超时时间，单位：s，0：阻塞

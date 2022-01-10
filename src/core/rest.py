@@ -28,7 +28,7 @@ Provide web api access points.
 
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
-
+import logging
 
 import uvicorn
 import cv2
@@ -467,6 +467,6 @@ class RestWorker(ProcWorker):
                     port=self.port_,
                     ssl_keyfile=self.ssl_keyfile_,
                     ssl_certfile=self.ssl_certfile_,
-                    log_level='info',
+                    log_level=logging.WARN,
                     log_config=log_config
                     )
