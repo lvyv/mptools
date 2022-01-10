@@ -801,8 +801,8 @@ def test_rtsp_process():
     # signal.signal(signal.SIGINT, original_sigint_handler)
     try:
         # res = pool.starmap_async(sample_rtsp_frame, [('rtsp://127.0.0.1/live', 1000)])
-        res = pool.starmap_async(sample_rtsp_frame, [('rtsp://127.0.0.1/live', 1000),
-                                                     ('rtsp://user:userpass@192.168.1.225:7554/person', 1000),
+        res = pool.starmap_async(sample_rtsp_frame, [('rtsp://user:userpass@192.168.1.225:7554/person', 1000),
+                                                     ('rtsp://user:userpass@192.168.1.225:7554/panel', 1000),
                                                      ('rtsp://user:userpass@192.168.1.225:7554/plc', 1000)])
         res.get(6000)  # Without the timeout this blocking call ignores all signals.
         print('-------------------OK--------------------------')

@@ -37,8 +37,8 @@ from typing import Optional
 from utils import log
 from typing import List
 import uvicorn
-import requests
-import json
+# import requests
+# import json
 
 
 def call_aimeter(contents):
@@ -226,9 +226,10 @@ async def get_all_presets(deviceid: str, channelid: str):
 
 
 @app.post("/api/v1/ptz/front_end_command/{deviceid}/{channelid}")
-async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(...)):
+async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(...)):   # noqa
     """模拟视频调度的跳转到预置点接口"""
-    # item = {"deviceId": deviceid, "channelId": channelid, "cmdCode": 130, "parameter1": 0, "parameter2": int(viewpoint),
+    # item = {"deviceId": deviceid, "channelId": channelid,
+    # "cmdCode": 130, "parameter1": 0, "parameter2": int(viewpoint),
     #         "combindCode2": 0}
     # ret = None
     # try:
@@ -276,11 +277,16 @@ async def indicator_frequency(files: UploadFile = File(...), cfg_info: str = For
     ret = call_indicator_freq(contents)
     return ret
 
-
 if __name__ == '__main__':
+    log_config = uvicorn.config.LOGGING_CONFIG
+    log_config["formatters"]["default"]["fmt"] = log.get_v2v_logger_formatter()
+    log_config["formatters"]["access"]["fmt"] = log.get_v2v_logger_formatter()
+    log_config["loggers"]['uvicorn.error'].update({"propagate": False, "handlers": ["default"]})
     uvicorn.run(app,                # noqa
                 host="0.0.0.0",
                 port=7180,
                 ssl_keyfile="cert.key",
-                ssl_certfile="cert.cer"
+                ssl_certfile="cert.cer",
+                log_level='info',
+                log_config=log_config
                 )

@@ -117,23 +117,24 @@ class GrabFrame:
         self.__capture_thread.setName('VideoCaptureThread')
         # 启动读取流线程
         self.__capture_thread.start()
-
+        ret = False
         # 超时等待
         try:
             _ = self.__queue.get(block=True, timeout=timeout if timeout > 0 else None)
         except queue.Empty:
             # print(f'cv2.VideoCapture: could not open stream ({url}). Timeout after {timeout}s')
             self.__capture_thread.close()
-            return False
+            ret = False
         else:
             # print(f'cv2.VideoCapture: open stream ({url}) successes. ')
             # 缓存timeout和url，如果需要重连，则使用它们。
             self.timeout_ = timeout
             self.rtsp_url_ = url
-            return True
+            ret = True
         finally:
             # 释放资源
             self.__queue.queue.clear()
+            return ret
 
     def read_frame(self, timeout=1) -> None or any:
         """

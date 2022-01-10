@@ -61,7 +61,7 @@ from core.procworker import ProcWorker
 from uvicorn.main import Server
 
 # rtsp url timeoff
-OPEN_RTSP_TIMEOFF = 10
+OPEN_RTSP_TIMEOFF = 30
 
 # 猴子补丁：在退出本进程的时候，ctrl+c会等待较长时间关闭socket
 original_handler = Server.handle_exit
