@@ -32,8 +32,9 @@ V2V测试联调指南
 ```
 第二、启动推流（本地自己调建议自建一个RTSP流媒体服务器OBS+RTSP Server插件，模仿NVR提供流）
 ```
-$ ffmpeg.exe -re -i /stream/main.ts -rtsp_transport tcp -vcodec copy -f rtsp rtsp://10.128.19.91:7554/meter
-$ ffmpeg.exe -re -i /stream/plc.ts -rtsp_transport tcp -vcodec copy -f rtsp rtsp://10.128.19.91:7554/plc
+$ ffmpeg -re -stream_loop -1 -i /vs/plc.mp4 -rtsp_transport tcp -vcodec libx264 -f rtsp rtsp://10.128.19.91:7554/plc
+$ ffmpeg -re -stream_loop -1 -i /vs/panel.mp4 -rtsp_transport tcp -vcodec libx264 -f rtsp rtsp://10.128.19.91:7554/panel
+$ ffmpeg -re -stream_loop -1 -i /vs/person.mp4 -rtsp_transport tcp -vcodec libx264 -f rtsp rtsp://10.128.19.91:7554/person
 ```
 第三、配置tests目录下的v2v.cfg，设置对应的流媒体路径与上面的推流地址匹配
 
