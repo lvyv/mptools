@@ -71,7 +71,7 @@ v2v程序的正常运行依赖如下一些配置文件。
 
 v2v运行的监控
 --------
-v2v支持prometheus和jaeger指标监测，需要提前安装Prometheus和Jaeger，命令如下。
+1.v2v支持prometheus和jaeger指标监测，需要提前安装Prometheus和Jaeger，命令如下。
 ```
 docker run \
     -p 9090:9090 \
@@ -135,7 +135,7 @@ scrape_configs:
         v2v: ['rest','rtsp']
 ```
 
-1.Prometheus的配置
+2.Prometheus的配置。
 需要配置Prometheus的prometheus.yml文件（docker通过volume映射在外部，targets的地方ip地址要配置为v2v的运行地址和端口）。
 ```
 scrape_configs:
@@ -152,7 +152,7 @@ scrape_configs:
         v2v: ['rest','rtsp']
 
 ```
-2.Jaeger配置
+3.Jaeger配置。
 需要配置v2v的tests目录的baseconfig.cfg配置文件，jaeger配置项的agent_ip和agent_port要配置正确。
 ```
 {
@@ -165,11 +165,11 @@ scrape_configs:
   }
 }
 ```
-3.启动v2v主进程，如果一切正常，将从Prometheus查询到cpu_rate，mem_rate，up_time三个v2v指标。
+4.启动v2v主进程，如果一切正常，将从Prometheus查询到cpu_rate，mem_rate，up_time三个v2v指标。
 prometheus的主界面访问接口如下示例。
 http://192.168.47.144:9090
 
-4.启动v2v的管道操作，如果一切正常，将会在jaeger主控制台看到v2v的mqtt进程上报的数据。
+5.启动v2v的管道操作，如果一切正常，将会在jaeger主控制台看到v2v的mqtt进程上报的数据。
 1）访问v2v的7080的api调试端口如下示例。
 https://192.168.101.19:7080/docs
 执行post /api/v1/v2v/pipeline调用，Request body的命令为{"cmd":"start"}。
