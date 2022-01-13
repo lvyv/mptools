@@ -1,18 +1,18 @@
 V2V测试联调指南
 =====================
 源码调测v2v需要搭建如下环境。
+在开发机（develop windows）上安装好pycharm社区版。
+后续所有命令都需要运行在python 3.6.8及以上的虚拟环境下。
+通过pip安装虚拟环境（virtualenv）不赘述，主要过程是先要yum或apt-get安装python3.x的版本。
+用安装好的python3.x版本的对应pip3.x来安装一个virtualenv包，再用python运行virtualenv包创建虚拟环境。
+最后在虚拟环境的bin目录，source activate，激活虚拟环境。之后在这个虚拟环境下pip安装各种包即可。
 
 ![img](docs/images/development_environment.drawio.svg)
 
+
 快速开始
 --------
-【注意】下面的所有命令都需要运行在python 3.6.8及以上的虚拟环境下。
-
-通过pip安装虚拟环境（virtualenv）不赘述，主要过程是先要yum或apt-get安装python3.x的版本。
-在用安装好的python3.x版本的对应pip3.x来安装一个virtualenv包，再用python运行virtualenv包创建虚拟环境。
-最后在虚拟环境的bin目录，source activate，激活虚拟环境。之后在这个虚拟环境下pip安装各种包即可。
-
-1.下载代码到本地，安装requirments.txt的包，冒烟测试基本功能。
+1.下载代码到本地，安装requirments.txt的包。
 
 ```
 (v2v) bda@c3daace9a16d:~/work$ git clone https://gitee.com/iovVis/v2v.git v2v
@@ -27,7 +27,7 @@ V2V测试联调指南
 ```
 2.在命令行终端界面上，进行流媒体功能测试。
 
-第一、启动easydarwin服务器，在终端用ffmpeg推流，ffplay测试播放
+第一、启动easydarwin服务器，在终端用ffmpeg推流，ffplay测试播放。
 easyDarwin服务器在vs目录下的EasyDarwin-windows-8.1.0-1901141151下的EasyDarwin.exe，双击执行。
 ffmpeg推流工具和ffplay播放工具在vs目录下的ffmpeg-win64-gpl-vulkan下的bin目录，命令行运行如下。
 ```
@@ -37,27 +37,27 @@ $ ffmpeg -re -stream_loop -1 -i ./person.mp4 -rtsp_transport tcp -vcodec libx264
 
 $ ffplay -rtsp_transport tcp rtsp://192.168.101.19:7554/plc
 ```
-【注意】easyDarwin为服务器时在easydarwin.ini中设置一下rtsp的端口为7554，要避免与已有端口冲突。
+  【注意】easyDarwin为服务器时在easydarwin.ini中设置一下rtsp的端口为7554，要避免与已有端口冲突。
 
-第二、启动仿真接口
+第二、启动仿真接口。
 ```
 (v2v) bda@c3daace9a16d:~/work/tests$ cd ../src/mock
 (v2v) bda@c3daace9a16d:~/work/v2v/src/mock$ python exif.py
 ```
-【注意】启动仿真接口前要确定，设置对应的流媒体路径与上面的推流地址匹配，在exif.py文件stream_info函数内，大致166等行位置json的url键对应的值。
+  【注意】启动仿真接口前要确定，设置对应的流媒体路径与上面的推流地址匹配，在exif.py文件stream_info函数内，大致166等行位置json的url键对应的值。
 
-第三、在代码的tests路径下启动v2v服务
+第三、在代码的tests路径下启动v2v服务。
 ```
 (v2v) bda@c3daace9a16d:~/work/tests$ python test_main.py
 ```
 
-3.缺省通过浏览器访问所有的rest接口
+3.缺省通过浏览器访问所有的rest接口。
 主程序的REST接口
 https://127.0.0.1:7080/docs
 仿真程序的REST接口
 https://127.0.0.1:7180/docs
 
-4.缺省的配置界面
+4.缺省的配置界面。
 https://127.0.0.1:7080/ui/v2vlabel/editors/gallery.html
 
 v2v运行的配置文件
@@ -91,7 +91,7 @@ docker run -d --name jaeger \
   -p 9411:9411 \
   jaegertracing/all-in-one:1.29
  ```
-【注意】：promethues安装挂出到宿主机的配置文件prometheus.yml参考如下。
+  【注意】：promethues安装挂出到宿主机的配置文件prometheus.yml参考如下。
 ```
 # my global config
 global:
