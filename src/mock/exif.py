@@ -160,36 +160,18 @@ async def uploadfiles_with_params(files: List[UploadFile] = File(...), jsos: str
 @app.get("/api/v1/ptz/streaminfo")
 async def stream_info():
     """获取所有的视频通道列表"""
-    # item = {'version': '1.0.0',
-    #         'channels': [
-    #             {'deviceid': '34020000001320000001', 'channelid': '34020000001320000001', 'desc': '605房间前门',
-    #              'url': 'rtsp://user:userpass@192.168.1.225:7554/person'},
-    #             {'deviceid': '44020000001320000001', 'channelid': '44020000001320000001', 'desc': '605大厅',
-    #              'url': 'rtsp://user:userpass@192.168.1.225:7554/plc'},
-    #             {'deviceid': '54020000001320000001', 'channelid': '54020000001320000001', 'desc': '608停车区',
-    #              'url': 'rtsp://user:userpass@192.168.1.225:7554/panel'}
-    #         ]}
-    # item = {'version': '1.0.0',
-    #         'channels': [
-    #             {'deviceid': '34020000001320000001', 'channelid': '34020000001310000001', 'desc': '1710房间前门',
-    #              'url': 'rtsp://admin:admin123@192.168.1.39/cam/realmonitor?channel=1&subtype=0'},
-    #             {'deviceid': '44020000001320000001', 'channelid': '44020000001320000001', 'desc': '605大厅',
-    #              'url': 'rtsp://127.0.0.1/live'},
-    #             {'deviceid': '54020000001320000001', 'channelid': '54020000001320000001', 'desc': '608停车区',
-    #              'url': 'rtsp://127.0.0.1/live'}
-    #         ]}
     item = {'version': '1.0.0',
             'channels': [
-                {'deviceid': '34020000001320000001', 'channelid': '34020000001310000001', 'desc': '本地仪表识别',
-                 'url': 'rtsp://127.0.0.1/live'},
+                {'deviceid': '34020000001320000001', 'channelid': '34020000001310000001', 'desc': '标准测试视频',
+                 'url': 'rtsp://127.0.0.1:7554/main'},
                 {'deviceid': '44020000001320000001', 'channelid': '44020000001310000001', 'desc': '人员识别',
-                 'url': 'rtsp://user:userpass@192.168.1.225:7554/person'},
+                 'url': 'rtsp://127.0.0.1:7554/person'},
                 {'deviceid': '54020000001320000001', 'channelid': '54020000001310000001', 'desc': '测试静态仪表识别',
-                 'url': 'rtsp://user:userpass@192.168.1.225:7554/panel'},
+                 'url': 'rtsp://127.0.0.1:7554/panel'},
                 {'deviceid': '64020000001320000001', 'channelid': '64020000001310000001', 'desc': 'PLC',
-                 'url': 'rtsp://user:userpass@192.168.1.225:7554/plc'},
+                 'url': 'rtsp://127.0.0.1:7554/plc'},
                 {'deviceid': '74020000001320000001', 'channelid': '74020000001310000001', 'desc': '前门摄像头',
-                 'url': 'rtsp://admin:admin123@192.168.101.39/cam/realmonitor?channel=1&subtype=0'}
+                 'url': 'rtsp://127.0.0.1:7554/live'}
             ]}
     return item
 

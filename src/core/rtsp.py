@@ -104,7 +104,7 @@ class RtspWorker(ProcWorker):
                 raise V2VErr.V2VTaskNullRtspUrl(f'No more task left.')
 
             cvobj = GrabFrame.GrabFrame()
-            opened = cvobj.open_stream(url, 30)
+            opened = cvobj.open_stream(url, GrabFrame.GrabFrame.OPEN_RTSP_TIMEOFF)
             if opened:
                 w, h, self.fps_ = cvobj.get_stream_info()
                 self.vs_ = cvobj

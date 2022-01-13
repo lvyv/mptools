@@ -107,10 +107,11 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
                     raise V2VErr.V2VConfigurationChangedError(evt)
                 elif evt:                                   # 其它广播事件，比如停止某个通道
                     self.log(f'Got message: {evt}.')
-                self.break_out_ = self.main_func(evt)
+
                 # 在每次循环完毕上报一次运行时间。
                 delta = time.time() - self.startts_
                 self.call_rpc(bus.CB_SET_METRICS, {'up': delta, 'application': self.name})
+                self.break_out_ = self.main_func(evt)
 
             self.log('Leaving main_loop.')
         except KeyboardInterrupt:

@@ -84,13 +84,13 @@ def cpu_rate() -> Callable[[Info], None]:
     metric = Gauge(
         "cpu_rate",
         "cpu占用率.",
-        labelnames=("application",)
+        labelnames=("application", "host")
     )
 
     def instrumentation(info: Info) -> None:
         cpu = psutil.cpu_percent()
-        metric.labels('main').set(cpu)
-        info.request.query_params.getlist('v2v')
+        metric.labels('main', 'localhost').set(cpu)     # 可以根据需要设置更多的label标签和值
+        info.request.query_params.getlist('v2v')        # 可以获得url参数，http://127.0.0.1:7080/metrics?v2v=x&v2v=2
 
     return instrumentation
 
@@ -296,38 +296,39 @@ class RestWorker(ProcWorker):
             """获取该视频通道所有预置点，然后逐个预置点取图，保存为base64，加入流断处理，加入流缓存以及互斥锁保护全局缓存流"""
             item = {'version': '1.0.0', 'reply': 'pending.', 'rtsp_url': None}
             try:
-                target = f'{localroot_of_nvr_samples_}{deviceid}/'
+                # 设置全局变量，便于热更新配置（视频调度管理软件的摄像头停留时间和视频调度服务器地址在comn中发挥作用。
+                cfg = rest_proc_.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': rest_proc_.name})
+                comn.set_common_cfg(cfg)
+                target = f'{localroot_of_nvr_samples_}{deviceid}/'  # 不支持nvrsamples的热更新，因为启动程序需要mount本地目录
                 if refresh:
-                    cfg = rest_proc_.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': rest_proc_.name})
-                    # 只是设置全局变量，便于配置的热更新（视频调度管理软件的摄像头停留时间和视频调度服务器地址）
-                    # 为了更新comn中的全局变量
-                    comn.set_common_cfg(cfg)
-                    # 如果是刷新，这需要从nvr取图片保存到本地目录(nvr_samples目录下按设备号创建目录)
-                    # 1.通知主调度，停止pipeline流水线对本摄像头的识别操作
-                    # 根据配置信息计算要让rtsp流水线进程停留多少时间不控制摄像头
-                    pausetime = self.calculate_delay_time(cfg, deviceid, channelid)
-                    pipeline_cmd = {'cmd': 'pause', 'deviceid': deviceid, 'channelid': channelid, 'timeout': pausetime}
-                    isok = rest_proc_.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)  # noqa 调用主进程函数，传配置给它。
-                    if not isok['reply']:
-                        raise RuntimeError(f'Cannot get the control of IPC: {deviceid}, {channelid}.')
-                    # 2.开始抓图
+                    # 如果是刷新，需要从nvr取图片保存到本地目录(nvr_samples目录下按设备号创建目录)。
                     url = comn.get_url(deviceid, channelid)
                     presets = None
                     if url:  # url都得不到，就不需要得presets了
                         presets = comn.get_presets(deviceid, channelid)
                     if url and presets:
-                        # 如果缓存过，就直接用缓存的流
-                        # cached = rest_proc_.cached_cvobjs_
+                        # 通知主调度，暂停pipeline流水线对本摄像头的识别操作，让rtsp流水线rtsp进程sleep多少时间计算得出。
+                        rest_p, rtsp_p = self.calculate_delay_time(cfg, url)
+                        pipeline_cmd = {'cmd': 'pause', 'deviceid': deviceid, 'channelid': channelid,
+                                        'timeout': rtsp_p}
+                        isok = rest_proc_.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)  # noqa 调用主进程函数，传配置给它。
+                        if not isok['reply']:
+                            raise RuntimeError(f'Cannot get the control of IPC: {deviceid}, {channelid}.')
+                        # rest 需要等待一定时间，让rtsp进程停下来。
+                        time.sleep(rest_p)
+
                         if url in rest_proc_.cached_cvobjs_:
+                            # 如果缓存过，就直接用缓存的流。
                             cvobj = rest_proc_.cached_cvobjs_[url]
                         else:
+                            # 如果这个url没配置过，则打开一个新的对象来取流。
                             cvobj = GrabFrame.GrabFrame()
-                            opened = cvobj.open_stream(url, OPEN_RTSP_TIMEOFF)
+                            opened = cvobj.open_stream(url, GrabFrame.GrabFrame.OPEN_RTSP_TIMEOFF)
                             if opened:
                                 rest_proc_.cached_cvobjs_[url] = cvobj
                             else:
                                 raise cv2.error(f'Failed to open {url}.')
-                        # 产生系列预置点图片
+                        # 产生系列预置点图片。
                         item['rtsp_url'] = url  # 前端需要了解是否有合法url，才方便下发配置的时候填入正确的配置值
                         for prs in presets:
                             ret = comn.run_to_viewpoints(deviceid, channelid, prs['presetid'])
@@ -358,11 +359,13 @@ class RestWorker(ProcWorker):
                         errmsg = f'摄像头{deviceid}-{channelid}查询流地址或预置点失败。'
                         item['reply'] = errmsg
                         raise ValueError(errmsg)
-                    # 3.通知主调度，恢复pipeline流水线对本摄像头的识别操作
-                    pipeline_cmd['cmd'] = 'resume'
-                    isok = rest_proc_.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)  # noqa 调用主进程函数，传配置给它。
-                    if not isok['reply']:
-                        raise RuntimeError(f'Cannot get the control of IPC: {deviceid}, {channelid}.')
+                    # # 通知主调度，恢复pipeline流水线对本摄像头的识别操作
+                    # pipeline_cmd['cmd'] = 'resume'
+                    # isok = rest_proc_.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)  # noqa 调用主进程函数，传配置给它。
+                    # if not isok['reply']:
+                    #     raise RuntimeError(f'Cannot get the control of IPC: {deviceid}, {channelid}.')
+                    #
+                    # 不需要通知恢复，因为rest自己先停，等rtsp，然后rtsp停，再等rest，rest操作完，rtsp自动恢复（sleep超时）。
                 onlyfiles = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}'
                              for f in listdir(target) if isfile(join(target, f)) and ('.png' not in f)]
                 # 返回视频的原始分辨率，便于在前端界面了解和载入
@@ -414,11 +417,38 @@ class RestWorker(ProcWorker):
 
         return app_
 
-    def calculate_delay_time(self, cfgobj, did, cid):
+    def calculate_delay_time(self, cfgobj, url):
         """
-        根据配置信息，计算某设备号，通道号对应视频要等多少时间
+        根据配置信息，计算某设备号，通道号对应视频要等多少时间。
+        返回的等待时间有两个值，一个是rest，一个是rtsp。
+        1.设想rest发广播消息，rtsp因为会在mainloop中过预置点，这个时间段A一直无法收到消息，需要rest等待。
+        2.rest等待A时间后，获取摄像头控制权。
+        3.rtsp在0~A时间段都可能收到广播，收到后等待rest操作广播的时间，重新运行。
+        如果rtsp不存在，则rest_sleep_time = 0
+        如果rtsp存在，
+            则按照配置信息中：（seconds x 预置点个数）计时为需要停留的A时间。
+            则按照配置信息中：（ipc_ptz_delay*预置点个数）计时为停留的B时间。
         """
-        return 0
+        rest_sleep_time = 0
+        rtsp_sleep_time = 0
+        try:
+            ret = self.call_rpc(bus.CB_GET_METRICS, {'cmd': 'get_metrics', 'desc': 'rest api is called.'})
+            tasks = ret['result_tasks']
+            ipc_ptz_delay = cfgobj['ipc_ptz_delay']
+            if url in tasks.keys():
+                for urlchannel in cfgobj['rtsp_urls']:
+                    if urlchannel['rtsp_url'] == url:
+                        presets_size = len(urlchannel['view_ports'])
+                        # 多个viewports中第1个预置点的第1个aoi的
+                        seconds = list(urlchannel['view_ports'][0].items())[0][1][0]['seconds']
+                        rest_sleep_time = seconds * presets_size    # A时间
+                        # 如果rtsp刚好rest发送就收到广播，它还是要等一个A时间
+                        rtsp_sleep_time = ipc_ptz_delay * presets_size + rest_sleep_time
+                        break
+        except (KeyError, Exception) as err:
+            self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+        finally:
+            return rest_sleep_time, rtsp_sleep_time
 
     def up_time(self) -> Callable[[Info], None]:
         metric = Gauge(
@@ -439,7 +469,7 @@ class RestWorker(ProcWorker):
 
             # 收集子进程监测数据(数据结构是{'result':{'AIxx':{'up': 1.1, 'xx': 2}, ... }})
             proc_metrics = rest_.call_rpc(bus.CB_GET_METRICS, {'cmd': 'get_metrics', 'desc': 'rest api is called.'})
-            res = proc_metrics['result']
+            res = proc_metrics['result_metrics']
             for key in res.keys():
                 item = res[key]
                 if 'up' in item.keys():

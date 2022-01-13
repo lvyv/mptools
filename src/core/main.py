@@ -261,18 +261,21 @@ class MainContext(bus.IEventBusMixin):
 
     def callback_get_metrics(self, params):
         """
-        本函数响应子进程对所有监测指标的获取，后面可选支持正则表达式查询。
+        本函数响应子进程对所有监测指标的获取。
+        TODO:后续可选支持正则表达式查询。
         :param params: dict, {}或{'application': 'AI*'}
-        :return: dict, {'reply': True, 'result': {'AI(0)-16380': {'up': 60},
+        :return: dict, {'reply': True, 'result_metrics': {'AI(0)-16380': {'up': 60},
                                                   'AI(2)-10104': {'up': 50.51580286026001, 'down': 1},
-                                                  'AI(1)-16380': {'on': 0}}}
+                                                  'AI(1)-16380': {'on': 0}},
+                                       'result_tasks': {'rtsp://127.0.0.1/live': 'RTSP(0)-18368'}
+                                                  }
         """
         # self.log(f'callback_get_metrics: {params}')
         if {} == params:
             ret = self.metrics_
         else:
             ret = self.metrics_
-        return {'reply': True, 'result': ret}
+        return {'reply': True, 'result_metrics': ret, 'result_tasks': self.tasks_}
 
     def callback_pause_resume_pipe(self, params):
         """
@@ -492,6 +495,7 @@ class MainContext(bus.IEventBusMixin):
                     # 如果tasklist中有这个值，说明有人先注册处理这个任务，再找下个待分配任务。
                     continue
                 else:
+                    # 以前没分配过任务，或者分配过，但新的配置中没有那个任务了，均可以分配新的url
                     cfgtask = self.get_pre_assigned_cfg(source)
                     if cfgtask is None:
                         cfgtask = channel

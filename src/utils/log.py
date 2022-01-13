@@ -44,6 +44,7 @@ logging.config.fileConfig('logging.conf')
 lg_ = logging.getLogger('v2v')
 # 创建第二个日志器
 jlg_ = logging.getLogger('jaeger_tracing')
+jlg_.propagate = False
 
 # 清空以前的handler，避免重复打印
 # if lg_.hasHandlers():
