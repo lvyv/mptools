@@ -27,7 +27,7 @@ V2V测试联调指南
 ```
 2.在命令行终端界面上，进行流媒体功能测试。
 
-第一、启动easydarwin服务器，在终端用ffmpeg推流，ffplay测试播放。
+2.1 启动easydarwin服务器，在终端用ffmpeg推流，ffplay测试播放。
 easyDarwin服务器在vs目录下的EasyDarwin-windows-8.1.0-1901141151下的EasyDarwin.exe，双击执行。
 ffmpeg推流工具和ffplay播放工具在vs目录下的ffmpeg-win64-gpl-vulkan下的bin目录，命令行运行如下。
 ```
@@ -39,14 +39,14 @@ $ ffplay -rtsp_transport tcp rtsp://192.168.101.19:7554/plc
 ```
   【注意】easyDarwin为服务器时在easydarwin.ini中设置一下rtsp的端口为7554，要避免与已有端口冲突。
 
-第二、启动仿真接口。
+2.2 启动仿真接口。
 ```
 (v2v) bda@c3daace9a16d:~/work/tests$ cd ../src/mock
 (v2v) bda@c3daace9a16d:~/work/v2v/src/mock$ python exif.py
 ```
   【注意】启动仿真接口前要确定，设置对应的流媒体路径与上面的推流地址匹配，在exif.py文件stream_info函数内，大致166等行位置json的url键对应的值。
 
-第三、在代码的tests路径下启动v2v服务。
+2.3 在代码的tests路径下启动v2v服务。
 ```
 (v2v) bda@c3daace9a16d:~/work/tests$ python test_main.py
 ```
@@ -170,12 +170,13 @@ prometheus的主界面访问接口如下示例。
 http://192.168.47.144:9090
 
 5.启动v2v的管道操作，如果一切正常，将会在jaeger主控制台看到v2v的mqtt进程上报的数据。
-1）访问v2v的7080的api调试端口如下示例。
+
+5.1 访问v2v的7080的api调试端口如下示例。
 https://192.168.101.19:7080/docs
 执行post /api/v1/v2v/pipeline调用，Request body的命令为{"cmd":"start"}。
 该接口调用将启动v2v的视频解码、ai识别、mqtt数据上报任务流水线，如果传入{"cmd":"stop"}将停止流水线操作。
 
-2）jaeger的主界面访问接口如下示例。
+5.2 jaeger的主界面访问接口如下示例。
 http://192.168.47.144:16686
 在Service下拉列表中，过几秒时间就可以看到v2v_GD这样的服务。
 选择下拉列表的MQTT(0)-xxxxx，点击Find Trace绿色按钮，右侧图形就会显示MQTT发起的链路调用。
