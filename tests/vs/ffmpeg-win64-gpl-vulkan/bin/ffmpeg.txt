@@ -1,0 +1,7 @@
+ .\ffmpeg.exe -re -i D:\ffmpeg-win64-gpl-vulkan\bin\main.ts -rtsp_transport tcp -vcodec copy -f rtsp rtsp://10.128.19.91:7554/meter
+
+
+ffmpeg -re -stream_loop -1 -i E:\视频\person.mp4 -rtsp_transport tcp -vcodec libx264 -f rtsp rtsp://user:userpass@192.168.1.225:7554/person
+ffmpeg -re -stream_loop -1 -i E:\视频\panel.mp4 -rtsp_transport tcp -vcodec libx264 -f rtsp rtsp://user:userpass@192.168.1.225:7554/panel
+ffmpeg -re -stream_loop -1 -i E:\视频\led-twinkle.mp4 -rtsp_transport tcp -vcodec libx264 -f rtsp rtsp://user:userpass@192.168.1.225:7554/plc
+
