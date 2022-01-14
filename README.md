@@ -7,8 +7,7 @@ V2V测试联调指南
 用安装好的python3.x版本的对应pip3.x来安装一个virtualenv包，再用python运行virtualenv包创建虚拟环境。
 最后在虚拟环境的bin目录，source activate，激活虚拟环境。之后在这个虚拟环境下pip安装各种包即可。
 
-![img](docs/images/development_environment.drawio.svg)
-
+![img](docs/images/development_environment.drawio.svg)=98722
 
 快速开始
 --------
@@ -29,7 +28,9 @@ V2V测试联调指南
 
 2.1 启动easydarwin服务器，在终端用ffmpeg推流，ffplay测试播放。
 easyDarwin服务器在vs目录下的EasyDarwin-windows-8.1.0-1901141151下的EasyDarwin.exe，双击执行。
-ffmpeg推流工具和ffplay播放工具在vs目录下的ffmpeg-win64-gpl-vulkan下的bin目录，命令行运行如下。
+ffmpeg推流工具和ffplay播放
+3/
++工具在vs目录下的ffmpeg-win64-gpl-vulkan下的bin目录，命令行运行如下。
 ```
 $ ffmpeg -re -stream_loop -1 -i ./plc.mp4 -rtsp_transport tcp -vcodec libx264 -f rtsp rtsp://127.0.0.1:7554/plc
 $ ffmpeg -re -stream_loop -1 -i ./panel.mp4 -rtsp_transport tcp -vcodec libx264 -f rtsp rtsp://127.0.0.1:7554/panel

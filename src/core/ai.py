@@ -28,11 +28,12 @@ Feed AI meter picture one by one and get recognized results.
 
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
-
+import datetime
 import io
 import requests
-# import json
+import json
 import cv2
+import time
 from matplotlib import cm, pyplot as plt
 from numpy import array
 from utils import bus, comn, log
@@ -81,6 +82,50 @@ class UrlStatisticsHelper:
 
 
 class AiWorker(ProcWorker):
+    def image_post_process(self, frame, reqid, res):
+        """
+        后处理图片，主要完成图片识别结果的标记和存盘。
+        """
+        if reqid:
+            jso = json.loads(res.decode('utf-8'))
+            aitype = jso['api_type']
+            objs = jso['obj_info']
+            if aitype == 'Person':
+                ypos = 0
+                for item in objs:
+                    ypos = ypos + 50
+                    cnt = item["value"]
+                    if cnt is None:
+                        continue
+                    cv2.putText(frame, f'{item["type"]}: {cnt}',
+                                (10, ypos), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, lineType=cv2.LINE_AA)
+                    pos = item['pos']
+                    pts = [(int(pos[i]), int(pos[i + 1])) for i in range(0, len(pos), 2)]
+                    for iii in range(0, cnt*2, 2):
+                        cv2.rectangle(frame, pts[iii], pts[iii+1], (255, 0, 0), 2)
+            elif aitype == 'plc':
+                ypos = 0
+                for item in objs:
+                    ypos = ypos + 50
+                    cv2.putText(frame, f'{item["name"]}: {item["value"]}',
+                                (10, ypos), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, lineType=cv2.LINE_AA)
+            elif aitype == 'panel':
+                for item in objs:
+                    pos = item['pos']
+                    pts = [(int(pos[i]), int(pos[i+1])) for i in range(0, len(pos), 2)]
+                    cv2.rectangle(frame, pts[0], pts[1], (255, 0, 0), 2)
+                    cv2.putText(frame, f'{item["type"]}: {item["value"]}',
+                                pts[0], cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, lineType=cv2.LINE_AA)
+            else:
+                self.log(f'ai模型类型不支持：{aitype}', level=log.LOG_LVL_WARN)
+            # buf = io.BytesIO()
+            # plt.imsave(buf, frame, format='jpg', cmap=cm.gray)  # noqa
+            dt = datetime.datetime.fromtimestamp(reqid / 1000)
+            fn = dt.strftime('%Y-%m-%d-%H-%M-%S')
+            # cv2.imwrite(f'{fn}-{reqid % 1000}.jpg', frame)
+            cv2.imshow(self.name, frame)
+            cv2.waitKey(1)
+
     @classmethod
     def plc_sub_image(cls, image_data, template):
         image_scale = (64, 64)
@@ -109,8 +154,16 @@ class AiWorker(ProcWorker):
         # self.bus_topic_ = bus.EBUS_TOPIC_AI
         self.in_q_ = in_q
         self.out_q_ = out_q
+        # 识别结果保存到文件服务器
+        self.fsvr_url_ = None
         # 出现调用连接失败等的url需要被记录，下次再收到这样的url要丢弃
         self.badurls_ = UrlStatisticsHelper()
+
+    def startup(self):
+        self.log(f'{self.name} started......')
+        cfg = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
+        mqttcfg = cfg['mqtt_svrs'][0]
+        self.fsvr_url_ = mqttcfg['fsvr_url']
 
     def main_func(self, event=None, *args):
         """
@@ -120,7 +173,6 @@ class AiWorker(ProcWorker):
          'area_of_interest': [{'name': 'xx', 'type': '', 'score': None, 'pos': [180, 80, 290, 150], 'value': None}],
          'ai_service': '/api/v1/ai/person'
         }
-
         :param event:
         :param args:
         :return:
@@ -128,19 +180,16 @@ class AiWorker(ProcWorker):
         try:
             # 全速
             pic = self.in_q_.get()
-
             task = pic['task']
             fid = pic['fid']
             fps = pic['fps']
             frame = pic['frame']
             requestid = pic['requestid']
-
             rest = f'{task["ai_service"]}'
             template_in = task['area_of_interest']
-
             if self.badurls_.get_cnts(rest) < 3:    # 事不过三。
                 buf = io.BytesIO()
-                template = None
+                # template = None
                 if '/api/v1/ai/plc' in rest:
                     # self.log(f'in:{template_in}')
                     sub_image, template = self.plc_sub_image(frame, template_in)
@@ -152,7 +201,6 @@ class AiWorker(ProcWorker):
                     plt.imsave(buf, pic['frame'], format='jpg')
                     # self.log(f'panel & others:{template_in}--{rest}')
                     payload = {'cfg_info': str(template_in), 'req_id': requestid}
-
                 image_data = buf.getvalue()
                 files = {'files': (comn.replace_non_ascii(f'{fid}-{fps}'), image_data, 'image/jpg')}
                 rest = f'{rest}/?req_id={requestid}'
@@ -162,11 +210,11 @@ class AiWorker(ProcWorker):
                     # result = resp.content.decode('utf-8')
                     self.log(f'The size of vector queue between ai & mqtt is: {self.out_q_.qsize()}.')
                     self.out_q_.put(resp.content)
+                    self.image_post_process(frame, requestid, resp.content)
                 else:
                     self.log(f'ai服务访问失败，错误号：{resp.status_code}', level=log.LOG_LVL_WARN)
             else:
                 self.badurls_.waitforrecover(rest)     # 并不真的去访问该rest，而是要等累计若干次以后再说。
-
         except requests.exceptions.ConnectionError as err:
             # 把出错的url取出来记下，但是要去掉/?req_id
             self.badurls_.add(rest.split('/?req_id=')[0])     # noqa
