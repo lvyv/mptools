@@ -24,13 +24,15 @@ V2V测试联调指南
 ```
 (venv) E:\_proj\odoo-14.0.post20201231\v2v\tests>set PYTHONPATH=%PYTHONPATH%;..\src
 ```
+如果是windows的powershell环境，则通过如下方式设置环境变量PYTHONPATH。
+```
+(venv) E:\_proj\odoo-14.0.post20201231\v2v\tests>$Env:PYTHONPATH += ";..\src"
+```
 2.在命令行终端界面上，进行流媒体功能测试。
 
 2.1 启动easydarwin服务器，在终端用ffmpeg推流，ffplay测试播放。
 easyDarwin服务器在vs目录下的EasyDarwin-windows-8.1.0-1901141151下的EasyDarwin.exe，双击执行。
-ffmpeg推流工具和ffplay播放
-3/
-+工具在vs目录下的ffmpeg-win64-gpl-vulkan下的bin目录，命令行运行如下。
+ffmpeg推流工具和ffplay播放工具在vs目录下的ffmpeg-win64-gpl-vulkan下的bin目录，命令行运行如下。
 ```
 $ ffmpeg -re -stream_loop -1 -i ./plc.mp4 -rtsp_transport tcp -vcodec libx264 -f rtsp rtsp://127.0.0.1:7554/plc
 $ ffmpeg -re -stream_loop -1 -i ./panel.mp4 -rtsp_transport tcp -vcodec libx264 -f rtsp rtsp://127.0.0.1:7554/panel
@@ -91,7 +93,7 @@ docker run -d --name jaeger \
   -p 14269:14269 \
   -p 9411:9411 \
   jaegertracing/all-in-one:1.29
- ```
+```
   【注意】：promethues安装挂出到宿主机的配置文件prometheus.yml参考如下。
 ```
 # my global config
@@ -182,6 +184,15 @@ http://192.168.47.144:16686
 在Service下拉列表中，过几秒时间就可以看到v2v_GD这样的服务。
 选择下拉列表的MQTT(0)-xxxxx，点击Find Trace绿色按钮，右侧图形就会显示MQTT发起的链路调用。
 
+离线部署与安装
+--------
+```
+$ pip freeze > requirements.txt 
+$ pip download -d . -r requirements.txt
+
+$ pip install --no-index --find-links=pack -r requirements.txt
+```
+
 特性
 --------
 
@@ -190,24 +201,21 @@ http://192.168.47.144:16686
 - 支持mqtt上报，并提供jaeger通信追踪上报。
 - 支持config配置动态载入。
 - 支持主进程管理所有子进程流水线，想要停哪个进程就停哪个。
- 
-代办事项
+- 识别结果以图片发布为图片浏览器。
+- 日志记录方式可以通过配置文件设定。
+
+待办事项
 --------
 - 支持pipeline在程序启动后自动启动。
 - 配置数据在客户端重新显示（更换浏览器后）。
-- 
 - UI美化。 
 - 远程调用的输入参数和返回值没有规范化，应该统一为类便于修改。
-- 有的类的log没有处理好，不方便打印日志，比如bus，fastapi。
 - 当配置文件出错的时候，程序行为的定义。
-- 识别结果以图片上传文件服务器。
-- 文档内容和安装发布的完善。
-- config配置文件读取需要重构。
-- 前端ui部分的js代码视需重构。
 - ctrl+c关闭程序的时候，windows和linux有不同的反应，代码还没屏蔽此差异（rest.py）。
 
 致谢
 -------
 
 Cookiecutter。
+simple-photo-gallery。
 

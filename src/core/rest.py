@@ -56,6 +56,8 @@ from os.path import isfile, join
 from os import listdir
 
 from utils import bus, comn, log, GrabFrame, wrapper as wpr
+from simplegallery.gallery_init import gallery_create
+from simplegallery.gallery_build import gallery_build
 # from utils.config import ConfigSet
 from core.procworker import ProcWorker
 from uvicorn.main import Server
@@ -391,6 +393,22 @@ class RestWorker(ProcWorker):
                 rest_proc_.log(f'Preset pictures done.')
             finally:
                 return item
+
+        class Directory(BaseModel):
+            datedir: str = '2022-01-26'
+
+        @app_.post("/api/v1/v2v/pixgallery")
+        async def pixgallery(item: Directory):
+            """把参数指定日期得视频识别结果打包为可访问的web服务，返回url地址"""
+            ret = {'version': '1.0.0', 'reply': False}
+            imagedir = f'{localroot_of_nvr_samples_}airesults/{item.datedir}'
+            res = gallery_create(imagedir)
+            if res:
+                res = gallery_build(imagedir)
+                if res:
+                    visit_url = f'{baseurl_of_nvr_samples_}/airesults/{item.datedir}/public/index.html'
+                    ret = {'version': '1.0.0', 'reply': res, 'url': visit_url}
+            return ret
 
         @app_.on_event("startup")
         @repeat_every(seconds=1, wait_first=True)

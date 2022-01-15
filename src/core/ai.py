@@ -125,11 +125,11 @@ class AiWorker(ProcWorker):
             # dt = datetime.datetime.fromtimestamp(reqid / 1000)
             # fn = dt.strftime('%Y-%m-%d-%H-%M-%S')
             # os.makedirs(os.path.dirname(filename), exist_ok=True)
-
             prefix = datetime.datetime.fromtimestamp(reqid / 1000).strftime('%Y-%m-%d')
             filename = f'{self.nvr_samples_}airesults/{prefix}/{reqid}.jpg'
-            cv2.imwrite(f'{filename}', frame)
             os.makedirs(os.path.dirname(filename), exist_ok=True)
+            if reqid % 50 == 0:    # 50抽1
+                cv2.imwrite(f'{filename}', frame)
 
             cv2.imshow(self.name, frame)
             cv2.waitKey(1)
