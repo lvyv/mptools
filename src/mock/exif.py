@@ -59,7 +59,7 @@ def call_objcounting(contents):
     if contents:
         pass
     ret = {'req_id': None,
-           'api_type': 'person',
+           'api_type': 'Person',
            'obj_info': [{'name': 'CNT_001', 'type': 'COMPUTER', 'score': 0.889299750328064,
                          'pos': (26, 263, 416, 422,  2, 3, 1, 1,    2, 3, 1, 1,),
                          'value': '3',
@@ -228,24 +228,26 @@ async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(.
 
 # IF2 REST API  内部接口-智能识别
 @app.post("/api/v1/ai/panel")
-async def meter_recognization(files: UploadFile = File(...), cfg_info: str = Form(...)):
+async def meter_recognization(files: UploadFile = File(...), cfg_info: str = Form(...), req_id: Optional[str] = None):
     log.log(f'{files.filename}, {files.content_type}, {cfg_info}')
     contents = files.file.read()
     # outfile = open(upfile.filename, 'wb')
     # outfile.write(contents)
     # outfile.close()
     ret = call_aimeter(contents)
+    ret.update({'req_id': int(req_id)})
     return ret
 
 
 @app.post("/api/v1/ai/person")
-async def object_counting(files: UploadFile = File(...), cfg_info: str = Form(...)):
+async def object_counting(files: UploadFile = File(...), cfg_info: str = Form(...), req_id: Optional[str] = None):
     log.log(f'{files.filename}, {files.content_type}, {cfg_info}')
     contents = files.file.read()
     # outfile = open(upfile.filename, 'wb')
     # outfile.write(contents)
     # outfile.close()
     ret = call_objcounting(contents)
+    ret.update({'req_id': int(req_id)})
     return ret
 
 
@@ -257,6 +259,7 @@ async def indicator_frequency(files: UploadFile = File(...), cfg_info: str = For
     # outfile.write(contents)
     # outfile.close()
     ret = call_indicator_freq(contents)
+    ret.update({'req_id': int(req_id)})
     return ret
 
 if __name__ == '__main__':

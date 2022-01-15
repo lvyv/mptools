@@ -28,12 +28,14 @@ Feed AI meter picture one by one and get recognized results.
 
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
+import os
 import datetime
+# import time
 import io
 import requests
 import json
 import cv2
-import time
+
 from matplotlib import cm, pyplot as plt
 from numpy import array
 from utils import bus, comn, log
@@ -94,13 +96,13 @@ class AiWorker(ProcWorker):
                 ypos = 0
                 for item in objs:
                     ypos = ypos + 50
-                    cnt = item["value"]
+                    cnt = int(float(item["value"]))
                     if cnt is None:
                         continue
                     cv2.putText(frame, f'{item["type"]}: {cnt}',
                                 (10, ypos), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, lineType=cv2.LINE_AA)
                     pos = item['pos']
-                    pts = [(int(pos[i]), int(pos[i + 1])) for i in range(0, len(pos), 2)]
+                    pts = [(int(float(pos[i])), int(float(pos[i + 1]))) for i in range(0, len(pos), 2)]
                     for iii in range(0, cnt*2, 2):
                         cv2.rectangle(frame, pts[iii], pts[iii+1], (255, 0, 0), 2)
             elif aitype == 'plc':
@@ -112,7 +114,7 @@ class AiWorker(ProcWorker):
             elif aitype == 'panel':
                 for item in objs:
                     pos = item['pos']
-                    pts = [(int(pos[i]), int(pos[i+1])) for i in range(0, len(pos), 2)]
+                    pts = [(int(float(pos[i])), int(float(pos[i+1]))) for i in range(0, len(pos), 2)]
                     cv2.rectangle(frame, pts[0], pts[1], (255, 0, 0), 2)
                     cv2.putText(frame, f'{item["type"]}: {item["value"]}',
                                 pts[0], cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, lineType=cv2.LINE_AA)
@@ -120,9 +122,15 @@ class AiWorker(ProcWorker):
                 self.log(f'ai模型类型不支持：{aitype}', level=log.LOG_LVL_WARN)
             # buf = io.BytesIO()
             # plt.imsave(buf, frame, format='jpg', cmap=cm.gray)  # noqa
-            dt = datetime.datetime.fromtimestamp(reqid / 1000)
-            fn = dt.strftime('%Y-%m-%d-%H-%M-%S')
-            # cv2.imwrite(f'{fn}-{reqid % 1000}.jpg', frame)
+            # dt = datetime.datetime.fromtimestamp(reqid / 1000)
+            # fn = dt.strftime('%Y-%m-%d-%H-%M-%S')
+            # os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+            prefix = datetime.datetime.fromtimestamp(reqid / 1000).strftime('%Y-%m-%d')
+            filename = f'{self.nvr_samples_}airesults/{prefix}/{reqid}.jpg'
+            cv2.imwrite(f'{filename}.jpg', frame)
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+
             cv2.imshow(self.name, frame)
             cv2.waitKey(1)
 
@@ -156,6 +164,7 @@ class AiWorker(ProcWorker):
         self.out_q_ = out_q
         # 识别结果保存到文件服务器
         self.fsvr_url_ = None
+        self.nvr_samples_ = None
         # 出现调用连接失败等的url需要被记录，下次再收到这样的url要丢弃
         self.badurls_ = UrlStatisticsHelper()
 
@@ -164,6 +173,7 @@ class AiWorker(ProcWorker):
         cfg = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
         mqttcfg = cfg['mqtt_svrs'][0]
         self.fsvr_url_ = mqttcfg['fsvr_url']
+        self.nvr_samples_ = cfg['nvr_samples']
 
     def main_func(self, event=None, *args):
         """
