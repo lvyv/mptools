@@ -128,7 +128,7 @@ class AiWorker(ProcWorker):
 
             prefix = datetime.datetime.fromtimestamp(reqid / 1000).strftime('%Y-%m-%d')
             filename = f'{self.nvr_samples_}airesults/{prefix}/{reqid}.jpg'
-            cv2.imwrite(f'{filename}.jpg', frame)
+            cv2.imwrite(f'{filename}', frame)
             os.makedirs(os.path.dirname(filename), exist_ok=True)
 
             cv2.imshow(self.name, frame)
