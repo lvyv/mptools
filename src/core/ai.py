@@ -40,6 +40,7 @@ from matplotlib import cm, pyplot as plt
 from numpy import array
 from utils import bus, comn, log
 from core.procworker import ProcWorker
+from utils.config import ConfigSet
 
 
 class UrlStatisticsHelper:
@@ -117,9 +118,10 @@ class AiWorker(ProcWorker):
                 for item in objs:
                     pos = item['pos']
                     pts = [(int(float(pos[i])), int(float(pos[i+1]))) for i in range(0, len(pos), 2)]
-                    cv2.rectangle(frame, pts[0], pts[1], (255, 0, 0), 2)
+                    cv2.rectangle(frame, pts[0], pts[1], (0, 0, 255), 2)
+                    txtpos = [pts[1][0], pts[1][1]]
                     cv2.putText(frame, f'{item["type"]}: {item["value"]}',
-                                pts[0], cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, lineType=cv2.LINE_AA)
+                                txtpos, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, lineType=cv2.LINE_AA)  # pts[0]
             else:
                 self.log(f'ai模型类型不支持：{aitype}', level=log.LOG_LVL_WARN)
             # buf = io.BytesIO()
@@ -132,9 +134,9 @@ class AiWorker(ProcWorker):
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             if reqid % 50 == 0:    # 50抽1
                 cv2.imwrite(f'{filename}', frame)
-
-            # cv2.imshow(self.name, frame)
-            # cv2.waitKey(1)
+            if self.showimage_:
+                cv2.imshow(self.name, frame)
+                cv2.waitKey(50)
 
     @classmethod
     def plc_sub_image(cls, image_data, template):
@@ -167,6 +169,8 @@ class AiWorker(ProcWorker):
         # 识别结果保存到文件服务器
         self.fsvr_url_ = None
         self.nvr_samples_ = None
+        # 是否显示窗体展示识别结果
+        self.showimage_ = False
         # 出现调用连接失败等的url需要被记录，下次再收到这样的url要丢弃
         self.badurls_ = UrlStatisticsHelper()
 
@@ -176,6 +180,8 @@ class AiWorker(ProcWorker):
         mqttcfg = cfg['mqtt_svrs'][0]
         self.fsvr_url_ = mqttcfg['fsvr_url']
         self.nvr_samples_ = cfg['nvr_samples']
+
+        self.showimage_ = ConfigSet.get_basecfg()['showimage']
 
     def main_func(self, event=None, *args):
         """

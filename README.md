@@ -1,5 +1,40 @@
-V2V测试联调指南
+**V2V测试联调指南**
 =====================
+V2V是Video to Vector的意思。就是希望把视频这种非结构化的数据变为Vector这种容易处理的数据，然后发给iot。
+
+本项目支持从主流NVR，IPC监控设备获取rtsp流解码，调度分布式AI服务器，达到实时识别，实时转发iot的效果。通过国标GB28181协议，本项目能通过PTZ指令控制现场摄像头多巡航点轮番识别、跟踪识别。
+
+
+一、快速体验
+--------
+### 预装环境
+- Windows10系统，NVIDIA显卡（RTX2060或更好）。
+- 已经下载v2v-ai和v2v的源码并解压到本地硬盘E:\_proj\v2v-ai和E:\_proj\v2v。
+- 已经安装Miniconda3虚拟环境，v2v-ai依赖的GPU开发环境（参考《V2V-AI开发环境搭建方案》）。
+- 已经安装virtualenv python3环境及v2v需要的包（v2v依赖的环境）。
+
+### 运行步骤
+Windows10环境下代码演示如下。
+1.打开EasyDarwin服务器。
+2.在  E:\_proj\odoo-14.0.post20201231\venv\Scripts  目录打开一个终端窗口。
+3.在命令行输入如下命令。
+```
+E:\_proj\odoo-14.0.post20201231\venv\Scripts>activate
+(venv) E:\_proj\odoo-14.0.post20201231\venv\Scripts>cd ..\..\..\v2v\scripts
+(venv) E:\_proj\v2v\scripts>push_main.bat
+(venv) E:\_proj\v2v\scripts>mock
+(venv) E:\_proj\v2v\scripts>v2v
+```
+4.在开始菜单点击Anaconda3（64-bit），Anaconda Promote（Miniconda3），进入conda v38gpu环境，运行如下命令。
+```
+(v38gpu) E:\_proj\v2v-ai\ai-server>uvicorn run:app --port 7180 --host 192.168.101.19 --ssl-keyfile=../keys/cert.key --ssl-certfile=../keys/cert.cer
+```
+
+对一段标准视频流实时识别的结果。
+![img](docs/images/ocr_result.png)
+
+二、源码开发指南
+--------
 源码调测v2v需要搭建如下环境。
 在开发机（develop windows）上安装好pycharm社区版。
 后续所有命令都需要运行在python 3.6.8及以上的虚拟环境下。
@@ -7,10 +42,9 @@ V2V测试联调指南
 用安装好的python3.x版本的对应pip3.x来安装一个virtualenv包，再用python运行virtualenv包创建虚拟环境。
 最后在虚拟环境的bin目录，source activate，激活虚拟环境。之后在这个虚拟环境下pip安装各种包即可。
 
-![img](docs/images/development_environment.drawio.svg)=98722
+![img](docs/images/development_environment.drawio.svg)
 
-快速开始
---------
+
 1.下载代码到本地，安装requirments.txt的包。
 
 ```
@@ -63,7 +97,7 @@ https://127.0.0.1:7180/docs
 4.缺省的配置界面。
 https://127.0.0.1:7080/ui/v2vlabel/editors/gallery.html
 
-v2v运行的配置文件
+三、v2v运行的配置文件
 --------
 v2v程序的正常运行依赖如下一些配置文件。
 1.tests目录下的v2v.cfg文件——主配置文件，确定要识别的流媒体源及预置点配置、mqtt服务器地址等、本地启动的微服务端口、视频调度服务器地址等。
@@ -72,7 +106,7 @@ v2v程序的正常运行依赖如下一些配置文件。
 3.tests目录下的logging.conf文件——配置日志文件记录方式。
 4.src/mock目录下的cert.cer，cert.key文件——https服务依赖的证书和密钥文件。
 
-v2v运行的监控
+四、v2v运行的监控
 --------
 1.v2v支持prometheus和jaeger指标监测，需要提前安装Prometheus和Jaeger，命令如下。
 ```
@@ -184,7 +218,7 @@ http://192.168.47.144:16686
 在Service下拉列表中，过几秒时间就可以看到v2v_GD这样的服务。
 选择下拉列表的MQTT(0)-xxxxx，点击Find Trace绿色按钮，右侧图形就会显示MQTT发起的链路调用。
 
-离线部署与安装
+五、离线部署与安装
 --------
 ```
 $ pip freeze > requirements.txt 
@@ -193,7 +227,7 @@ $ pip download -d . -r requirements.txt
 $ pip install --no-index --find-links=pack -r requirements.txt
 ```
 
-特性
+六、特性
 --------
 
 - 支持标注。
@@ -204,7 +238,7 @@ $ pip install --no-index --find-links=pack -r requirements.txt
 - 识别结果以图片发布为图片浏览器。
 - 日志记录方式可以通过配置文件设定。
 
-待办事项
+七、待办事项
 --------
 - 支持pipeline在程序启动后自动启动。
 - 配置数据在客户端重新显示（更换浏览器后）。
@@ -214,8 +248,14 @@ $ pip install --no-index --find-links=pack -r requirements.txt
 - ctrl+c关闭程序的时候，windows和linux有不同的反应，代码还没屏蔽此差异（rest.py）。
 
 致谢
--------
+=====================
 
 Cookiecutter。
 simple-photo-gallery。
+
+
+
+lvyu
+
+26896225@qq.com
 
