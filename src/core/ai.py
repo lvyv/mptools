@@ -96,7 +96,9 @@ class AiWorker(ProcWorker):
                 ypos = 0
                 for item in objs:
                     ypos = ypos + 50
-                    cnt = int(float(item["value"]))
+                    cnt = None
+                    if item['value']:
+                        cnt = int(float(item["value"]))
                     if cnt is None:
                         continue
                     cv2.putText(frame, f'{item["type"]}: {cnt}',
@@ -131,8 +133,8 @@ class AiWorker(ProcWorker):
             if reqid % 50 == 0:    # 50抽1
                 cv2.imwrite(f'{filename}', frame)
 
-            cv2.imshow(self.name, frame)
-            cv2.waitKey(1)
+            # cv2.imshow(self.name, frame)
+            # cv2.waitKey(1)
 
     @classmethod
     def plc_sub_image(cls, image_data, template):

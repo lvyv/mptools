@@ -213,17 +213,18 @@ async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(.
     # item = {"deviceId": deviceid, "channelId": channelid,
     # "cmdCode": 130, "parameter1": 0, "parameter2": int(viewpoint),
     #         "combindCode2": 0}
-    # ret = None
+    # ret = {'version': '1.0.0',
+    #     	   ’reply‘: False}
     # try:
     #     url = f'https://192.168.1.225:18180/api/ptz/front_end_command/{deviceid}/{channelid}'
     #     resp = requests.post(url, data=item, verify=False)
     #     if resp.status_code == 200:
-    #         ret = True
+    #         ret.update({'reply': True})
     # except KeyError:
     #     pass
     # finally:
     #     return ret
-    return True
+    return {'version': '1.0.0', 'reply': True}
 
 
 # IF2 REST API  内部接口-智能识别
@@ -268,7 +269,7 @@ if __name__ == '__main__':
     log_config["formatters"]["access"]["fmt"] = log.get_v2v_logger_formatter()
     log_config["loggers"]['uvicorn.error'].update({"propagate": False, "handlers": ["default"]})
     uvicorn.run(app,                # noqa
-                host="0.0.0.0",
+                host="127.0.0.1",
                 port=7180,
                 ssl_keyfile="cert.key",
                 ssl_certfile="cert.cer",

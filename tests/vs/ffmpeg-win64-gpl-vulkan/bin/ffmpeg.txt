@@ -5,4 +5,7 @@ ffmpeg -re -stream_loop -1 -i E:\视频\person.mp4 -rtsp_transport tcp -vcodec l
 ffmpeg -re -stream_loop -1 -i E:\视频\panel.mp4 -rtsp_transport tcp -vcodec libx264 -f rtsp rtsp://user:userpass@192.168.1.225:7554/panel
 ffmpeg -re -stream_loop -1 -i E:\视频\led-twinkle.mp4 -rtsp_transport tcp -vcodec libx264 -f rtsp rtsp://user:userpass@192.168.1.225:7554/plc
 
-ffplay -rtsp_transport tcp rtsp://192.168.101.19:7554/plc
+[]
+ffmpeg -re -stream_loop -1 -i ./main.ts -rtsp_transport tcp -vcodec copy -f rtsp rtsp://127.0.0.1:7554/main
+
+ffplay -rtsp_transport tcp rtsp://127.0.0.1:7554/main
