@@ -15,9 +15,13 @@ V2V是Video to Vector的意思。就是希望把视频这种非结构化的数�
 
 ### 运行步骤
 Windows10环境下代码演示如下。
+
 1.打开EasyDarwin服务器。
+
 2.在  E:\_proj\odoo-14.0.post20201231\venv\Scripts  目录打开一个终端窗口。
+
 3.在命令行输入如下命令。
+
 ```
 E:\_proj\odoo-14.0.post20201231\venv\Scripts>activate
 (venv) E:\_proj\odoo-14.0.post20201231\venv\Scripts>cd ..\..\..\v2v\scripts
