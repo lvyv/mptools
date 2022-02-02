@@ -224,10 +224,15 @@ http://192.168.47.144:16686
 
 五、离线部署与安装
 --------
+离线依赖包下载（如果是ARM服务器，需要在该服务器上下载）。
 ```
+$ pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
+$ pip config set install.trusted-host https://mirrors.aliyun.com
 $ pip freeze > requirements.txt 
 $ pip download -d . -r requirements.txt
-
+```
+离线安装。
+```
 $ pip install --no-index --find-links=pack -r requirements.txt
 ```
 
