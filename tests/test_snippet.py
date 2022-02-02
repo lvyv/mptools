@@ -81,6 +81,7 @@ from typing import Callable
 from fastapi.testclient import TestClient
 import psutil
 from children import sample_rtsp_frame
+from PIL import Image, ImageDraw, ImageFont
 
 app = FastAPI()
 
@@ -515,7 +516,7 @@ def stream_null_inject(stream):
 
 def nvr_stream_func():
     # rtspurl = 'rtsp://192.168.1.225:7554/plc'
-    rtspurl = 'rtsp://user:userpass@192.168.1.225:7554/person'
+    # rtspurl = 'rtsp://user:userpass@192.168.1.225:7554/person'
     rtspurl = 'rtsp://admin:admin123@192.168.101.39:554/cam/realmonitor?channel=1&subtype=0'
     cap = cv2.VideoCapture(rtspurl)
     print(f'fps: {cap.get(cv2.cv2.CAP_PROP_FPS)}')
@@ -815,6 +816,26 @@ def test_rtsp_process():
     pool.join()
 
 
+def test_fonts():
+    image = Image.open('fonts/background.jpg')
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.truetype('fonts/cf.ttf', size=24)
+    msg1 = "昔人已乘黄鹤去，此地空余黄鹤楼。黄鹤一去不复返，白云千载空悠悠。"
+    msg2 = "晴川历历汉阳树，芳草萋萋鹦鹉洲。日暮乡关何处是？烟波江上使人愁。"
+
+    draw.text((50, 50), msg1, (255, 0, 0), font=font)
+    draw.text((50, 100), msg2, (255, 0, 0), font=font)
+
+    (x, y) = (150, 150)
+    sender = '崔颢'
+    color = 'rgb(255, 255, 255)'  # white color
+    draw.text((x, y), sender, fill=color, font=font)
+
+    # save the edited image
+
+    image.save('fonts/optimized.png', optimize=True, quality=100)
+
+
 class TestMain(unittest.TestCase):
     """
     Tests for `v2v` entrypoint.
@@ -856,7 +877,8 @@ class TestMain(unittest.TestCase):
         # test_opencv_capture_timeout()
         # test_jaeger()
         # test_promethues_exporter()
-        test_rtsp_process()
+        # test_rtsp_process()
+        test_fonts()
 
 
 if __name__ == '__main__':

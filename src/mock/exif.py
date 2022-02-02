@@ -37,6 +37,7 @@ from typing import Optional
 from utils import log
 from typing import List
 import uvicorn
+import random
 # import requests
 # import json
 
@@ -45,10 +46,11 @@ def call_aimeter(contents):
     # print(contents)
     if contents:
         pass
+    values = ['识别结果：0.223', '识别结果：0.328', '识别结果：1.226899']
     ret = {'req_id': None,
            'api_type': 'panel',
            'obj_info': [{'name': 'OCR_001', 'type': 'OCR', 'score': 0.889299750328064, 'pos': [26, 263, 416, 422],
-                         'value': '0.27',
+                         'value': f'{random.choice(values)}',
                          'inter_type': None}],
            'stats_info': None,
            'ET': '(0.146s)'}
@@ -236,7 +238,7 @@ async def meter_recognization(files: UploadFile = File(...), cfg_info: str = For
     # outfile.write(contents)
     # outfile.close()
     ret = call_aimeter(contents)
-    ret.update({'req_id': int(req_id)})
+    ret.update({'req_id': int(req_id)})  # noqa
     return ret
 
 
@@ -248,7 +250,7 @@ async def object_counting(files: UploadFile = File(...), cfg_info: str = Form(..
     # outfile.write(contents)
     # outfile.close()
     ret = call_objcounting(contents)
-    ret.update({'req_id': int(req_id)})
+    ret.update({'req_id': int(req_id)})  # noqa
     return ret
 
 
@@ -260,7 +262,7 @@ async def indicator_frequency(files: UploadFile = File(...), cfg_info: str = For
     # outfile.write(contents)
     # outfile.close()
     ret = call_indicator_freq(contents)
-    ret.update({'req_id': int(req_id)})
+    ret.update({'req_id': int(req_id)})  # noqa
     return ret
 
 if __name__ == '__main__':
@@ -269,7 +271,7 @@ if __name__ == '__main__':
     log_config["formatters"]["access"]["fmt"] = log.get_v2v_logger_formatter()
     log_config["loggers"]['uvicorn.error'].update({"propagate": False, "handlers": ["default"]})
     uvicorn.run(app,                # noqa
-                host="127.0.0.1",
+                host="0.0.0.0",
                 port=7180,
                 ssl_keyfile="cert.key",
                 ssl_certfile="cert.cer",

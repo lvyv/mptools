@@ -41,6 +41,7 @@ from numpy import array
 from utils import bus, comn, log
 from core.procworker import ProcWorker
 from utils.config import ConfigSet
+from PIL import Image, ImageDraw, ImageFont
 
 
 class UrlStatisticsHelper:
@@ -85,6 +86,13 @@ class UrlStatisticsHelper:
 
 
 class AiWorker(ProcWorker):
+    def draw_text(self, img, pos, text):
+        # write Chinese.
+        img_pil = Image.fromarray(img)
+        draw = ImageDraw.Draw(img_pil)
+        draw.text(pos, text, font=self.font_, fill=(0, 0, 255, 5))
+        return array(img_pil)
+
     def image_post_process(self, frame, reqid, res):
         """
         后处理图片，主要完成图片识别结果的标记和存盘。
@@ -102,8 +110,9 @@ class AiWorker(ProcWorker):
                         cnt = int(float(item["value"]))
                     if cnt is None:
                         continue
-                    cv2.putText(frame, f'{item["type"]}: {cnt}',
-                                (10, ypos), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, lineType=cv2.LINE_AA)
+                    # cv2.putText(frame, f'{item["type"]}: {cnt}',
+                    #             (10, ypos), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, lineType=cv2.LINE_AA)
+                    frame = self.draw_text(frame, (10, ypos), f'{item["type"]}: {cnt}')
                     pos = item['pos']
                     pts = [(int(float(pos[i])), int(float(pos[i + 1]))) for i in range(0, len(pos), 2)]
                     for iii in range(0, cnt*2, 2):
@@ -112,16 +121,18 @@ class AiWorker(ProcWorker):
                 ypos = 0
                 for item in objs:
                     ypos = ypos + 50
-                    cv2.putText(frame, f'{item["name"]}: {item["value"]}',
-                                (10, ypos), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, lineType=cv2.LINE_AA)
+                    # cv2.putText(frame, f'{item["name"]}: {item["value"]}',
+                    #             (10, ypos), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, lineType=cv2.LINE_AA)
+                    frame = self.draw_text(frame, (10, ypos), f'{item["name"]}: {item["value"]}')
             elif aitype == 'panel':
                 for item in objs:
                     pos = item['pos']
                     pts = [(int(float(pos[i])), int(float(pos[i+1]))) for i in range(0, len(pos), 2)]
                     cv2.rectangle(frame, pts[0], pts[1], (0, 0, 255), 2)
                     txtpos = [pts[1][0], pts[1][1]]
-                    cv2.putText(frame, f'{item["type"]}: {item["value"]}',
-                                txtpos, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, lineType=cv2.LINE_AA)  # pts[0]
+                    # cv2.putText(frame, f'{item["type"]}: {item["value"]}',
+                    #             txtpos, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, lineType=cv2.LINE_AA)  # pts[0]
+                    frame = self.draw_text(frame, (txtpos[0], txtpos[1]), f'{item["type"]}: {item["value"]}')
             else:
                 self.log(f'ai模型类型不支持：{aitype}', level=log.LOG_LVL_WARN)
             # buf = io.BytesIO()
@@ -173,6 +184,7 @@ class AiWorker(ProcWorker):
         self.showimage_ = False
         # 出现调用连接失败等的url需要被记录，下次再收到这样的url要丢弃
         self.badurls_ = UrlStatisticsHelper()
+        self.font_ = ImageFont.truetype('fonts/cf.ttf', size=24)
 
     def startup(self):
         self.log(f'{self.name} started......')
