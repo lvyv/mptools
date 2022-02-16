@@ -18,7 +18,7 @@ pydantic~=1.8.2
 pytest~=6.2.4
 python-multipart~=0.0.5
 pyzmq~=22.1.0
-requests~=2.21.0
+requests~=2.26.0
 schedule==1.1.0
 selenium~=4.1.0
 setuptools~=57.0.0
