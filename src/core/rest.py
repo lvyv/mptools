@@ -166,6 +166,7 @@ class RestWorker(ProcWorker):
         # 本路由为前端ui的路径
         app_.mount('/ui', StaticFiles(directory='../src/ui'), name='ui')
         app_.mount('/static', StaticFiles(directory='../src/swagger_ui_dep/static'), name='static')
+
         # 本路由为thumbnail预览图片保存位置，该位置下按nvr的deviceid建立文件夹，放置所有base64的采样图片
         app_.mount(baseurl_of_nvr_samples_, StaticFiles(directory=localroot_of_nvr_samples_), name='nvr')
 
@@ -395,7 +396,7 @@ class RestWorker(ProcWorker):
                 return item
 
         class Directory(BaseModel):
-            datedir: str = '2022-01-26'
+            datedir: str = '2022-02-11'
 
         @app_.post("/api/v1/v2v/pixgallery")
         async def pixgallery(item: Directory):

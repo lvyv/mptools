@@ -113,3 +113,4 @@ tests/nvr_samples
 
 #sonarQube
 .scannerwork
+/src/swagger_ui_dep/static/favicon.ico
