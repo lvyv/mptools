@@ -193,7 +193,7 @@ class AiWorker(ProcWorker):
         self.fsvr_url_ = mqttcfg['fsvr_url']
         self.nvr_samples_ = cfg['nvr_samples']
 
-        self.showimage_ = ConfigSet.get_basecfg()['showimage']
+        self.showimage_ = ConfigSet.get_base_cfg_obj()['showimage']
 
     def main_func(self, event=None, *args):
         """

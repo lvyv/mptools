@@ -35,13 +35,13 @@ import signal
 import os
 import time
 
-from core.rtsp import RtspWorker
-from core.ai import AiWorker
-from core.mqtt import MqttWorker
-from core.rest import RestWorker
-from utils import bus, log
-from utils.config import ConfigSet
-from utils.wrapper import proc_worker_wrapper, daemon_wrapper
+from rtsp import RtspWorker
+from ai import AiWorker
+from mqtt import MqttWorker
+from rest import RestWorker
+from src.utils import bus, log
+from src.utils.config import ConfigSet
+from src.utils.wrapper import proc_worker_wrapper, daemon_wrapper
 
 
 def init_worker():
@@ -144,7 +144,7 @@ class MainContext(bus.IEventBusMixin):
     def callback_start_pipeline(self, params):
         self.log(params)
         if self.status_.test_status(FSM.STATUS_INITIAL):
-            cfgobj = ConfigSet.get_cfg()
+            cfgobj = ConfigSet.get_v2v_cfg_obj()
             self.start_procs(cfgobj)
             self.status_.set_status(FSM.STATUS_FULL_SPEED)
             return {'reply': True}
@@ -209,7 +209,7 @@ class MainContext(bus.IEventBusMixin):
         """
         cmd = params['cmd']
         if cmd == 'get_cfg':
-            cfgobj = ConfigSet.get_cfg()
+            cfgobj = ConfigSet.get_v2v_cfg_obj()
             return cfgobj
         elif cmd == 'get_task':
             task = self.assign_task(params['source'], params['assigned'])
@@ -295,11 +295,13 @@ class MainContext(bus.IEventBusMixin):
 
     def __init__(self):
         self.log = functools.partial(log.logger, f'MAIN-{os.getpid()}')
+        # 初始化MQ服务器句柄
         if MainContext.center_ is None:
             MainContext.center_ = bus.IEventBusMixin.get_center()
+        # 初始化MQ服务器广播句柄
         if MainContext.broadcaster_ is None:
             MainContext.broadcaster_ = bus.IEventBusMixin.get_broadcaster()
-        # call_rpc回调注册
+        # call_rpc回调注册，供子进程调用
         MainContext.register(bus.CB_STARTUP_PPL, self.callback_start_pipeline)
         MainContext.register(bus.CB_STOP_PPL, self.callback_stop_pipeline)
         MainContext.register(bus.CB_GET_CFG, self.callback_get_cfg)
@@ -456,7 +458,7 @@ class MainContext(bus.IEventBusMixin):
         ----------
         """
         taskcfg = None
-        cfg = ConfigSet.get_cfg()               # 待分配任务表
+        cfg = ConfigSet.get_v2v_cfg_obj()               # 待分配任务表
         for url, proc in self.tasks_.items():   # self.tasks_ 注册任务表
             if proc == source:                  # 这个子进程注册过吗？
                 for channel in cfg['rtsp_urls']:
@@ -482,7 +484,7 @@ class MainContext(bus.IEventBusMixin):
         RuntimeError
             待定.
         """
-        cfgobj = ConfigSet.get_cfg()
+        cfgobj = ConfigSet.get_v2v_cfg_obj()
         cfgobj = copy.deepcopy(cfgobj)
         tasklist = self.tasks_
         cfgtask = None
@@ -514,15 +516,14 @@ class MainContext(bus.IEventBusMixin):
             cfgobj['rtsp_urls'] = []
         return cfgobj
 
-    def run(self, path2cfg):
+    def run(self):
         """
         主进程入口 —— 读取配置，启动rest后台服务进程，数据采集线程，进入子进程之间通信机制的主事件循环。
-        :param path2cfg: 配置文件路径。
         :return: 无。
         """
         try:
             # 读取配置并启动rest。
-            cfgobj = ConfigSet.get_cfg(path2cfg)  # 读取配置文件内容
+            cfgobj = ConfigSet.get_v2v_cfg_obj()  # 读取配置文件内容
             api = cfgobj['micro_service']
             (ap, key, cer) = (api['http_port'], api['ssl_keyfile'], api['ssl_certfile'])  # 配置微服务
             self.rest_api(port=ap, ssl_keyfile=key, ssl_certfile=cer)                     # 启动1个Rest进程，提供微服务调用

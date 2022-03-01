@@ -33,18 +33,17 @@ Log util for the project.
 # import logging
 import logging.config
 import os
+from pathlib import Path
 
 LOG_LVL_INFO = logging.INFO
 LOG_LVL_DBG = logging.DEBUG
 LOG_LVL_WARN = logging.WARNING
 LOG_LVL_ERRO = logging.ERROR
 
-logging.config.fileConfig('logging.conf')
 # 创建一个日志器
-lg_ = logging.getLogger('v2v')
+_v2v_logger = None
 # 创建第二个日志器
-jlg_ = logging.getLogger('jaeger_tracing')
-jlg_.propagate = False
+_jaeger_logger = None
 
 # 清空以前的handler，避免重复打印
 # if lg_.hasHandlers():
@@ -77,12 +76,25 @@ jlg_.propagate = False
 # Logger2.debug('this is debug')
 # Logger2.info('this is info')
 
+def init_logger(conf_path):
+    global _v2v_logger
+    global _jaeger_logger
+    # 配置日志记录器
+    logging.config.fileConfig(conf_path)
+    # 创建二个日志记录器
+    _v2v_logger = logging.getLogger('v2v')
+    _jaeger_logger = logging.getLogger('jaeger')
+    _jaeger_logger.propagate = False
+
 
 def logger(name, msg, level=LOG_LVL_INFO, exc_info=None):
+    global _v2v_logger
+    if _v2v_logger is None:
+        return
     # elapsed = time.monotonic() - start_time
     # hours = int(elapsed // 60)
     # seconds = elapsed - (hours * 60)
-    lg_.log(level, f'{name:10} {msg}', exc_info=exc_info)
+    _v2v_logger.log(level, f'{name:10} {msg}', exc_info=exc_info)
 
 
 def log(msg, level=LOG_LVL_INFO):
@@ -90,11 +102,10 @@ def log(msg, level=LOG_LVL_INFO):
     logger(name=pid, msg=msg, level=level)
 
 
-# def get_v2v_logger():
-#     return lg_
-
-
 def get_v2v_logger_formatter():
     # 为fastapi的logger进行格式化
-    global lg_
-    return vars(lg_.handlers[0].formatter)['_fmt']
+    global _v2v_logger
+    if _v2v_logger is None:
+        return
+
+    return vars(_v2v_logger.handlers[0].formatter)['_fmt']

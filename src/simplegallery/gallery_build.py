@@ -8,7 +8,7 @@ from collections import OrderedDict
 import simplegallery.common as spg_common
 from simplegallery.logic.gallery_logic import get_gallery_logic
 
-lg_ = logging.getLogger('v2v')
+_v2v_logger = logging.getLogger('v2v')
 
 
 def parse_args():
@@ -119,24 +119,24 @@ def gallery_build(rootdir, imagedir=None):
     except spg_common.SPGException as exception:
         return False
     except Exception as exception:
-        lg_.error(exception)
+        _v2v_logger.error(exception)
         return False
 
     # Generate the images_data.json
     try:
         gallery_logic.create_images_data_file()
     except spg_common.SPGException as exception:
-        lg_.error(exception)
+        _v2v_logger.error(exception)
         return False
     except Exception as exception:
-        lg_.error(exception)
+        _v2v_logger.error(exception)
         return False
 
     # Build the HTML from the templates
     try:
         build_html(gallery_config)
     except Exception as exception:
-        lg_.error(exception)
+        _v2v_logger.error(exception)
         return False
     return True
 

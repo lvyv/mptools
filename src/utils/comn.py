@@ -33,16 +33,15 @@ import time
 import requests
 import json
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from utils.config import ConfigSet
+from .config import ConfigSet
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-
 # FIXME:这个地方应该改为从主进程获取配置，主进程是唯一来源，子进程避免直接操作文件系统
 # baseurl_ = 'https://127.0.0.1:7180'
-baseurl_ = ConfigSet.get_cfg()['media_service']
+baseurl_ = None
 # how many seconds we should wait for ptz complete its operation.
-ipc_ptz_delay_ = ConfigSet.get_cfg()['ipc_ptz_delay']
+ipc_ptz_delay_ = None
 
 
 def set_common_cfg(cfg):
@@ -122,7 +121,6 @@ def get_presets(devid, channelid, burl=None):
         pass
     finally:
         return resp
-
 
 # def frame_get(rtsp):
 #     try:

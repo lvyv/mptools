@@ -81,7 +81,7 @@ class MqttWorker(ProcWorker):
             elif key == 'node_name':
                 self.node_name_ = value
 
-        self.jaeger_ = ConfigSet.get_basecfg()['jaeger']
+        self.jaeger_ = ConfigSet.get_base_cfg_obj()['jaeger']
         if self.jaeger_['enable']:
             # init opentracing jaeger client
             aip = self.jaeger_['agent_ip']

@@ -30,14 +30,9 @@ Pull av stream from nvr and decode pictures from the streams.
 # License: Apache Licence 2.0
 
 import cv2
-# import io
-
-# import imutils
-# from imutils.video import VideoStream
-# from matplotlib import pyplot as plt
 from time import time, sleep
-from utils import bus, comn, log, V2VErr, GrabFrame
-from core.procworker import ProcWorker
+from src.utils import bus, comn, log, V2VErr, GrabFrame
+from procworker import ProcWorker
 
 
 class RtspWorker(ProcWorker):

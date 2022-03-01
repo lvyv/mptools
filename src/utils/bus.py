@@ -32,7 +32,7 @@ Event bus of all processes.
 import zmq
 import json
 import functools
-from utils import log
+from . import log
 # 特殊的通讯主题
 
 EBUS_TOPIC_RTSP = 'rtsp'
