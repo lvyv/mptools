@@ -26,41 +26,39 @@ rest module
 Provide web api access points.
 """
 
-# Author: Awen <26896225@qq.com>
-# License: Apache Licence 2.0
-import logging
-
-import uvicorn
-import cv2
-import imutils
-import io
 import base64
+import io
+import logging
 import os
 import time
-import psutil
 import xml.etree.ElementTree as xmlET
-
-from prometheus_fastapi_instrumentator.metrics import Info
-from prometheus_client import Gauge
+from os import listdir
+from os.path import isfile, join
+from pathlib import Path
 from typing import Callable
-from prometheus_fastapi_instrumentator import Instrumentator
-from matplotlib import pyplot as plt
 # from imutils.video import VideoStream
 from typing import Optional
-from pydantic import BaseModel
-from fastapi import FastAPI
-from fastapi_utils.tasks import repeat_every
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from os.path import isfile, join
-from os import listdir
 
-from utils import bus, comn, log, GrabFrame, wrapper as wpr
-from simplegallery.gallery_init import gallery_create
-from simplegallery.gallery_build import gallery_build
-# from utils.config import ConfigSet
-from core.procworker import ProcWorker
+import cv2
+import imutils
+import psutil
+import uvicorn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi_utils.tasks import repeat_every
+from matplotlib import pyplot as plt
+from prometheus_client import Gauge
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_fastapi_instrumentator.metrics import Info
+from pydantic import BaseModel
 from uvicorn.main import Server
+
+# from utils.config import ConfigSet
+from src.core.procworker import ProcWorker
+from src.simplegallery.gallery_build import gallery_build
+from src.simplegallery.gallery_init import gallery_create
+from src.utils import bus, comn, log, GrabFrame, wrapper as wpr
 
 # rtsp url timeoff
 OPEN_RTSP_TIMEOFF = 30
@@ -91,8 +89,8 @@ def cpu_rate() -> Callable[[Info], None]:
 
     def instrumentation(info: Info) -> None:
         cpu = psutil.cpu_percent()
-        metric.labels('main', 'localhost').set(cpu)     # 可以根据需要设置更多的label标签和值
-        info.request.query_params.getlist('v2v')        # 可以获得url参数，http://127.0.0.1:7080/metrics?v2v=x&v2v=2
+        metric.labels('main', 'localhost').set(cpu)  # 可以根据需要设置更多的label标签和值
+        info.request.query_params.getlist('v2v')  # 可以获得url参数，http://127.0.0.1:7080/metrics?v2v=x&v2v=2
 
     return instrumentation
 
@@ -114,8 +112,8 @@ def mem_rate() -> Callable[[Info], None]:
 
 class RestWorker(ProcWorker):
     def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
-        super().__init__(name, bus.EBUS_TOPIC_REST, dicts, **kwargs)    # 不订阅rtsp、ai、mqtt等线程主题，避免被停等
-        self.cached_cvobjs_ = {}     # 缓存opencv的封装对象
+        super().__init__(name, bus.EBUS_TOPIC_REST, dicts, **kwargs)  # 不订阅rtsp、ai、mqtt等线程主题，避免被停等
+        self.cached_cvobjs_ = {}  # 缓存opencv的封装对象
         self.in_q_ = in_q
         self.out_q_ = out_q
 
@@ -163,9 +161,11 @@ class RestWorker(ProcWorker):
         # ai_url_config_file_ = f'{ConfigSet.get_cfg()["ui_config_dir"]}diagrameditor.xml'
 
         # EIF3:REST V2V C&M 外部接口-提供UI前端配置V2V需要的截图
-        # 本路由为前端ui的路径
-        app_.mount('/ui', StaticFiles(directory='../src/ui'), name='ui')
-        app_.mount('/static', StaticFiles(directory='../src/swagger_ui_dep/static'), name='static')
+        # 本路由为前端ui的路径，该路径相对于
+        _pwd_path = Path(Path(__file__).parent)
+        self.log(f'file path: {_pwd_path}')
+        app_.mount('/ui', StaticFiles(directory=str(_pwd_path.joinpath("../ui"))), name='ui')
+        app_.mount('/static', StaticFiles(directory=str(_pwd_path.joinpath("../swagger_ui_dep/static"))), name='static')
 
         # 本路由为thumbnail预览图片保存位置，该位置下按nvr的deviceid建立文件夹，放置所有base64的采样图片
         app_.mount(baseurl_of_nvr_samples_, StaticFiles(directory=localroot_of_nvr_samples_), name='nvr')
@@ -288,7 +288,7 @@ class RestWorker(ProcWorker):
             """获取所有的视频通道列表"""
             item = {'version': '1.0.0', 'reply': 'pending.'}
             cfg = rest_proc_.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': rest_proc_.name})
-            comn.set_common_cfg(cfg)    # 只是设置全局变量，便于配置的热更新（视频调度管理软件的摄像头停留时间和视频调度服务器地址）
+            comn.set_common_cfg(cfg)  # 只是设置全局变量，便于配置的热更新（视频调度管理软件的摄像头停留时间和视频调度服务器地址）
             streams = comn.get_urls()
             item['streams'] = streams
             item['reply'] = True
@@ -340,7 +340,7 @@ class RestWorker(ProcWorker):
                                 frame = cvobj.read_frame()
                                 if frame is None:
                                     cvobj.stop_stream()
-                                    rest_proc_.cached_cvobjs_.pop(url, None)    # 如果没有读出数据，清空缓存
+                                    rest_proc_.cached_cvobjs_.pop(url, None)  # 如果没有读出数据，清空缓存
                                     raise cv2.error(f'Got null frame from cv2.')
                                 # mutex_.release()
                                 # height, width, channels = frame.shape
@@ -460,7 +460,7 @@ class RestWorker(ProcWorker):
                         presets_size = len(urlchannel['view_ports'])
                         # 多个viewports中第1个预置点的第1个aoi的
                         seconds = list(urlchannel['view_ports'][0].items())[0][1][0]['seconds']
-                        rest_sleep_time = seconds * presets_size    # A时间
+                        rest_sleep_time = seconds * presets_size  # A时间
                         # 如果rtsp刚好rest发送就收到广播，它还是要等一个A时间
                         rtsp_sleep_time = ipc_ptz_delay * presets_size + rest_sleep_time
                         break
@@ -478,7 +478,7 @@ class RestWorker(ProcWorker):
         sts_ = int(time.time())  # 秒为单位
         rest_ = self
 
-        def instrumentation(info: Info) -> None:    # noqa
+        def instrumentation(info: Info) -> None:  # noqa
             # rest_.log(f'Promethues scrape request: {info.request.url}')
             # 主进程的运行时间累计
             nonlocal sts_
@@ -497,7 +497,9 @@ class RestWorker(ProcWorker):
         return instrumentation
 
     def run(self):
+        self.log(f'Create FASTAPI object.')
         localapp = self.create_app()
+
         # 只要有rest请求，就会触发添加的这几个统计函数，向主进程请求监测数据。
         instrumentator = Instrumentator(
             # excluded_handlers=[".*admin.*", "/metrics"],
@@ -511,11 +513,13 @@ class RestWorker(ProcWorker):
         log_config["formatters"]["default"]["fmt"] = log.get_v2v_logger_formatter()
         log_config["formatters"]["access"]["fmt"] = log.get_v2v_logger_formatter()
         log_config["loggers"]['uvicorn.error'].update({"propagate": False, "handlers": ["default"]})
+
+        self.log(f'Run http web server. {self.port_}')
         uvicorn.run(localapp,  # noqa 标准用法
                     host="0.0.0.0",
                     port=self.port_,
                     ssl_keyfile=self.ssl_keyfile_,
                     ssl_certfile=self.ssl_certfile_,
-                    log_level=logging.WARN,
+                    log_level=logging.INFO,
                     log_config=log_config
                     )

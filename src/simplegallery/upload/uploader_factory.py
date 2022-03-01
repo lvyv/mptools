@@ -1,6 +1,6 @@
-import simplegallery.common as spg_common
-from simplegallery.upload.variants.aws_uploader import AWSUploader
-from simplegallery.upload.variants.netlify_uploader import NetlifyUploader
+import src.simplegallery.common as spg_common
+from src.simplegallery.upload.variants.aws_uploader import AWSUploader
+from src.simplegallery.upload.variants.netlify_uploader import NetlifyUploader
 
 
 def get_uploader(hosting_type):

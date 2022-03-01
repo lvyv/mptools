@@ -10,29 +10,24 @@ from pathlib import Path
 # 配置python加载路径
 _module_path = Path(Path(__file__).parent)
 sys.path.append(str(_module_path))
+sys.path.append(str(_module_path.joinpath("core")))
+sys.path.append(str(_module_path.joinpath("utils")))
 from src.utils.config import ConfigSet
 from core.kernel import MainContext
-from utils import log, comn
+from src.utils import log, comn
+from src.conf import const
 
 
 def _main_entry():
-    # 构造配置文件路径
-    _v2v_cfg = Path(Path(__file__).parent).joinpath("conf/v2v.cfg")
-    _base_cfg = Path(Path(__file__).parent).joinpath("conf/baseconfig.cfg")
-    _log_cfg = Path(Path(__file__).parent).joinpath("conf/logging.conf")
+    # 设置配置文件路径
+    ConfigSet.set_v2vcfg_file_path(const.V2V_CFG_PATH)
+    ConfigSet.set_basecfg_file_path(const.BASE_CFG_PATH)
 
-    # 初始化配置文件路径
-    ConfigSet.set_v2vcfg_file_path(_v2v_cfg)
-    ConfigSet.set_basecfg_file_path(_base_cfg)
     # 加载日志记录器配置文件
-    log.init_logger(str(_log_cfg))
+    log.init_logger(const.LOG_CFG_PATH)
 
     # 初始化comn模块
-    _v2v_cfg_dict = ConfigSet.get_v2v_cfg_obj()
-    if _v2v_cfg_dict is None:
-        print("Init v2v config file failed.")
-        return
-    comn.set_common_cfg(_v2v_cfg_dict)
+    comn.set_common_cfg(ConfigSet.get_v2v_cfg_obj())
 
     # 进程主循环
     with MainContext() as main_ctx:

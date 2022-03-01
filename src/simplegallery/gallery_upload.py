@@ -1,8 +1,8 @@
 import argparse
 import os
 import sys
-import simplegallery.common as spg_common
-from simplegallery.upload.uploader_factory import get_uploader
+import src.simplegallery.common as spg_common
+from src.simplegallery.upload.uploader_factory import get_uploader
 
 
 def parse_args():

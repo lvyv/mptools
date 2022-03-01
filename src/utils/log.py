@@ -33,6 +33,7 @@ Log util for the project.
 # import logging
 import logging.config
 import os
+from src.conf import const
 from pathlib import Path
 
 LOG_LVL_INFO = logging.INFO
@@ -90,7 +91,7 @@ def init_logger(conf_path):
 def logger(name, msg, level=LOG_LVL_INFO, exc_info=None):
     global _v2v_logger
     if _v2v_logger is None:
-        return
+        init_logger(const.LOG_CFG_PATH)
     # elapsed = time.monotonic() - start_time
     # hours = int(elapsed // 60)
     # seconds = elapsed - (hours * 60)

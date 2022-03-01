@@ -524,8 +524,12 @@ class MainContext(bus.IEventBusMixin):
         try:
             # 读取配置并启动rest。
             cfgobj = ConfigSet.get_v2v_cfg_obj()  # 读取配置文件内容
+
+            self.log("Read micro service values.")
             api = cfgobj['micro_service']
             (ap, key, cer) = (api['http_port'], api['ssl_keyfile'], api['ssl_certfile'])  # 配置微服务
+
+            self.log("Fork http restful process.")
             self.rest_api(port=ap, ssl_keyfile=key, ssl_certfile=cer)                     # 启动1个Rest进程，提供微服务调用
 
             # 启动一个线程，定期收集监测指标。
@@ -537,6 +541,7 @@ class MainContext(bus.IEventBusMixin):
             #     thre_func.start()
 
             # 阻塞处理子进程之间的消息。
+            self.log("Enter main event loop.")
             loop = True
             while loop:
                 loop = MainContext.rpc_service()  # rpc远程调用服务启动，阻塞等待外部事件出发状态改变

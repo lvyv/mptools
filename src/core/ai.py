@@ -38,9 +38,9 @@ import cv2
 
 from matplotlib import cm, pyplot as plt
 from numpy import array
-from utils import bus, comn, log
-from core.procworker import ProcWorker
-from utils.config import ConfigSet
+from src.utils import bus, comn, log
+from src.core.procworker import ProcWorker
+from src.utils.config import ConfigSet
 from PIL import Image, ImageDraw, ImageFont
 
 

@@ -32,10 +32,10 @@ Publish recognized results to iot gateway.
 import paho.mqtt.client as mqtt_client
 import json
 import socket
-from utils import bus, log, V2VErr
-from core.procworker import ProcWorker
-from utils.tracing import AdaptorTracingUtility
-from utils.config import ConfigSet
+from src.utils import bus, log, V2VErr
+from src.core.procworker import ProcWorker
+from src.utils.tracing import AdaptorTracingUtility
+from src.utils.config import ConfigSet
 # from opentracing import global_tracer
 
 

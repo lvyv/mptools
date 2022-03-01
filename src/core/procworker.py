@@ -31,7 +31,7 @@ All common behaviors of sub process.
 
 import functools
 import time
-from utils import bus, log, V2VErr
+from src.utils import bus, log, V2VErr
 
 
 class BaseProcWorker:

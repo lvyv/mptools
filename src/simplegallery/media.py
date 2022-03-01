@@ -4,7 +4,7 @@ import requests
 from io import BytesIO
 from PIL import Image, ExifTags
 from datetime import datetime
-import simplegallery.common as spg_common
+import src.simplegallery.common as spg_common
 
 
 # Mapping of the string representation if an Exif tag to its id
