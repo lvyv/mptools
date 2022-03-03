@@ -36,8 +36,9 @@ import os
 from conf import const
 from pathlib import Path
 
-LOG_LVL_INFO = logging.INFO
+# 日志级别从低到高
 LOG_LVL_DBG = logging.DEBUG
+LOG_LVL_INFO = logging.INFO
 LOG_LVL_WARN = logging.WARNING
 LOG_LVL_ERRO = logging.ERROR
 

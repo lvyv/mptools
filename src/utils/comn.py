@@ -26,45 +26,45 @@ common module
 Some common function and tools of the project.
 """
 
-# Author: Awen <26896225@qq.com>
-# License: Apache Licence 2.0
+import json
 import time
 
 import requests
-import json
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from .config import ConfigSet
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-# FIXME:这个地方应该改为从主进程获取配置，主进程是唯一来源，子进程避免直接操作文件系统
-# baseurl_ = 'https://127.0.0.1:7180'
-baseurl_ = None
-# how many seconds we should wait for ptz complete its operation.
-ipc_ptz_delay_ = None
+# 下面二个为全局变量
+_u_base_url = None
+# 旋转预置位后，需要等待的时间。为了摄像头能自动对焦或旋转到位
+_u_ptz_delay = 30
 
 
 def set_common_cfg(cfg):
-    global baseurl_
-    global ipc_ptz_delay_
-    baseurl_ = cfg['media_service']
-    ipc_ptz_delay_ = cfg['ipc_ptz_delay']
+    global _u_base_url
+    global _u_ptz_delay
+
+    _u_base_url = cfg['media_service']
+    _u_ptz_delay = cfg['ipc_ptz_delay']
 
 
-def replace_non_ascii(x): return ''.join(i if ord(i) < 128 else '_' for i in x)
+def replace_non_ascii(x):
+    return ''.join(i if ord(i) < 128 else '_' for i in x)
 
 
 def run_to_viewpoints(devid, channelid, presetid, burl=None):
+    global _u_base_url
+    global _u_ptz_delay
     ret = None
-    global baseurl_
+
     try:
         if burl:
-            baseurl_ = burl
+            _u_base_url = burl
         payload = {'viewpoint': presetid}
-        resp = requests.post(f'{baseurl_}/api/v1/ptz/front_end_command/{devid}/{channelid}',
-                             data=payload, verify=False)
+        _post_url = f'{_u_base_url}/api/v1/ptz/front_end_command/{devid}/{channelid}'
+        resp = requests.post(_post_url, data=payload, verify=False)
         if resp.status_code == 200:
-            time.sleep(ipc_ptz_delay_)
+            time.sleep(_u_ptz_delay)
             ret = True
     except KeyError:
         pass
@@ -74,11 +74,11 @@ def run_to_viewpoints(devid, channelid, presetid, burl=None):
 
 def get_url(devid, channelid, burl=None):
     ret = None
-    global baseurl_
+    global _u_base_url
     try:
         if burl:
-            baseurl_ = burl
-        url = f'{baseurl_}/api/v1/ptz/streaminfo'
+            _u_base_url = burl
+        url = f'{_u_base_url}/api/v1/ptz/streaminfo'
         resp = requests.get(url, verify=False)
         resp = json.loads(resp.content)['channels']
         result = list(filter(lambda r: r['deviceid'] == devid and r['channelid'] == channelid, resp))
@@ -95,11 +95,11 @@ def get_url(devid, channelid, burl=None):
 
 def get_urls(burl=None):
     resp = None
-    global baseurl_
+    global _u_base_url
     try:
         if burl:
-            baseurl_ = burl
-        url = f'{baseurl_}/api/v1/ptz/streaminfo'
+            _u_base_url = burl
+        url = f'{_u_base_url}/api/v1/ptz/streaminfo'
         resp = requests.get(url, verify=False)
         resp = json.loads(resp.content)['channels']
     except KeyError:
@@ -110,33 +110,14 @@ def get_urls(burl=None):
 
 def get_presets(devid, channelid, burl=None):
     resp = None
-    global baseurl_
+    global _u_base_url
     try:
         if burl:
-            baseurl_ = burl
-        url = f'{baseurl_}/api/v1/ptz/front_end_command/{devid}/{channelid}'
+            _u_base_url = burl
+        url = f'{_u_base_url}/api/v1/ptz/front_end_command/{devid}/{channelid}'
         resp = requests.get(url, verify=False)
         resp = json.loads(resp.content)['presetlist']
     except KeyError:
         pass
     finally:
         return resp
-
-# def frame_get(rtsp):
-#     try:
-#         cap_status, cap = video_capture_open(rtsp)
-#         if not cap_status:
-#             print(cap_status, cap)
-#             return cap
-#         while True:
-#             ret, image_frame = cap.read()
-#             cv2.imshow("res", image_frame)
-#             cv2.waitKey(3)
-#             if not ret:
-#                 continue
-#             image = cv2.imencode('.png', image_frame)[1]
-#             image_base64_data = str(base64.b64encode(image))[2:-1]
-#             return image_base64_data
-#     except Exception as err:
-#         print(err)
-#         pass

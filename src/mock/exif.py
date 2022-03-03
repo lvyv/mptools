@@ -126,7 +126,7 @@ async def post_iot_login():
 @app.post("/api/v1/{devicetoken}/telemetry")
 async def post_iot_telemetry(devicetoken: str):
     """模拟物联网遥测数据推送接口，有物联网服务器，暂未实现"""
-    log.log(devicetoken)
+    print(devicetoken)
     pass
 
 
@@ -149,14 +149,14 @@ async def uploadfiles(files: List[UploadFile] = File(...)):
 
 @app.post("/api/v1/uploadfile_with_params")
 async def uploadfile_with_params(file: bytes = File(...), jso: str = Form(...)):
-    log.log(len(file))
-    log.log(jso)
+    print(len(file))
+    print(jso)
     return {"reply": True}
 
 
 @app.post("/api/v1/uploadfiles_with_params")
 async def uploadfiles_with_params(files: List[UploadFile] = File(...), jsos: str = Form(...)):
-    # log.log(len(files[0]))
+    print(len(files[0]))
     for file in files:
         if file.filename == 'iobytes.png':
             with open("abc.png", "wb") as f:
@@ -173,12 +173,13 @@ async def uploadfiles_with_params(files: List[UploadFile] = File(...), jsos: str
 @app.get("/api/v1/ptz/streaminfo")
 async def stream_info():
     """获取所有的视频通道列表"""
+    print("Call /api/v1/ptz/streaminfo")
     item = {'version': '1.0.0',
             'channels': [
                 {'deviceid': '34020000001320000001', 'channelid': '34020000001310000001', 'desc': '标准测试视频',
-                 'url': 'rtsp://127.0.0.1:7554/main'},
+                 'url': 'rtsp://127.0.0.1:7554/live/main'},
                 {'deviceid': '44020000001320000001', 'channelid': '44020000001310000001', 'desc': '人员识别',
-                 'url': 'rtsp://127.0.0.1:7554/person'},
+                 'url': 'rtsp://127.0.0.1:7554/live/person'},
                 {'deviceid': '54020000001320000001', 'channelid': '54020000001310000001', 'desc': '测试静态仪表识别',
                  'url': 'rtsp://127.0.0.1:7554/panel'},
                 {'deviceid': '64020000001320000001', 'channelid': '64020000001310000001', 'desc': 'PLC',
@@ -193,6 +194,7 @@ async def stream_info():
 @app.get("/api/v1/ptz/streaminfo/{desc}")
 async def stream_info_by_desc(desc: str):
     """按照对用户有意义的名称，获取视频通道列表"""
+    print(f"call /api/v1/ptz/streaminfo/{desc}")
     item = {'version': '1.0.0',
             'channels': [
                 {'deviceid': '34020000001320000001', 'channelid': '34020000001310000001', 'desc': f'{desc}房间前门',
@@ -206,7 +208,7 @@ async def stream_info_by_desc(desc: str):
 @app.get("/api/v1/ptz/front_end_command/{deviceid}/{channelid}")
 async def get_all_presets(deviceid: str, channelid: str):
     """模拟视频调度的获取某路视频的所有预置点接口"""
-    log.log(channelid)
+    print(channelid)
     item = {'version': '1.0.0',
             'deviceid': f'{deviceid}',
             'url': 'rtsp://127.0.0.1/live',
@@ -243,7 +245,7 @@ async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(.
 # IF2 REST API  内部接口-智能识别
 @app.post("/api/v1/ai/panel")
 async def meter_recognization(files: UploadFile = File(...), cfg_info: str = Form(...), req_id: Optional[str] = None):
-    log.log(f'{files.filename}, {files.content_type}, {cfg_info}')
+    print(f'{files.filename}, {files.content_type}, {cfg_info}')
     contents = files.file.read()
     # outfile = open(upfile.filename, 'wb')
     # outfile.write(contents)
@@ -255,7 +257,7 @@ async def meter_recognization(files: UploadFile = File(...), cfg_info: str = For
 
 @app.post("/api/v1/ai/person")
 async def object_counting(files: UploadFile = File(...), cfg_info: str = Form(...), req_id: Optional[str] = None):
-    log.log(f'{files.filename}, {files.content_type}, {cfg_info}')
+    print(f'{files.filename}, {files.content_type}, {cfg_info}')
     contents = files.file.read()
     # outfile = open(upfile.filename, 'wb')
     # outfile.write(contents)
@@ -267,7 +269,7 @@ async def object_counting(files: UploadFile = File(...), cfg_info: str = Form(..
 
 @app.post("/api/v1/ai/plc")
 async def indicator_frequency(files: UploadFile = File(...), cfg_info: str = Form(...), req_id: Optional[str] = None):
-    log.log(f'{files.filename}, {files.content_type}, {cfg_info}, {req_id}')
+    print(f'{files.filename}, {files.content_type}, {cfg_info}, {req_id}')
     contents = files.file.read()
     # outfile = open(upfile.filename, 'wb')
     # outfile.write(contents)

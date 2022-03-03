@@ -40,7 +40,6 @@ from utils.config import ConfigSet
 
 
 class MqttWorker(ProcWorker):
-
     @classmethod
     def reset_jaeger(cls, aip, apt, nodename):
         servicename = f'v2v_{nodename}'
@@ -48,8 +47,8 @@ class MqttWorker(ProcWorker):
         # return global_tracer()
         return AdaptorTracingUtility.init_tracer(servicename, agentip=aip, agentport=apt)
 
-    def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
-        super().__init__(name, bus.EBUS_TOPIC_BROADCAST, dicts, **kwargs)
+    def __init__(self, name, in_q=None, out_q=None, args_dict=None, **kwargs):
+        super().__init__(name, bus.EBUS_TOPIC_BROADCAST, args_dict, **kwargs)
         self.in_q_ = in_q
         self.out_q_ = out_q
         self.mqtt_cid_ = None   # 这个名字无所谓，在网关处会重新mapping key-value到正确的设备号
@@ -57,13 +56,13 @@ class MqttWorker(ProcWorker):
         self.mqtt_pwd_ = None
         self.mqtt_host_ = None
         self.mqtt_port_ = None
-        self.mqtt_topic_ = None
+        self._mqtt_pub_topic = None
         self.fsvr_url_ = None
         self.node_name_ = None
         self.jaeger_ = None
         self.tracer_ = None
-        self.client_ = None
-        for key, value in dicts.items():
+        self._mqtt_client_obj = None
+        for key, value in args_dict.items():
             if key == 'mqtt_host':
                 self.mqtt_host_ = value
             elif key == 'mqtt_port':
@@ -75,13 +74,15 @@ class MqttWorker(ProcWorker):
             elif key == 'mqtt_pwd':
                 self.mqtt_pwd_ = value
             elif key == 'mqtt_topic':
-                self.mqtt_topic_ = value
+                self._mqtt_pub_topic = value
             elif key == 'fsvr_url':
                 self.fsvr_url_ = value
             elif key == 'node_name':
                 self.node_name_ = value
 
-        self.jaeger_ = ConfigSet.get_base_cfg_obj()['jaeger']
+        # 从主进程获取配置参数
+        _base_cfg_dict = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_basecfg', 'source': self.name})
+        self.jaeger_ = _base_cfg_dict['jaeger']
         if self.jaeger_['enable']:
             # init opentracing jaeger client
             aip = self.jaeger_['agent_ip']
@@ -96,30 +97,31 @@ class MqttWorker(ProcWorker):
     def startup(self):
         try:
             # 1.尝试获取配置数据
-            self.log(f'{self.name} started......')
-            cfg = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
-            mqttcfg = cfg['mqtt_svrs'][0]
-            self.mqtt_host_ = mqttcfg['mqtt_svr']
-            self.mqtt_port_ = mqttcfg['mqtt_port']
-            self.mqtt_cid_ = mqttcfg['mqtt_cid']
-            self.mqtt_usr_ = mqttcfg['mqtt_usr']
-            self.mqtt_pwd_ = mqttcfg['mqtt_pwd']
-            self.node_name_ = mqttcfg['node_name']
-            self.mqtt_topic_ = mqttcfg['mqtt_tp']
-            self.fsvr_url_ = mqttcfg['fsvr_url']
+            self.log(f'started.')
+            _base_cfg_dict = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
+            _mqtt_cfg_dict = _base_cfg_dict['mqtt_svrs'][0]
+            self.mqtt_host_ = _mqtt_cfg_dict['mqtt_svr']
+            self.mqtt_port_ = _mqtt_cfg_dict['mqtt_port']
+            self.mqtt_cid_ = _mqtt_cfg_dict['mqtt_cid']
+            self.mqtt_usr_ = _mqtt_cfg_dict['mqtt_usr']
+            self.mqtt_pwd_ = _mqtt_cfg_dict['mqtt_pwd']
+            self.node_name_ = _mqtt_cfg_dict['node_name']
+            self._mqtt_pub_topic = _mqtt_cfg_dict['mqtt_tp']
+            self.fsvr_url_ = _mqtt_cfg_dict['fsvr_url']
             # 更新service name
             # 下发的node name 与原来（系统安装的时候）配置不一样了
             if self.node_name_ != self.jaeger_['node_name']:
                 # 缓存tracer便于后面使用
                 self.tracer_ = self.reset_jaeger(self.jaeger_['agent_ip'], self.jaeger_['agent_port'], self.node_name_)
                 self.jaeger_['node_name'] = self.node_name_     # FIXME 更新下发node name（是否需要写配置文件？）
+                # FIXME: 要在主进程中操作配置文件
                 ConfigSet.save_basecfg()
-            self.client_ = mqtt_client.Client(self.mqtt_cid_)
-            self.client_.username_pw_set(self.mqtt_usr_, self.mqtt_pwd_)
-            self.client_.connect(self.mqtt_host_, self.mqtt_port_)
+            self._mqtt_client_obj = mqtt_client.Client(self.mqtt_cid_)
+            self._mqtt_client_obj.username_pw_set(self.mqtt_usr_, self.mqtt_pwd_)
+            self._mqtt_client_obj.connect(self.mqtt_host_, self.mqtt_port_)
 
             # 进入主循环
-            self.client_.loop_start()
+            self._mqtt_client_obj.loop_start()
         except (socket.gaierror, TimeoutError, UnicodeError, ConnectionRefusedError) as err:
             self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
             msg = f'Cannot connect to {self.mqtt_host_}:{self.mqtt_port_} with {self.mqtt_cid_}/{self.mqtt_pwd_}'
@@ -135,7 +137,8 @@ class MqttWorker(ProcWorker):
 
         payload = json.loads(str(vec.decode('utf-8')))
         data = {'payload': payload}
-
+        # FIXME: why?
+        # 从类方法或属性中查找'tracer_'
         if 'tracer_' in dir(self):    # 如果配置项有jaeger，将记录
             # inject和extract配合使用，先extract去取出数据包中的metadata的traceid的span上下文，
             # 然后再对上下文进行操作，并把它注入到下一个环节，因为mqtt这个进程是本模块的起点，因此只有inject。
@@ -146,13 +149,12 @@ class MqttWorker(ProcWorker):
                 scope.span.set_tag('link.remoteHost', self.mqtt_host_)
                 span = self.tracer_.active_span
                 AdaptorTracingUtility.inject_span_ctx(self.tracer_, span, data)
-
-        self.client_.publish(self.mqtt_topic_, json.dumps(data), 1)
-        self.log(f'发送到mqtt服务器：{data}')
+        self.log(f"Publish data to MQTT. --> {data}")
+        self._mqtt_client_obj.publish(self._mqtt_pub_topic, json.dumps(data), 1)
 
         return False
 
     def shutdown(self):
-        self.client_.loop_stop()
-        self.client_.disconnect()
-        self.client_ = None
+        self._mqtt_client_obj.loop_stop()
+        self._mqtt_client_obj.disconnect()
+        self._mqtt_client_obj = None

@@ -35,6 +35,7 @@ Configuration related stuff here.
 import json
 from . import log
 
+
 # TODO:重构为标准类，避免使用类方法
 class ConfigSet:
     basecfg_cfg_dict = None      # 本地配置
@@ -72,16 +73,9 @@ class ConfigSet:
 
     @classmethod
     def get_base_cfg_obj(cls):
-        load_dict = None
-        try:
-            if cls.basecfg_cfg_dict is None:
-                with open(cls.basecfg_file_path, 'r', encoding='UTF-8') as load_f:
-                    load_dict = json.load(load_f)
-                cls.basecfg_cfg_dict = load_dict
-            else:
-                load_dict = cls.basecfg_cfg_dict
-        finally:
-            return load_dict
+        if cls.basecfg_cfg_dict is None:
+            cls.basecfg_cfg_dict = cls.load_json(cls.basecfg_file_path)
+        return cls.basecfg_cfg_dict
 
     @classmethod
     def save_basecfg(cls):

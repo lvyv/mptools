@@ -36,7 +36,6 @@ from os import listdir
 from os.path import isfile, join
 from pathlib import Path
 from typing import Callable
-# from imutils.video import VideoStream
 from typing import Optional
 
 import cv2
@@ -54,13 +53,12 @@ from prometheus_fastapi_instrumentator.metrics import Info
 from pydantic import BaseModel
 from uvicorn.main import Server
 
-# from utils.config import ConfigSet
 from core.procworker import ProcWorker
 from simplegallery.gallery_build import gallery_build
 from simplegallery.gallery_init import gallery_create
 from utils import bus, comn, log, GrabFrame, wrapper as wpr
 
-# rtsp url timeoff
+# 取RTSP流的超时时间
 OPEN_RTSP_TIMEOFF = 30
 
 # 猴子补丁：在退出本进程的时候，ctrl+c会等待较长时间关闭socket
@@ -111,17 +109,15 @@ def mem_rate() -> Callable[[Info], None]:
 
 
 class RestWorker(ProcWorker):
-    def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
-        super().__init__(name, bus.EBUS_TOPIC_REST, dicts, **kwargs)  # 不订阅rtsp、ai、mqtt等线程主题，避免被停等
+    def __init__(self, name, in_q=None, out_q=None, args_dict=None, **kwargs):
+        super().__init__(name, bus.EBUS_TOPIC_REST, args_dict, **kwargs)  # 不订阅rtsp、ai、mqtt等线程主题，避免被停等
         self.cached_cvobjs_ = {}  # 缓存opencv的封装对象
-        self.in_q_ = in_q
-        self.out_q_ = out_q
 
         self.port_ = None
         self.ssl_keyfile_ = None
         self.ssl_certfile_ = None
 
-        for key, value in dicts.items():
+        for key, value in args_dict.items():
             if key == 'port':
                 self.port_ = value
             elif key == 'ssl_keyfile':
@@ -129,8 +125,8 @@ class RestWorker(ProcWorker):
             elif key == 'ssl_certfile':
                 self.ssl_certfile_ = value
 
+    # 创建Web服务器
     def create_app(self) -> FastAPI:
-
         app_ = FastAPI(
             title="视频图像智能分析软件",
             description="视频图像智能分析软件对外发布的RESTful API接口",
@@ -146,28 +142,24 @@ class RestWorker(ProcWorker):
             allow_headers=['*']
         )
 
-        # 全局变量
-        rest_proc_ = self
+        # 实例对象的引用，因为fastapi的接口函数中没有self对象
+        _self_obj = self
         # cfg_ = None
         baseurl_of_nvr_samples_ = '/viewport'
-        # FIXME:这个地方应该改为从主进程获取配置，主进程是唯一来源，子进程避免直接操作文件系统
-        cfgobj = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
-        localroot_of_nvr_samples_ = cfgobj['nvr_samples']
-        ui_config_tpl_ = f'{cfgobj["ui_config_dir"]}ui.xml'
-        ai_url_config_file_ = f'{cfgobj["ui_config_dir"]}diagrameditor.xml'
-
-        # localroot_of_nvr_samples_ = ConfigSet.get_cfg()['nvr_samples']
-        # ui_config_tpl_ = f'{ConfigSet.get_cfg()["ui_config_dir"]}ui.xml'
-        # ai_url_config_file_ = f'{ConfigSet.get_cfg()["ui_config_dir"]}diagrameditor.xml'
+        # 从主进程获取配置参数
+        _v2v_cfg_dict = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
+        _nvr_samples_path = _v2v_cfg_dict['nvr_samples']
+        ui_config_tpl_ = f'{_v2v_cfg_dict["ui_config_dir"]}ui.xml'
+        ai_url_config_file_ = f'{_v2v_cfg_dict["ui_config_dir"]}diagrameditor.xml'
 
         # EIF3:REST V2V C&M 外部接口-提供UI前端配置V2V需要的截图
-        # 本路由为前端ui的路径，该路径相对于
+        # 本路由为前端ui的路径，该路径相对于当前文件
         _pwd_path = Path(Path(__file__).parent)
         app_.mount('/ui', StaticFiles(directory=str(_pwd_path.joinpath("../ui"))), name='ui')
         app_.mount('/static', StaticFiles(directory=str(_pwd_path.joinpath("../swagger_ui_dep/static"))), name='static')
 
         # 本路由为thumbnail预览图片保存位置，该位置下按nvr的deviceid建立文件夹，放置所有base64的采样图片
-        app_.mount(baseurl_of_nvr_samples_, StaticFiles(directory=localroot_of_nvr_samples_), name='nvr')
+        app_.mount(baseurl_of_nvr_samples_, StaticFiles(directory=_nvr_samples_path), name='nvr')
 
         class Switch(BaseModel):
             cmd: str = 'start'
@@ -179,9 +171,9 @@ class RestWorker(ProcWorker):
             if item.cmd in cmds:
                 # rest_proc_.send_cmd(bus.EBUS_TOPIC_MAIN, item.cmd) # noqa
                 if item.cmd == 'start':
-                    ret = rest_proc_.call_rpc(bus.CB_STARTUP_PPL, {'cmd': item.cmd})  # noqa
+                    ret = _self_obj.call_rpc(bus.CB_STARTUP_PPL, {'cmd': item.cmd})  # noqa
                 else:
-                    ret = rest_proc_.call_rpc(bus.CB_STOP_PPL, {'cmd': item.cmd})  # noqa
+                    ret = _self_obj.call_rpc(bus.CB_STOP_PPL, {'cmd': item.cmd})  # noqa
             else:
                 ret = {'reply': 'unrecognized command.'}
             return ret
@@ -199,7 +191,7 @@ class RestWorker(ProcWorker):
             """C&M之C：设置配置文件，收到该配置文件后，v2v将更新单通道的配置文件"""
             """当前功能是接受一个单通道视频设置给到ai"""
             item = {'version': '1.0.0', 'reply': 'pending.'}
-            ret = rest_proc_.call_rpc(bus.CB_SET_CFG, cfg.__dict__)  # noqa 调用主进程函数，传配置给它。
+            ret = _self_obj.call_rpc(bus.CB_SET_CFG, cfg.__dict__)  # noqa 调用主进程函数，传配置给它。
             item['reply'] = ret['reply']
             item['desc'] = ret['desc']
             return item
@@ -219,7 +211,7 @@ class RestWorker(ProcWorker):
             """C&M之C：设置配置文件，收到该配置文件后，v2v将更新整个v2v的配置文件"""
             """当前功能是接受整个配置设置给到ai"""
             item = {'version': '1.0.0', 'reply': 'pending.'}
-            rest_proc_.call_rpc(bus.CB_SET_CFG, cfg.__dict__)  # noqa 调用主进程函数，传配置给它。
+            _self_obj.call_rpc(bus.CB_SET_CFG, cfg.__dict__)  # noqa 调用主进程函数，传配置给它。
             item['reply'] = True
             return item
 
@@ -276,8 +268,8 @@ class RestWorker(ProcWorker):
         async def provide_metrics(deviceid: str, channelid: str):
             """C&M之M：接受监控端比如promethus的调用，反馈自己是否在线和反馈各种运行时信息"""
             item = {'version': '1.0.0'}
-            rest_proc_.log(deviceid)  # noqa
-            rest_proc_.log(channelid)  # noqa
+            _self_obj.log(deviceid)  # noqa
+            _self_obj.log(channelid)  # noqa
 
             return item
 
@@ -286,9 +278,9 @@ class RestWorker(ProcWorker):
         async def stream_info():
             """获取所有的视频通道列表"""
             item = {'version': '1.0.0', 'reply': 'pending.'}
-            cfg = rest_proc_.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': rest_proc_.name})
+            cfg = _self_obj.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': _self_obj.name})
             comn.set_common_cfg(cfg)  # 只是设置全局变量，便于配置的热更新（视频调度管理软件的摄像头停留时间和视频调度服务器地址）
-            streams = comn.get_urls()
+            streams = comn.get_urls(cfg['media_service'])
             item['streams'] = streams
             item['reply'] = True
             return item
@@ -299,61 +291,60 @@ class RestWorker(ProcWorker):
             item = {'version': '1.0.0', 'reply': 'pending.', 'rtsp_url': None}
             try:
                 # 设置全局变量，便于热更新配置（视频调度管理软件的摄像头停留时间和视频调度服务器地址在comn中发挥作用。
-                cfg = rest_proc_.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': rest_proc_.name})
+                cfg = _self_obj.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': _self_obj.name})
                 comn.set_common_cfg(cfg)
-                target = f'{localroot_of_nvr_samples_}{deviceid}/'  # 不支持nvrsamples的热更新，因为启动程序需要mount本地目录
+                _preset_image_path = f'{_nvr_samples_path}{deviceid}/'  # 不支持nvrsamples的热更新，因为启动程序需要mount本地目录
                 if refresh:
                     # 如果是刷新，需要从nvr取图片保存到本地目录(nvr_samples目录下按设备号创建目录)。
-                    url = comn.get_url(deviceid, channelid)
+                    url = comn.get_url(deviceid, channelid, cfg['media_service'])
                     presets = None
                     if url:  # url都得不到，就不需要得presets了
-                        presets = comn.get_presets(deviceid, channelid)
+                        presets = comn.get_presets(deviceid, channelid, cfg['media_service'])
                     if url and presets:
                         # 通知主调度，暂停pipeline流水线对本摄像头的识别操作，让rtsp流水线rtsp进程sleep多少时间计算得出。
+                        # FIXME: 未实现功能
                         rest_p, rtsp_p = self.calculate_delay_time(cfg, url)
                         pipeline_cmd = {'cmd': 'pause', 'deviceid': deviceid, 'channelid': channelid,
                                         'timeout': rtsp_p}
-                        isok = rest_proc_.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)  # noqa 调用主进程函数，传配置给它。
+                        isok = _self_obj.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)  # noqa 调用主进程函数，传配置给它。
                         if not isok['reply']:
                             raise RuntimeError(f'Cannot get the control of IPC: {deviceid}, {channelid}.')
                         # rest 需要等待一定时间，让rtsp进程停下来。
                         time.sleep(rest_p)
 
-                        if url in rest_proc_.cached_cvobjs_:
+                        if url in _self_obj.cached_cvobjs_:
                             # 如果缓存过，就直接用缓存的流。
-                            cvobj = rest_proc_.cached_cvobjs_[url]
+                            cvobj = _self_obj.cached_cvobjs_[url]
                         else:
                             # 如果这个url没配置过，则打开一个新的对象来取流。
                             cvobj = GrabFrame.GrabFrame()
                             opened = cvobj.open_stream(url, GrabFrame.GrabFrame.OPEN_RTSP_TIMEOFF)
                             if opened:
-                                rest_proc_.cached_cvobjs_[url] = cvobj
+                                _self_obj.cached_cvobjs_[url] = cvobj
                             else:
                                 raise cv2.error(f'Failed to open {url}.')
                         # 产生系列预置点图片。
                         item['rtsp_url'] = url  # 前端需要了解是否有合法url，才方便下发配置的时候填入正确的配置值
                         for prs in presets:
-                            ret = comn.run_to_viewpoints(deviceid, channelid, prs['presetid'])
+                            ret = comn.run_to_viewpoints(deviceid, channelid, prs['presetid'], cfg['media_service'])
                             if ret:
                                 # mutex_.acquire()  # 防止流并发访问错误
-                                frame = cvobj.read_frame()
-                                if frame is None:
+                                _video_frame_data = cvobj.read_frame()
+                                if _video_frame_data is None:
                                     cvobj.stop_stream()
-                                    rest_proc_.cached_cvobjs_.pop(url, None)  # 如果没有读出数据，清空缓存
-                                    raise cv2.error(f'Got null frame from cv2.')
-                                # mutex_.release()
-                                # height, width, channels = frame.shape
+                                    _self_obj.cached_cvobjs_.pop(url, None)  # 如果没有读出数据，清空缓存
+                                    raise cv2.error(f'Got empty frame from cv2.')
                                 # 保存原始图像
-                                filename = f'{target}{prs["presetid"]}.png'
+                                filename = f'{_preset_image_path}{prs["presetid"]}.png'
                                 os.makedirs(os.path.dirname(filename), exist_ok=True)
-                                cv2.imwrite(filename, frame)
+                                cv2.imwrite(filename, _video_frame_data)
                                 # 保存缩略图，1920x1080的长宽缩小20倍
-                                frame = imutils.resize(frame, width=96, height=54)
+                                _video_frame_data = imutils.resize(_video_frame_data, width=96, height=54)
                                 buf = io.BytesIO()
-                                plt.imsave(buf, frame, format='png')
+                                plt.imsave(buf, _video_frame_data, format='png')
                                 image_data = buf.getvalue()
                                 image_data = base64.b64encode(image_data)
-                                outfile = open(f'{target}{prs["presetid"]}', 'wb')
+                                outfile = open(f'{_preset_image_path}{prs["presetid"]}', 'wb')
                                 outfile.write(image_data)
                                 outfile.close()
                     else:
@@ -369,28 +360,28 @@ class RestWorker(ProcWorker):
                     #
                     # 不需要通知恢复，因为rest自己先停，等rtsp，然后rtsp停，再等rest，rest操作完，rtsp自动恢复（sleep超时）。
                 onlyfiles = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}'
-                             for f in listdir(target) if isfile(join(target, f)) and ('.png' not in f)]
+                             for f in listdir(_preset_image_path) if isfile(join(_preset_image_path, f)) and ('.png' not in f)]
                 # 返回视频的原始分辨率，便于在前端界面了解和载入
                 # 有问题，如果没有初始化流（fresh=False）,为了获取png文件尺寸，选第一个文件来查询其尺寸
-                pngfiles = [fn for fn in listdir(target) if isfile(join(target, fn)) and ('.png' in fn)]
+                pngfiles = [fn for fn in listdir(_preset_image_path) if isfile(join(_preset_image_path, fn)) and ('.png' in fn)]
                 if len(pngfiles) > 0:
                     item['reply'] = True
                     item['presets'] = onlyfiles
-                    pngfile = f'{target}{pngfiles[0]}'
+                    pngfile = f'{_preset_image_path}{pngfiles[0]}'
                     item['width'], item['height'] = wpr.get_picture_size(pngfile)
                 else:
                     item['reply'] = False
                     item['desc'] = '没有生成可标注的图片。'
             except FileNotFoundError as fs:
-                rest_proc_.log(f'{fs}')
+                _self_obj.log(f'{fs}')
             except ValueError as err:
-                rest_proc_.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)  # noqa
+                _self_obj.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)  # noqa
             except RuntimeError as err:
-                rest_proc_.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)  # noqa
+                _self_obj.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)  # noqa
             except cv2.error as cve:
-                rest_proc_.log(f'[{__file__}]{cve}', level=log.LOG_LVL_ERRO)
+                _self_obj.log(f'[{__file__}]{cve}', level=log.LOG_LVL_ERRO)
             else:
-                rest_proc_.log(f'Preset pictures done.')
+                _self_obj.log(f'Preset pictures done.')
             finally:
                 return item
 
@@ -401,7 +392,7 @@ class RestWorker(ProcWorker):
         async def pixgallery(item: Directory):
             """把参数指定日期得视频识别结果打包为可访问的web服务，返回url地址"""
             ret = {'version': '1.0.0', 'reply': False}
-            imagedir = f'{localroot_of_nvr_samples_}airesults/{item.datedir}'
+            imagedir = f'{_nvr_samples_path}airesults/{item.datedir}'
             res = gallery_create(imagedir)
             if res:
                 res = gallery_build(imagedir)
@@ -410,29 +401,10 @@ class RestWorker(ProcWorker):
                     ret = {'version': '1.0.0', 'reply': res, 'url': visit_url}
             return ret
 
-        @app_.on_event("startup")
-        @repeat_every(seconds=1, wait_first=True)
-        def periodic():
-            """周期性任务，用于读取系统状态和实现探针程序数据来源的提取，并在空闲时刻消费视频流"""
-            # 消耗掉多余的帧
-            # if current_video_stream_['url']:
-            #     cap = current_video_stream_['videostream']
-            #     fps = cap.get(cv2.cv2.CAP_PROP_FPS) + 5  # noqa 消耗完后 grab会返回非真，退出循环。
-            #     run = True
-            #     while fps > 0 and run:
-            #         mutex_.acquire()
-            #         run = cap.grab()  # noqa
-            #         mutex_.release()
-            #         if not run:
-            #             rest_proc_.log('Catch up the nvr play speed.')  # noqa
-            #         fps -= 1
-            pass
-
         @app_.on_event("shutdown")
         def shutdown():
             """关闭事件"""
             pass
-
         return app_
 
     def calculate_delay_time(self, cfgobj, url):
@@ -475,7 +447,7 @@ class RestWorker(ProcWorker):
             labelnames=("application",)
         )
         sts_ = int(time.time())  # 秒为单位
-        rest_ = self
+        _self_obj = self
 
         def instrumentation(info: Info) -> None:  # noqa
             # rest_.log(f'Promethues scrape request: {info.request.url}')
@@ -486,7 +458,7 @@ class RestWorker(ProcWorker):
             metric.labels('main').set(delta)
 
             # 收集子进程监测数据(数据结构是{'result':{'AIxx':{'up': 1.1, 'xx': 2}, ... }})
-            proc_metrics = rest_.call_rpc(bus.CB_GET_METRICS, {'cmd': 'get_metrics', 'desc': 'rest api is called.'})
+            proc_metrics = _self_obj.call_rpc(bus.CB_GET_METRICS, {'cmd': 'get_metrics', 'desc': 'rest api is called.'})
             res = proc_metrics['result_metrics']
             for key in res.keys():
                 item = res[key]
@@ -496,8 +468,8 @@ class RestWorker(ProcWorker):
         return instrumentation
 
     def run(self):
-        self.log(f'Create FASTAPI object.')
-        localapp = self.create_app()
+        self.log(f'Create FASTAPI object.', level=log.LOG_LVL_DBG)
+        _web_app_obj = self.create_app()
 
         # 只要有rest请求，就会触发添加的这几个统计函数，向主进程请求监测数据。
         instrumentator = Instrumentator(
@@ -506,15 +478,15 @@ class RestWorker(ProcWorker):
         instrumentator.add(self.up_time())
         instrumentator.add(cpu_rate())
         instrumentator.add(mem_rate())
-        instrumentator.instrument(localapp).expose(localapp)
+        instrumentator.instrument(_web_app_obj).expose(_web_app_obj)
 
         log_config = uvicorn.config.LOGGING_CONFIG
         log_config["formatters"]["default"]["fmt"] = log.get_v2v_logger_formatter()
         log_config["formatters"]["access"]["fmt"] = log.get_v2v_logger_formatter()
         log_config["loggers"]['uvicorn.error'].update({"propagate": False, "handlers": ["default"]})
 
-        self.log(f'Run http web server. {self.port_}')
-        uvicorn.run(localapp,  # noqa 标准用法
+        self.log(f'Run http web server. {self.port_}', log.LOG_LVL_INFO)
+        uvicorn.run(_web_app_obj,  # noqa 标准用法
                     host="0.0.0.0",
                     port=self.port_,
                     ssl_keyfile=self.ssl_keyfile_,
