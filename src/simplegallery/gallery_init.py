@@ -6,8 +6,8 @@ import shutil
 import json
 from distutils.dir_util import copy_tree
 import pkg_resources
-import src.simplegallery.common as spg_common
-import src.simplegallery.logic.gallery_logic as gallery_logic
+import simplegallery.common as spg_common
+import simplegallery.logic.gallery_logic as gallery_logic
 import logging
 
 _v2v_logger = logging.getLogger('v2v')

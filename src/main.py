@@ -8,14 +8,14 @@ import sys
 from pathlib import Path
 
 # 配置python加载路径
-_module_path = Path(Path(__file__).parent)
+_module_path = Path(Path(__file__).absolute().parent)
 sys.path.append(str(_module_path))
-sys.path.append(str(_module_path.joinpath("core")))
-sys.path.append(str(_module_path.joinpath("utils")))
-from src.utils.config import ConfigSet
+# sys.path.append(str(_module_path.joinpath("core")))
+# sys.path.append(str(_module_path.joinpath("utils")))
+from utils.config import ConfigSet
 from core.kernel import MainContext
-from src.utils import log, comn
-from src.conf import const
+from utils import log, comn
+from conf import const
 
 
 def _main_entry():

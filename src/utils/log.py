@@ -33,7 +33,7 @@ Log util for the project.
 # import logging
 import logging.config
 import os
-from src.conf import const
+from conf import const
 from pathlib import Path
 
 LOG_LVL_INFO = logging.INFO

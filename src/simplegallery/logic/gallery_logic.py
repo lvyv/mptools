@@ -1,7 +1,7 @@
-from src.simplegallery.logic.variants.files_gallery_logic import FilesGalleryLogic
+from simplegallery.logic.variants.files_gallery_logic import FilesGalleryLogic
 # from simplegallery.logic.variants.onedrive_gallery_logic import OnedriveGalleryLogic
 # from simplegallery.logic.variants.google_gallery_logic import GoogleGalleryLogic
-import src.simplegallery.common as spg_common
+import simplegallery.common as spg_common
 
 
 def get_gallery_logic(gallery_config):

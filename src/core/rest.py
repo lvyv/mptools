@@ -55,10 +55,10 @@ from pydantic import BaseModel
 from uvicorn.main import Server
 
 # from utils.config import ConfigSet
-from src.core.procworker import ProcWorker
-from src.simplegallery.gallery_build import gallery_build
-from src.simplegallery.gallery_init import gallery_create
-from src.utils import bus, comn, log, GrabFrame, wrapper as wpr
+from core.procworker import ProcWorker
+from simplegallery.gallery_build import gallery_build
+from simplegallery.gallery_init import gallery_create
+from utils import bus, comn, log, GrabFrame, wrapper as wpr
 
 # rtsp url timeoff
 OPEN_RTSP_TIMEOFF = 30
@@ -163,7 +163,6 @@ class RestWorker(ProcWorker):
         # EIF3:REST V2V C&M 外部接口-提供UI前端配置V2V需要的截图
         # 本路由为前端ui的路径，该路径相对于
         _pwd_path = Path(Path(__file__).parent)
-        self.log(f'file path: {_pwd_path}')
         app_.mount('/ui', StaticFiles(directory=str(_pwd_path.joinpath("../ui"))), name='ui')
         app_.mount('/static', StaticFiles(directory=str(_pwd_path.joinpath("../swagger_ui_dep/static"))), name='static')
 

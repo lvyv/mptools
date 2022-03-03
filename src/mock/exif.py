@@ -29,17 +29,25 @@ mock module
 # Author: Awen <26896225@qq.com>
 # License: MIT
 
-from fastapi import FastAPI, Form, UploadFile, File
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional
-# , List, Tuple
-from utils import log
-from typing import List
-import uvicorn
+
+import sys
+from pathlib import Path
+
+# 配置python加载路径，避免在命令行手动设置环境变量
+_module_path = Path(Path(__file__).absolute().parent)
+sys.path.append(str(_module_path))
+sys.path.append(str(_module_path.parent))
+print(sys.path)
+
 import random
-# import requests
-# import json
+from typing import List
+from typing import Optional
+
+import uvicorn
+from fastapi import FastAPI, Form, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from utils import log
 
 
 def call_aimeter(contents):
@@ -63,7 +71,7 @@ def call_objcounting(contents):
     ret = {'req_id': None,
            'api_type': 'Person',
            'obj_info': [{'name': 'CNT_001', 'type': 'COMPUTER', 'score': 0.889299750328064,
-                         'pos': (26, 263, 416, 422,  2, 3, 1, 1,    2, 3, 1, 1,),
+                         'pos': (26, 263, 416, 422, 2, 3, 1, 1, 2, 3, 1, 1,),
                          'value': '3',
                          'inter_type': None}],
            'stats_info': None,
@@ -98,10 +106,13 @@ app.add_middleware(
 
 # EIF4:REST IOT 外部接口-物联网文件服务器/WS服务（针对实时上传的图片）
 # iot图片文件服务
-app.mount('/viewport', StaticFiles(directory='upfiles'), name='local')
-app.mount('/ui', StaticFiles(directory='../ui'), name='ui')
-app.mount('/docs', StaticFiles(directory='../../docs'), name='docs')
-app.mount('/static', StaticFiles(directory='../swagger_ui_dep/static'), name='static')
+
+# 当前文件的路径
+_pwd_path = Path(Path(__file__).parent)
+app.mount('/viewport', StaticFiles(directory=str(_pwd_path.joinpath("upfiles"))), name='local')
+app.mount('/ui', StaticFiles(directory=str(_pwd_path.joinpath("../ui"))), name='ui')
+app.mount('/docs', StaticFiles(directory=str(_pwd_path.joinpath("../../docs"))), name='docs')
+app.mount('/static', StaticFiles(directory=str(_pwd_path.joinpath("../swagger_ui_dep/static"))), name='static')
 
 
 # iot登录
@@ -210,7 +221,7 @@ async def get_all_presets(deviceid: str, channelid: str):
 
 
 @app.post("/api/v1/ptz/front_end_command/{deviceid}/{channelid}")
-async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(...)):   # noqa
+async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(...)):  # noqa
     """模拟视频调度的跳转到预置点接口"""
     # item = {"deviceId": deviceid, "channelId": channelid,
     # "cmdCode": 130, "parameter1": 0, "parameter2": int(viewpoint),
@@ -265,12 +276,11 @@ async def indicator_frequency(files: UploadFile = File(...), cfg_info: str = For
     ret.update({'req_id': int(req_id)})  # noqa
     return ret
 
+
 if __name__ == '__main__':
     log_config = uvicorn.config.LOGGING_CONFIG
-    log_config["formatters"]["default"]["fmt"] = log.get_v2v_logger_formatter()
-    log_config["formatters"]["access"]["fmt"] = log.get_v2v_logger_formatter()
-    log_config["loggers"]['uvicorn.error'].update({"propagate": False, "handlers": ["default"]})
-    uvicorn.run(app,                # noqa
+
+    uvicorn.run(app,  # noqa
                 host="0.0.0.0",
                 port=7180,
                 ssl_keyfile="cert.key",

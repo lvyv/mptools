@@ -35,7 +35,7 @@ import os
 import cv2
 import time
 import threading
-from src.utils import log
+from utils import log
 
 
 # -- Process Wrapper

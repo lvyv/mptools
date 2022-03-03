@@ -5,8 +5,8 @@ import json
 import jinja2
 import logging
 from collections import OrderedDict
-import src.simplegallery.common as spg_common
-from src.simplegallery.logic.gallery_logic import get_gallery_logic
+import simplegallery.common as spg_common
+from simplegallery.logic.gallery_logic import get_gallery_logic
 
 _v2v_logger = logging.getLogger('v2v')
 

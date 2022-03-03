@@ -31,8 +31,8 @@ Pull av stream from nvr and decode pictures from the streams.
 
 import cv2
 from time import time, sleep
-from src.utils import bus, comn, log, V2VErr, GrabFrame
-from procworker import ProcWorker
+from utils import bus, comn, log, V2VErr, GrabFrame
+from core.procworker import ProcWorker
 
 
 class RtspWorker(ProcWorker):

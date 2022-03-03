@@ -35,13 +35,13 @@ import signal
 import os
 import time
 
-from rtsp import RtspWorker
-from ai import AiWorker
-from mqtt import MqttWorker
-from rest import RestWorker
-from src.utils import bus, log
-from src.utils.config import ConfigSet
-from src.utils.wrapper import proc_worker_wrapper, daemon_wrapper
+from core.rtsp import RtspWorker
+from core.ai import AiWorker
+from core.mqtt import MqttWorker
+from core.rest import RestWorker
+from utils import bus, log
+from utils.config import ConfigSet
+from utils.wrapper import proc_worker_wrapper, daemon_wrapper
 
 
 def init_worker():
@@ -357,7 +357,7 @@ class MainContext(bus.IEventBusMixin):
         res = self.factory_.create_daemon(RestWorker, 'REST', **kwargs)
         return res
 
-    def switchon_procs(self, name, **kwargs):
+    def switch_on_process(self, name, **kwargs):
         """
         本函数调用工厂类在主进程上下文环境启动所有子进程。
         创建包含指定数量进程的进程池，运行所有进程，并把所有进程执行结果合并为列表，返回。
@@ -393,17 +393,17 @@ class MainContext(bus.IEventBusMixin):
         try:
             for channel in cfg['rtsp_urls']:
                 # sr = channel['sample_rate']
-                self.switchon_procs('RTSP', rtsp_params=channel)  # 不提供cnt=x参数，缺省1个通道启1个进程 , sample_rate=sr
-                num = 2  # AI比较慢，安排三个进程处理
-                self.switchon_procs('AI', cnt=num)
+                self.switch_on_process('RTSP', rtsp_params=channel)  # 不提供cnt=x参数，缺省1个通道启1个进程 , sample_rate=sr
+                num = 2  # AI比较慢，安排三个进程处理一个通道
+                self.switch_on_process('AI', cnt=num)
                 num = 1  # 上传文件，安排一个进程处理，不要多个进程，防止服务器端互相踢
                 mqtt = cfg['mqtt_svrs'][0]
                 # jaeger_cfg = None   # jaeger配置项是否存在决定是否引入它
                 # if 'jaeger' in mqtt.keys():
                 #     jaeger_cfg = mqtt['jaeger']
-                self.switchon_procs('MQTT', cnt=num, mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'],
-                                    mqtt_cid=mqtt['mqtt_cid'], mqtt_usr=mqtt['mqtt_usr'], mqtt_pwd=mqtt['mqtt_pwd'],
-                                    mqtt_topic=mqtt['mqtt_tp'], node_name=mqtt['node_name'])
+                self.switch_on_process('MQTT', cnt=num, mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'],
+                                       mqtt_cid=mqtt['mqtt_cid'], mqtt_usr=mqtt['mqtt_usr'], mqtt_pwd=mqtt['mqtt_pwd'],
+                                       mqtt_topic=mqtt['mqtt_tp'], node_name=mqtt['node_name'])
         except KeyError as err:
             self.log(f'2.[{__file__}]{err}', level=log.LOG_LVL_ERRO)
 
