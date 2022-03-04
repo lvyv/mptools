@@ -98,7 +98,7 @@ class VideoCaptureThread(threading.Thread):
 
 class GrabFrame:
     # 打开流最多等待多少时间
-    OPEN_RTSP_TIMEOFF = 30
+    OPEN_RTSP_TIMEOFF = 10
 
     def __init__(self):
         # 存放帧数据

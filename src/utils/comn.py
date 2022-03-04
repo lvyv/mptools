@@ -55,7 +55,8 @@ def run_to_viewpoints(devid, channelid, presetid, spdd_url, ptz_delay=30):
         _post_url = f'{spdd_url}/api/v1/ptz/front_end_command/{devid}/{channelid}'
         resp = requests.post(_post_url, data=payload, verify=False)
         if resp.status_code == 200:
-            time.sleep(ptz_delay)
+            # 由调用者控制延时
+            # time.sleep(ptz_delay)
             ret = True
     except KeyError:
         pass

@@ -78,8 +78,22 @@ class RtspWorker(ProcWorker):
     def _sleep_wrapper(self, timeout):
         """
         针对time.sleep()函数的封装，解决sleep时无法接收广播事件的问题
+
+        return:
+        返回true表示正常，false表示sleep过程中有事件产生
         """
-        pass
+        _ret = True
+        _start_time, delta = time(), 0
+        while timeout >= delta:
+            evt = self.subscribe()
+            if evt and evt == bus.EBUS_SPECIAL_MSG_STOP:
+                _ret = False
+                break
+            # 使用更小的sleep粒度
+            sleep(0.05)
+            delta = time() - _start_time
+
+        return _ret
 
     def startup(self):
         # rtsp流地址
@@ -136,6 +150,7 @@ class RtspWorker(ProcWorker):
         -------
             返回True，退出循环，返回False，继续循环。
         """
+        _ret = False
         try:
             # 1.按参数设置摄像头到预置点，因为预置点有多个，所以要轮流执行，每个预置点停留时间由seconds参数决定，所以这个函数花费时间会比较久
             # 2.等待摄像头执行到预置点位
@@ -143,7 +158,6 @@ class RtspWorker(ProcWorker):
             # 4.读取流并设置处理该图片的参数
             if event:
                 self.handle_event(event)  # 主要处理暂停事件，当rest发过来请求暂停流水线
-
             did = self._process_task_dict['device_id']
             cid = self._process_task_dict['channel_id']
             vps = self._process_task_dict['view_ports']
@@ -157,17 +171,22 @@ class RtspWorker(ProcWorker):
                 # 取"preset1"值
                 presetid = list(vp.keys())[0]  # 目前配置文件格式规定：每个vp对象只有1个presetX的主键，value是一个json对象
                 # 让摄像头就位，阻塞操作，函数内部会休眠
-                # FIXME: 阻塞时间内，无法响应退出事件
                 self.log(f"Call PTZ preset. --> {presetid}")
                 comn.run_to_viewpoints(did, cid, presetid, self._spdd_url, self._ptz_delay)
+                if self._sleep_wrapper(self._ptz_delay) is False:
+                    self.log("Got manual exit event, so break ptz control.")
+                    _ret = True
+                    # 此处有坑，请搜索try..exception..finally中return
+                    return _ret
+
                 # 读取停留时间，云台旋转到位后，在此画面停留时间
                 duration = vp[presetid][0]['seconds']  # 对某个具体的预置点vp，子分类aoi停留时间都是一样的，随便取一个即可。
                 st, delta = time(), 0
                 current_frame_pos = -1
                 while duration > delta:
-                    if self.get_exit_state() is True:
-                        self.log("Got manual exit event, so break ptz while.")
-                        break
+                    # if self.get_exit_state() is True:
+                    #     self.log("Got manual exit event, so break ptz while.")
+                    #     break
                     _video_frame_data = self._stream_obj.read_frame(0.1)
                     # 请求用时间戳，便于后续Ai识别后还能够知道是哪一个时间点的视频帧
                     requestid = int(time() * 1000)
@@ -188,7 +207,11 @@ class RtspWorker(ProcWorker):
                                 self.out_q_.put(_recognition_obj)
                     # FIXME: why?
                     self.log(f"截图休眠时间: {inteval - time() % inteval}")
-                    sleep(inteval - time() % inteval)  # 动态调速，休眠采样间隔的时间
+                    if self._sleep_wrapper(inteval - time() % inteval) is False:
+                        self.log("Got manual exit event, so break capture flow.")
+                        _ret = True
+                        break
+                    # sleep(inteval - time() % inteval)  # 动态调速，休眠采样间隔的时间
                     # 计算是否到设定的时间了
                     delta = time() - st  # 消耗的时间（秒）
                 self.log(f'preset: "{presetid}" spend time: {delta} and current frame pos: {current_frame_pos}')
@@ -199,7 +222,7 @@ class RtspWorker(ProcWorker):
         except Exception as err:
             self.log(f'3.Unkown error:{err}', level=log.LOG_LVL_ERRO)
         finally:
-            return False
+            return _ret
 
     def shutdown(self):
         if self._stream_obj is not None:

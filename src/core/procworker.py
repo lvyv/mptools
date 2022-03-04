@@ -85,7 +85,6 @@ class BaseProcWorker:
             except V2VErr.V2VTaskExitStartupStage as err:
                 self.log(f"V2VTaskExitStartupStage: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
                 self.shutdown()
-                self.log("after shutdown.")
                 break
             except V2VErr.V2VConfigurationIllegalError as err:
                 # 发生配置不合法，等待配置下发正确，发生在startup，可以不shutdown，避免引入新的错误。
@@ -122,21 +121,23 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
         if self.beeper_ is not None:
             # self.beeper_.disconnect()
             # self.beeper_.close()
-            self.beeper_ = None
+            # self.beeper_ = None
+            pass
         if self.subscriber_ is not None:
             # self.subscriber_.disconnect()
             # self.subscriber_.close()
-            self.subscriber_ = None
+            # self.subscriber_ = None
+            pass
         self.log("ProcWorker close zmq handle.", level=log.LOG_LVL_INFO)
 
     def main_loop(self):
         try:
             while self.is_break_out_main_loop is False:
                 evt = self.subscribe()
-                if evt == bus.EBUS_SPECIAL_MSG_STOP:        # 共性操作：停止子进程
+                if evt and evt == bus.EBUS_SPECIAL_MSG_STOP:        # 共性操作：停止子进程
                     self.log("Recv EBUS_SPECIAL_MSG_STOP event.")
                     break
-                elif evt == bus.EBUS_SPECIAL_MSG_CFG:       # 共性操作：配置发生更新
+                elif evt and evt == bus.EBUS_SPECIAL_MSG_CFG:       # 共性操作：配置发生更新
                     self.log("Recv EBUS_SPECIAL_MSG_CFG event.")
                     raise V2VErr.V2VConfigurationChangedError(evt)
                 elif evt:                                   # 其它广播事件，比如停止某个通道
