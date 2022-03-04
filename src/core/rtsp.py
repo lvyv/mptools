@@ -52,6 +52,8 @@ class RtspWorker(ProcWorker):
         self._process_task_dict = {}
         # 视频调度管理软件的地址
         self._spdd_url = None
+        # 旋转云台后的等待时间，默认30秒
+        self._ptz_delay = 30
 
     def handle_cfg_update(self, channel):
         """
@@ -62,16 +64,10 @@ class RtspWorker(ProcWorker):
         :param channel:
         :return:
         """
-        # self.log(cfg)
         self.args_ = channel
         pass
 
     def handle_event(self, evt):
-        """
-        处理外部事件。
-        :param evt:
-        :return:
-        """
         cmd = evt['cmd']
         if cmd == 'pause':
             did = evt['deviceid']
@@ -91,7 +87,8 @@ class RtspWorker(ProcWorker):
                                                          {'cmd': 'get_task', 'source': self.name,
                                                           'assigned': self._process_task_dict})
             self._spdd_url = _process_task_dict_from_main['media_service']
-            self.log(f'Get spdd url: {self._spdd_url} from main process.')
+            self._ptz_delay = _process_task_dict_from_main['ipc_ptz_delay']
+            self.log(f'Get spdd url: {self._spdd_url} ptz_delay:{self._ptz_delay} value from main process.')
             # 2.访问对应的rtsp流
             # 如果此前已经分配过任务，但因为下发配置事件、配置不合法、网络断流等导致重新初始化。
             # 则有新分配任务，按新任务执行，没有新任务，按老任务执行。
@@ -151,20 +148,24 @@ class RtspWorker(ProcWorker):
             # skip = self.fps_ / sar
             # 遍历预置位 ["preset1": [], "preset2": []]
             for vp in vps:
+                # 取"preset1"值
                 presetid = list(vp.keys())[0]  # 目前配置文件格式规定：每个vp对象只有1个presetX的主键，value是一个json对象
                 # 让摄像头就位，阻塞操作，函数内部会休眠
+                # FIXME: 阻塞时间内，无法响应退出事件
                 self.log(f"Call PTZ preset. --> {presetid}")
-                comn.run_to_viewpoints(did, cid, presetid, self._spdd_url)
-                # 读取停留时间
+                comn.run_to_viewpoints(did, cid, presetid, self._spdd_url, self._ptz_delay)
+                # 读取停留时间，云台旋转到位后，在此画面停留时间
                 duration = vp[presetid][0]['seconds']  # 对某个具体的预置点vp，子分类aoi停留时间都是一样的，随便取一个即可。
                 st, delta = time(), 0
                 current_frame_pos = -1
                 while duration > delta:
+                    if self.get_exit_state() is True:
+                        self.log("Got manual exit event, so break ptz while.")
+                        break
                     _video_frame_data = self._stream_obj.read_frame(0.1)
                     # 请求用时间戳，便于后续Ai识别后还能够知道是哪一个时间点的视频帧
                     requestid = int(time() * 1000)
                     current_frame_pos = self._stream_obj.get_stream_frame_pos()
-                    sleep(inteval - time() % inteval)  # 动态调速，休眠采样间隔的时间
 
                     # 为实现ai效率最大化，把图片中不同ai仪表识别任务分包，一个vp，不同类ai标注类型给不同的ai进程去处理
                     # 这样会导致同一图片重复放到工作队列中（只是aoi不同）。
@@ -179,6 +180,9 @@ class RtspWorker(ProcWorker):
                                                     'frame': _video_frame_data}
                                 self.log(f'The size of picture queue between rtsp & ai is: {self.out_q_.qsize()}.')
                                 self.out_q_.put(_recognition_obj)
+                    # FIXME: why?
+                    self.log(f"截图休眠时间: {inteval - time() % inteval}")
+                    sleep(inteval - time() % inteval)  # 动态调速，休眠采样间隔的时间
                     # 计算是否到设定的时间了
                     delta = time() - st  # 消耗的时间（秒）
                 self.log(f'preset: "{presetid}" spend time: {delta} and current frame pos: {current_frame_pos}')
@@ -189,13 +193,14 @@ class RtspWorker(ProcWorker):
         except Exception as err:
             self.log(f'3.Unkown error:{err}', level=log.LOG_LVL_ERRO)
         finally:
-            # self.log('finally.')
             return False
 
     def shutdown(self):
-        # cv2.destroyAllWindows()
-        self._stream_obj.stop_stream()
+        if self._stream_obj is not None:
+            self._stream_obj.stop_stream()
+            self._stream_obj = None
+        self._stream_fps = None
         self._process_task_dict.clear()
         self._process_task_dict = {}  # 很重要，清空任务列表
-        self._stream_fps = None
-        self._stream_obj = None
+
+

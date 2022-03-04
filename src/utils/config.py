@@ -64,12 +64,8 @@ class ConfigSet:
             return load_dict
 
     @classmethod
-    def save_json(cls):
-        formatted_cfg = json.dumps(cls.v2v_cfg_dict, ensure_ascii=False, indent=2)
-        if cls.v2vcfg_file_path:
-            with open(cls.v2vcfg_file_path, 'w', encoding='utf-8') as fp:
-                fp.write(formatted_cfg)
-                fp.close()
+    def save_v2v_cfg(cls):
+        return cls._do_save_cfg(cls.v2vcfg_file_path, cls.v2v_cfg_dict)
 
     @classmethod
     def get_base_cfg_obj(cls):
@@ -78,12 +74,16 @@ class ConfigSet:
         return cls.basecfg_cfg_dict
 
     @classmethod
-    def save_basecfg(cls):
+    def save_base_cfg(cls):
+        return cls._do_save_cfg(cls.basecfg_file_path, cls.basecfg_cfg_dict)
+
+    @classmethod
+    def _do_save_cfg(cls, file_path, cfg_dict):
         ret = False
         try:
-            formatted_cfg = json.dumps(cls.basecfg_cfg_dict, ensure_ascii=False, indent=2)
-            if cls.basecfg_file_path:
-                with open(cls.basecfg_file_path, 'w', encoding='utf-8') as fp:
+            formatted_cfg = json.dumps(cfg_dict, ensure_ascii=False, indent=2)
+            if file_path:
+                with open(file_path, 'w', encoding='utf-8') as fp:
                     fp.write(formatted_cfg)
             ret = True
         finally:
@@ -325,10 +325,10 @@ class ConfigSet:
                     cls.v2v_cfg_dict['rtsp_urls'].append(obj)
             # 保存配置文件
             cls.v2v_cfg_dict = cls.validate_cfg(cls.v2v_cfg_dict)
-            cls.save_json()     # FIXME:有点野蛮，没有进行合法性校核，可能导致程序无法启动
+            cls.save_v2v_cfg()     # FIXME:有点野蛮，没有进行合法性校核，可能导致程序无法启动
             ret = cls.v2v_cfg_dict
         except KeyError as err:
-            log.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+            log.log(f'{err}', level=log.LOG_LVL_ERRO)
             ret = None
         finally:
             return ret

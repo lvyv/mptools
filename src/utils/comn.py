@@ -34,37 +34,28 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-# 下面二个为全局变量
-_u_base_url = None
-# 旋转预置位后，需要等待的时间。为了摄像头能自动对焦或旋转到位
-_u_ptz_delay = 30
-
-
-def set_common_cfg(cfg):
-    global _u_base_url
-    global _u_ptz_delay
-
-    _u_base_url = cfg['media_service']
-    _u_ptz_delay = cfg['ipc_ptz_delay']
-
 
 def replace_non_ascii(x):
     return ''.join(i if ord(i) < 128 else '_' for i in x)
 
 
-def run_to_viewpoints(devid, channelid, presetid, burl=None):
-    global _u_base_url
-    global _u_ptz_delay
+def run_to_viewpoints(devid, channelid, presetid, spdd_url, ptz_delay=30):
+    """
+    调用SPDD接口旋转预置位
+    devid: 设备编号
+    channelid: 通道编号
+    presetid: 预置位编号
+    spdd_url: SPDD接口地址
+    ptz_delay: 旋转预置位后，等待时间
+    """
     ret = None
 
     try:
-        if burl:
-            _u_base_url = burl
         payload = {'viewpoint': presetid}
-        _post_url = f'{_u_base_url}/api/v1/ptz/front_end_command/{devid}/{channelid}'
+        _post_url = f'{spdd_url}/api/v1/ptz/front_end_command/{devid}/{channelid}'
         resp = requests.post(_post_url, data=payload, verify=False)
         if resp.status_code == 200:
-            time.sleep(_u_ptz_delay)
+            time.sleep(ptz_delay)
             ret = True
     except KeyError:
         pass
@@ -72,13 +63,10 @@ def run_to_viewpoints(devid, channelid, presetid, burl=None):
         return ret
 
 
-def get_url(devid, channelid, burl=None):
+def get_url(devid, channelid, spdd_url):
     ret = None
-    global _u_base_url
     try:
-        if burl:
-            _u_base_url = burl
-        url = f'{_u_base_url}/api/v1/ptz/streaminfo'
+        url = f'{spdd_url}/api/v1/ptz/streaminfo'
         resp = requests.get(url, verify=False)
         resp = json.loads(resp.content)['channels']
         result = list(filter(lambda r: r['deviceid'] == devid and r['channelid'] == channelid, resp))
@@ -93,13 +81,10 @@ def get_url(devid, channelid, burl=None):
         return ret
 
 
-def get_urls(burl=None):
+def get_urls(spdd_url):
     resp = None
-    global _u_base_url
     try:
-        if burl:
-            _u_base_url = burl
-        url = f'{_u_base_url}/api/v1/ptz/streaminfo'
+        url = f'{spdd_url}/api/v1/ptz/streaminfo'
         resp = requests.get(url, verify=False)
         resp = json.loads(resp.content)['channels']
     except KeyError:
@@ -108,13 +93,10 @@ def get_urls(burl=None):
         return resp
 
 
-def get_presets(devid, channelid, burl=None):
+def get_presets(devid, channelid, spdd_url):
     resp = None
-    global _u_base_url
     try:
-        if burl:
-            _u_base_url = burl
-        url = f'{_u_base_url}/api/v1/ptz/front_end_command/{devid}/{channelid}'
+        url = f'{spdd_url}/api/v1/ptz/front_end_command/{devid}/{channelid}'
         resp = requests.get(url, verify=False)
         resp = json.loads(resp.content)['presetlist']
     except KeyError:

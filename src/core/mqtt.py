@@ -29,13 +29,16 @@ Publish recognized results to iot gateway.
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
 
-import paho.mqtt.client as mqtt_client
 import json
 import socket
-from utils import bus, log, V2VErr
+
+import paho.mqtt.client as mqtt_client
+
 from core.procworker import ProcWorker
+from utils import bus, log, V2VErr
 from utils.tracing import AdaptorTracingUtility
-from utils.config import ConfigSet
+
+
 # from opentracing import global_tracer
 
 
@@ -114,8 +117,8 @@ class MqttWorker(ProcWorker):
                 # 缓存tracer便于后面使用
                 self.tracer_ = self.reset_jaeger(self.jaeger_['agent_ip'], self.jaeger_['agent_port'], self.node_name_)
                 self.jaeger_['node_name'] = self.node_name_     # FIXME 更新下发node name（是否需要写配置文件？）
-                # FIXME: 要在主进程中操作配置文件
-                ConfigSet.save_basecfg()
+                # 在主进程中操作配置文件
+                _ret = self.call_rpc(bus.CB_SAVE_CFG, {'cmd': 'save_basecfg', 'source': self.name})
             self._mqtt_client_obj = mqtt_client.Client(self.mqtt_cid_)
             self._mqtt_client_obj.username_pw_set(self.mqtt_usr_, self.mqtt_pwd_)
             self._mqtt_client_obj.connect(self.mqtt_host_, self.mqtt_port_)
@@ -132,7 +135,6 @@ class MqttWorker(ProcWorker):
 
     def main_func(self, event=None, *args):
         # 全速
-        # self.log('mqtt begin get data.')
         vec = self.in_q_.get()
 
         payload = json.loads(str(vec.decode('utf-8')))

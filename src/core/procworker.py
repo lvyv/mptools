@@ -99,7 +99,7 @@ class BaseProcWorker:
                 # 暂时没活干也不要退出，毕竟流水线后面还起了ai，mqtt几个等着吧。
                 _is_restart = True
                 self.log(f"V2VTaskNullRtspUrl: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
-                time.sleep(5)
+                time.sleep(1)
         self.log(f"[EXIT] BaseProcWorker run loop. restart:{_is_restart}", level=log.LOG_LVL_INFO)
 
 

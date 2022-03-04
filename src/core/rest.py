@@ -45,7 +45,6 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi_utils.tasks import repeat_every
 from matplotlib import pyplot as plt
 from prometheus_client import Gauge
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -144,7 +143,6 @@ class RestWorker(ProcWorker):
 
         # 实例对象的引用，因为fastapi的接口函数中没有self对象
         _self_obj = self
-        # cfg_ = None
         baseurl_of_nvr_samples_ = '/viewport'
         # 从主进程获取配置参数
         _v2v_cfg_dict = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
@@ -169,7 +167,6 @@ class RestWorker(ProcWorker):
             """统一关闭或启动rtsp，ai，mqtt子进程"""
             cmds = ['start', 'stop']
             if item.cmd in cmds:
-                # rest_proc_.send_cmd(bus.EBUS_TOPIC_MAIN, item.cmd) # noqa
                 if item.cmd == 'start':
                     ret = _self_obj.call_rpc(bus.CB_STARTUP_PPL, {'cmd': item.cmd})  # noqa
                 else:
@@ -278,9 +275,8 @@ class RestWorker(ProcWorker):
         async def stream_info():
             """获取所有的视频通道列表"""
             item = {'version': '1.0.0', 'reply': 'pending.'}
-            cfg = _self_obj.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': _self_obj.name})
-            comn.set_common_cfg(cfg)  # 只是设置全局变量，便于配置的热更新（视频调度管理软件的摄像头停留时间和视频调度服务器地址）
-            streams = comn.get_urls(cfg['media_service'])
+            _cfg_dict = _self_obj.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': _self_obj.name})
+            streams = comn.get_urls(_cfg_dict['media_service'])
             item['streams'] = streams
             item['reply'] = True
             return item
@@ -290,25 +286,28 @@ class RestWorker(ProcWorker):
             """获取该视频通道所有预置点，然后逐个预置点取图，保存为base64，加入流断处理，加入流缓存以及互斥锁保护全局缓存流"""
             item = {'version': '1.0.0', 'reply': 'pending.', 'rtsp_url': None}
             try:
-                # 设置全局变量，便于热更新配置（视频调度管理软件的摄像头停留时间和视频调度服务器地址在comn中发挥作用。
-                cfg = _self_obj.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': _self_obj.name})
-                comn.set_common_cfg(cfg)
-                _preset_image_path = f'{_nvr_samples_path}{deviceid}/'  # 不支持nvrsamples的热更新，因为启动程序需要mount本地目录
+                _cfg_dict = _self_obj.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': _self_obj.name})
+                # 不支持nvrsamples的热更新，因为启动程序需要mount本地目录
+                _preset_image_path = f'{_nvr_samples_path}{deviceid}/'
                 if refresh:
-                    # 如果是刷新，需要从nvr取图片保存到本地目录(nvr_samples目录下按设备号创建目录)。
-                    url = comn.get_url(deviceid, channelid, cfg['media_service'])
+                    # 如果是刷新，需要从spdd取该通道的流地址
+                    _self_obj.log("Call SPDD stream list api. --> ")
+                    url = comn.get_url(deviceid, channelid, _cfg_dict['media_service'])
                     presets = None
-                    if url:  # url都得不到，就不需要得presets了
-                        presets = comn.get_presets(deviceid, channelid, cfg['media_service'])
+                    if url:
+                        # 从spdd取预置位
+                        _self_obj.log("Call SPDD presets list api. --> ")
+                        presets = comn.get_presets(deviceid, channelid, _cfg_dict['media_service'])
                     if url and presets:
                         # 通知主调度，暂停pipeline流水线对本摄像头的识别操作，让rtsp流水线rtsp进程sleep多少时间计算得出。
-                        # FIXME: 未实现功能
-                        rest_p, rtsp_p = self.calculate_delay_time(cfg, url)
+                        # FIXME: 暂停后，RTSP子进程会被time()阻塞，最好使用状态来区分
+                        rest_p, rtsp_p = self.calculate_delay_time(_cfg_dict, url)
                         pipeline_cmd = {'cmd': 'pause', 'deviceid': deviceid, 'channelid': channelid,
                                         'timeout': rtsp_p}
-                        isok = _self_obj.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)  # noqa 调用主进程函数，传配置给它。
+                        isok = _self_obj.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)
                         if not isok['reply']:
                             raise RuntimeError(f'Cannot get the control of IPC: {deviceid}, {channelid}.')
+
                         # rest 需要等待一定时间，让rtsp进程停下来。
                         time.sleep(rest_p)
 
@@ -326,9 +325,11 @@ class RestWorker(ProcWorker):
                         # 产生系列预置点图片。
                         item['rtsp_url'] = url  # 前端需要了解是否有合法url，才方便下发配置的时候填入正确的配置值
                         for prs in presets:
-                            ret = comn.run_to_viewpoints(deviceid, channelid, prs['presetid'], cfg['media_service'])
+                            ret = comn.run_to_viewpoints(deviceid, channelid,
+                                                         prs['presetid'],
+                                                         _cfg_dict['media_service'],
+                                                         _cfg_dict['ipc_ptz_delay'])
                             if ret:
-                                # mutex_.acquire()  # 防止流并发访问错误
                                 _video_frame_data = cvobj.read_frame()
                                 if _video_frame_data is None:
                                     cvobj.stop_stream()
@@ -360,10 +361,12 @@ class RestWorker(ProcWorker):
                     #
                     # 不需要通知恢复，因为rest自己先停，等rtsp，然后rtsp停，再等rest，rest操作完，rtsp自动恢复（sleep超时）。
                 onlyfiles = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}'
-                             for f in listdir(_preset_image_path) if isfile(join(_preset_image_path, f)) and ('.png' not in f)]
+                             for f in listdir(_preset_image_path) if
+                             isfile(join(_preset_image_path, f)) and ('.png' not in f)]
                 # 返回视频的原始分辨率，便于在前端界面了解和载入
                 # 有问题，如果没有初始化流（fresh=False）,为了获取png文件尺寸，选第一个文件来查询其尺寸
-                pngfiles = [fn for fn in listdir(_preset_image_path) if isfile(join(_preset_image_path, fn)) and ('.png' in fn)]
+                pngfiles = [fn for fn in listdir(_preset_image_path) if
+                            isfile(join(_preset_image_path, fn)) and ('.png' in fn)]
                 if len(pngfiles) > 0:
                     item['reply'] = True
                     item['presets'] = onlyfiles
@@ -372,16 +375,16 @@ class RestWorker(ProcWorker):
                 else:
                     item['reply'] = False
                     item['desc'] = '没有生成可标注的图片。'
-            except FileNotFoundError as fs:
-                _self_obj.log(f'{fs}')
+            except FileNotFoundError as err:
+                _self_obj.log(f'Web api get_presets: {err}', level=log.LOG_LVL_ERRO)
             except ValueError as err:
-                _self_obj.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)  # noqa
+                _self_obj.log(f'Web api get_presets: {err}', level=log.LOG_LVL_ERRO)
             except RuntimeError as err:
-                _self_obj.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)  # noqa
-            except cv2.error as cve:
-                _self_obj.log(f'[{__file__}]{cve}', level=log.LOG_LVL_ERRO)
+                _self_obj.log(f'Web api get_presets: {err}', level=log.LOG_LVL_ERRO)
+            except cv2.error as err:
+                _self_obj.log(f'Web api get_presets: {err}', level=log.LOG_LVL_ERRO)
             else:
-                _self_obj.log(f'Preset pictures done.')
+                _self_obj.log(f'Preset pictures done.', level=log.LOG_LVL_INFO)
             finally:
                 return item
 
@@ -392,10 +395,10 @@ class RestWorker(ProcWorker):
         async def pixgallery(item: Directory):
             """把参数指定日期得视频识别结果打包为可访问的web服务，返回url地址"""
             ret = {'version': '1.0.0', 'reply': False}
-            imagedir = f'{_nvr_samples_path}airesults/{item.datedir}'
-            res = gallery_create(imagedir)
+            _image_path = f'{_nvr_samples_path}airesults/{item.datedir}'
+            res = gallery_create(_image_path)
             if res:
-                res = gallery_build(imagedir)
+                res = gallery_build(_image_path)
                 if res:
                     visit_url = f'{baseurl_of_nvr_samples_}/airesults/{item.datedir}/public/index.html'
                     ret = {'version': '1.0.0', 'reply': res, 'url': visit_url}
@@ -405,6 +408,7 @@ class RestWorker(ProcWorker):
         def shutdown():
             """关闭事件"""
             pass
+
         return app_
 
     def calculate_delay_time(self, cfgobj, url):
@@ -485,7 +489,7 @@ class RestWorker(ProcWorker):
         log_config["formatters"]["access"]["fmt"] = log.get_v2v_logger_formatter()
         log_config["loggers"]['uvicorn.error'].update({"propagate": False, "handlers": ["default"]})
 
-        self.log(f'Run http web server. {self.port_}', log.LOG_LVL_INFO)
+        self.log(f'Run http web server. port: {self.port_}', log.LOG_LVL_INFO)
         uvicorn.run(_web_app_obj,  # noqa 标准用法
                     host="0.0.0.0",
                     port=self.port_,

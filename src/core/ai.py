@@ -26,24 +26,23 @@ ai module
 Feed AI meter picture one by one and get recognized results.
 """
 
-# Author: Awen <26896225@qq.com>
-# License: Apache Licence 2.0
-import os
 import datetime
 # import time
 import io
+import json
+# Author: Awen <26896225@qq.com>
+# License: Apache Licence 2.0
+import os
 from pathlib import Path
 
-import requests
-import json
 import cv2
-
+import requests
+from PIL import Image, ImageDraw, ImageFont
 from matplotlib import cm, pyplot as plt
 from numpy import array
-from utils import bus, comn, log
+
 from core.procworker import ProcWorker
-from utils.config import ConfigSet
-from PIL import Image, ImageDraw, ImageFont
+from utils import bus, comn, log
 
 
 class UrlStatisticsHelper:

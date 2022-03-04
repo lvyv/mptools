@@ -141,8 +141,7 @@ class MainContext(bus.IEventBusMixin):
     完成所有子进程的创建，终止工作。
     完成对所有运行子进程的下发配置和查询状态（主要是事件总线和图片及向量队列）。
     """
-    # 进程池默认数量
-    NUMBER_OF_PROCESSES = 18
+    NUMBER_OF_PROCESSES = 18    # 进程池默认数量
     PIC_QUEUE_SIZE = 20  # 允许RTSP存多少帧图像给AI，避免AI算不过来，RTSP把内存给撑死
     VEC_QUEUE_SIZE = 50  # 允许AI识别放多少结果到MQTT，避免MQTT死了，AI撑死内存
 
@@ -160,23 +159,21 @@ class MainContext(bus.IEventBusMixin):
         MainContext.register(bus.CB_STOP_PPL, self.callback_stop_pipeline)
         MainContext.register(bus.CB_GET_CFG, self.callback_get_cfg)
         MainContext.register(bus.CB_SET_CFG, self.callback_set_cfg)
+        MainContext.register(bus.CB_SAVE_CFG, self.callback_save_cfg)
         MainContext.register(bus.CB_STOP_REST, self.callback_stop_rest)
         MainContext.register(bus.CB_SET_METRICS, self.callback_set_metrics)
         MainContext.register(bus.CB_GET_METRICS, self.callback_get_metrics)
         MainContext.register(bus.CB_PAUSE_RESUME_PIPE, self.callback_pause_resume_pipe)
 
         # 管理分配的任务：数据结构：{rtsp地址: 进程名称}，任务的粒度为一个通道
+        # 数据示例: {'rtsp://127.0.0.1:7554/live/main': 'RTSP(23792)'}
         self._task_dict = {}
         # 进程间消息队列
         self._queue_frame = multiprocessing.Manager().Queue(self.PIC_QUEUE_SIZE)  # Is JoinableQueue better?
         self._queue_vector = multiprocessing.Manager().Queue(self.VEC_QUEUE_SIZE)  # mqtt阻塞
         # 进程间共享数据，用于标记是否该退出子进程，[False, False],第一个元素有效，第二个元素备用.
         # 各个子进程中读取该状态，判断是否该立即退出进程
-        self._share_data = multiprocessing.Manager().list([False, False])
-
-        # self.queues_ = []  # 子进程间数据传递队列
-        # self.queues_.append(self.pic_q_)  # 图片
-        # self.queues_.append(self.vec_q_)  # 识别结果
+        self._process_share_data = multiprocessing.Manager().list([False, False])
 
         # 保存所有进程（rest,rtsp,ai,mqtt）的所有监测指标数据：运行时间。rest基本能代表main自己。
         self.metrics_ = {}
@@ -186,27 +183,27 @@ class MainContext(bus.IEventBusMixin):
         self.status_ = FSM()
 
     def __enter__(self):
-        self.log('********************  CASICLOUD AI METER services  ********************')
+        self.log('********************  CASICLOUD V2V AI Dispatching Center  ********************')
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type:
-            self.log(f'1.[{__file__}]{exc_val}', level=log.LOG_LVL_ERRO, exc_info=(exc_type, exc_val, exc_tb))
+            self.log(f'1.{exc_val}', level=log.LOG_LVL_ERRO, exc_info=(exc_type, exc_val, exc_tb))
         # -- Don't eat exceptions that reach here.
         return not exc_type
 
     def callback_start_pipeline(self, params):
-        self.log(params)
+        self.log(params, level=log.LOG_LVL_DBG)
         if self.status_.test_status(FSM.STATUS_INITIAL):
-            cfgobj = ConfigSet.get_v2v_cfg_obj()
-            self.start_v2v_pipeline_task(cfgobj)
+            _v2v_cfg_dict = ConfigSet.get_v2v_cfg_obj()
+            self.start_v2v_pipeline_task(_v2v_cfg_dict)
             self.status_.set_status(FSM.STATUS_FULL_SPEED)
             return {'reply': True}
         else:
             return {'reply': False}
 
     def callback_stop_pipeline(self, params):
-        self.log(params)
+        self.log(params, level=log.LOG_LVL_DBG)
         if self.status_.test_status(FSM.STATUS_FULL_SPEED):
             self.stop_v2v_pipeline_task()
             self.status_.set_status(FSM.STATUS_INITIAL)
@@ -264,14 +261,24 @@ class MainContext(bus.IEventBusMixin):
         """
         cmd = params['cmd']
         if cmd == 'get_cfg':    # 取v2v.cfg
-            cfgobj = ConfigSet.get_v2v_cfg_obj()
-            return cfgobj
+            _cfg_dict = ConfigSet.get_v2v_cfg_obj()
+            return _cfg_dict
         elif cmd == 'get_basecfg':  # 取baseconfig.cfg
-            cfgobj = ConfigSet.get_base_cfg_obj()
-            return cfgobj
+            _cfg_dict = ConfigSet.get_base_cfg_obj()
+            return _cfg_dict
         elif cmd == 'get_task':
             task = self.assign_task(params['source'], params['assigned'])
             return task
+
+    def callback_save_cfg(self, params):
+        ret = False
+        self.log(f"Save cfg cb: {params}", level=log.LOG_LVL_DBG)
+        cmd = params['cmd']
+        if cmd == 'save_cfg':    # 取v2v.cfg
+            ret = ConfigSet.save_v2v_cfg()
+        elif cmd == 'save_basecfg':  # 取baseconfig.cfg
+            ret = ConfigSet.save_base_cfg()
+        return ret
 
     def callback_stop_rest(self, params):
         """
@@ -402,30 +409,28 @@ class MainContext(bus.IEventBusMixin):
 
     def start_v2v_pipeline_task(self, cfg):
         # 复位子进程退出状态
-        self._share_data[0] = False
+        self._process_share_data[0] = False
         try:
             # 根据通道列表启动每个通道的rtsp->ai->mqtt处理进程
-            # FIXME: 1.根据每个通道的启用状态，决定是否开启rtsp->ai->mqtt流程;2.如果rtsp取流失败，不应该再启动后续的ai->mqtt进程
             for channel in cfg['rtsp_urls']:
                 # 不提供cnt=x参数，缺省1个通道启1个取RTSP流进程
-                self.switch_on_process('RTSP', rtsp_params=channel, share_list=self._share_data)
-                # 取AI的识别结果比较慢，安排2个进程处理一个通道
-                self.switch_on_process('AI', cnt=2, share_list=self._share_data)
-                # 上传文件，安排1个进程处理，不要多个进程，防止服务器端互相踢
+                self.switch_on_process('RTSP', rtsp_params=channel, share_list=self._process_share_data)
+                # 取AI的识别结果比较慢，安排2个进程处理一个通道，实际AI子进程处理所有IPC的数据
+                self.switch_on_process('AI', cnt=2, share_list=self._process_share_data)
+                # 上传文件，安排1个进程处理，不要多个进程，防止服务器端互相踢，实际MQTT子进程处理所有的结果数据
                 mqtt = cfg['mqtt_svrs'][0]
                 self.switch_on_process('MQTT', cnt=1, mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'],
                                        mqtt_cid=mqtt['mqtt_cid'], mqtt_usr=mqtt['mqtt_usr'], mqtt_pwd=mqtt['mqtt_pwd'],
-                                       mqtt_topic=mqtt['mqtt_tp'], node_name=mqtt['node_name'], share_list=self._share_data)
-            self.log(f"Start v2v pipeline, total channel: {len(cfg['rtsp_urls'])}")
+                                       mqtt_topic=mqtt['mqtt_tp'], node_name=mqtt['node_name'], share_list=self._process_share_data)
+            self.log(f"Start v2v pipeline, total channel: {len(cfg['rtsp_urls'])}", level=log.LOG_LVL_DBG)
         except KeyError as err:
-            self.log(f'2.[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+            self.log(f'start_v2v_pipeline_task failed: {err}', level=log.LOG_LVL_ERRO)
 
     def stop_v2v_pipeline_task(self):
         # 停止流水线子进程，需要对任务列表初始化，便于重新分配任务。
         self.clear_tasks()
-        # 退出退出标记
-        self._share_data[0] = True
-
+        # 标记退出状态，各个子进程可查询
+        self._process_share_data[0] = True
         # 微服务进程与主进程同时存在，不会停
         msg = bus.EBUS_SPECIAL_MSG_STOP
         self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)
@@ -478,7 +483,6 @@ class MainContext(bus.IEventBusMixin):
         _v2v_cfg_dict = ConfigSet.get_v2v_cfg_obj()  # 待分配任务表
         # 遍历主进程管理的任务列表
         for _rtsp_url, _process_name in self._task_dict.items():
-            # FIXME: source存在重名的情况
             if _process_name == source:  # 这个子进程注册过吗？
                 for _channel_dict in _v2v_cfg_dict['rtsp_urls']:
                     # 根据任务中的url地址重新取配置信息
@@ -510,24 +514,19 @@ class MainContext(bus.IEventBusMixin):
         _new_task_dict = None
         # 遍历所有通道
         for channel in _v2v_cfg_dict['rtsp_urls']:
-            if channel:
-                _rtsp_url = channel['rtsp_url']
-                # 如果_task_dict中有这个值，说明有人先注册处理这个任务，再找下个待分配任务。
-                if _rtsp_url in self._task_dict.keys():
-                    continue
-                # 以前没分配过任务，或者分配过，但新的配置中没有那个任务了，均可以分配新的url
-                _new_task_dict = self.get_pre_assigned_cfg(source)
-                if _new_task_dict is None:
-                    _new_task_dict = channel
-                    self._task_dict.update({_rtsp_url: source})
-                    self.log(f'assign new task-->:{_rtsp_url}: {source}')
-                    break
-                # else:
-                #     # tasklist={}，还没有分配过任务。
-                #     tasklist.update({url: source})
-                #     self.log(f'xxxxx-----:{self.tasks_}')
-                #     cfgtask = channel
-                #     break
+            if not channel:
+                continue
+            _rtsp_url = channel['rtsp_url']
+            # 如果_task_dict中有这个值，说明有人先注册处理这个任务，再找下个待分配任务。
+            if _rtsp_url in self._task_dict.keys():
+                continue
+            # 以前没分配过任务，或者分配过，但新的配置中没有那个任务了，均可以分配新的url
+            _new_task_dict = self.get_pre_assigned_cfg(source)
+            if _new_task_dict is None:
+                _new_task_dict = channel
+                self._task_dict.update({_rtsp_url: source})
+                self.log(f'Assign new task --> :{_rtsp_url}: {source}', level=log.LOG_LVL_INFO)
+                break
         if _new_task_dict:
             _v2v_cfg_dict['rtsp_urls'] = [_new_task_dict]
         else:
@@ -547,38 +546,30 @@ class MainContext(bus.IEventBusMixin):
                 (_ms_cfg_dict['http_port'], _ms_cfg_dict['ssl_keyfile'], _ms_cfg_dict['ssl_certfile'])
 
             # 启动1个Restful进程，提供微服务调用
-            self.log("Fork http restful process.")
             self.fork_restful_process(port=_ms_port, ssl_keyfile=_ms_key, ssl_certfile=_ms_cer)
 
             # 阻塞处理子进程之间的消息。
-            self.log("Enter main event loop.")
-            loop = True
-            _frame_start_time, _process_pool_time = time.time(), time.time()
-            # FIXME: ctrl+c无法退出循环
-            while loop:
+            self.log("Enter main event loop.", level=log.LOG_LVL_DBG)
+            _main_start_time, _process_pool_time = time.time(), time.time()
+            while True:
                 # rpc远程调用服务启动，非阻塞等待外部事件出发状态改变
                 try:
-                    loop = MainContext.rpc_service()
+                    MainContext.rpc_service()
                 except zmq.Again as e:
                     time.sleep(0.01)
-                # TODO: 监控二个队列的使用情况
-                if (time.time() - _frame_start_time) >= 5:
+                # 每隔10秒输出程序运行状态
+                if (time.time() - _main_start_time) >= 10:
                     self.log(f"Frame queue size: {self._queue_frame.qsize()}", level=log.LOG_LVL_INFO)
-                    self.log(f"Mqtt queue size: {self._queue_vector.qsize()}", level=log.LOG_LVL_INFO)
-                    _frame_start_time = time.time()
-                # TODO: 监控进程池的运行情况
+                    self.log(f"Mqtt  queue size: {self._queue_vector.qsize()}", level=log.LOG_LVL_INFO)
+                    # TODO: 监控进程池的运行情况，RTSP,AI,MQTT进程数量，以及所在阶段(startup, mainloop)
+                    # 输出主进程管理的任务列表
+                    self.log(f"Task list: {self._task_dict}", level=log.LOG_LVL_INFO)
+                    _main_start_time = time.time()
         except KeyboardInterrupt as err:
-            self.log(f'3.[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+            self.log(f'Main loop get ctrl+c : {err}', level=log.LOG_LVL_ERRO)
             self.factory_.teminate_rest()
-            self.log('rest process exit...')
             self.factory_.terminate()
-            self.log('pools of rtsp/ai/mqtt exit...')
-        else:
-            self.log(f'[{__file__}] Normal termination...')
-            self.factory_.close()
-            self.factory_.teminate_rest()
-            self.log('pools of rtsp/ai/mqtt exit...')
         finally:
-            self.log(f'[{__file__}] pools of rtsp/ai/mqtt close...')
+            self.log(f'MainLoop exit.')
             self.factory_.close()
             self.factory_.join()

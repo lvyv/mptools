@@ -10,11 +10,9 @@ from pathlib import Path
 # 配置python加载路径
 _module_path = Path(Path(__file__).absolute().parent)
 sys.path.append(str(_module_path))
-# sys.path.append(str(_module_path.joinpath("core")))
-# sys.path.append(str(_module_path.joinpath("utils")))
 from utils.config import ConfigSet
 from core.kernel import MainContext
-from utils import log, comn
+from utils import log
 from conf import const
 
 
@@ -26,8 +24,8 @@ def _main_entry():
     # 初始化日志记录器配置文件
     log.init_logger(const.LOG_CFG_PATH)
 
-    # 初始化comn模块
-    comn.set_common_cfg(ConfigSet.get_v2v_cfg_obj())
+    # 加载配置文件到内存
+    ConfigSet.get_v2v_cfg_obj()
     ConfigSet.get_base_cfg_obj()
 
     # 进程主循环
