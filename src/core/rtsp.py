@@ -67,15 +67,7 @@ class RtspWorker(ProcWorker):
         self.args_ = channel
         pass
 
-    def handle_event(self, evt):
-        cmd = evt['cmd']
-        if cmd == 'pause':
-            did = evt['deviceid']
-            cid = evt['channelid']
-            if did == self._process_task_dict['device_id'] and cid == self._process_task_dict['channel_id']:
-                sleep(evt['timeout'])
-
-    def _sleep_wrapper(self, timeout):
+    def _sleep_wrapper(self, timeout) -> bool:
         """
         针对time.sleep()函数的封装，解决sleep时无法接收广播事件的问题
 
@@ -86,13 +78,31 @@ class RtspWorker(ProcWorker):
         _start_time, delta = time(), 0
         while timeout >= delta:
             evt = self.subscribe()
-            if evt and evt == bus.EBUS_SPECIAL_MSG_STOP:
-                _ret = False
-                break
+            if evt:
+                if evt == bus.EBUS_SPECIAL_MSG_STOP:
+                    _ret = False
+                    break
+                else:
+                    # 循环嵌套
+                    _ret = self.handle_event(evt)
+                    if _ret is False:
+                        break
             # 使用更小的sleep粒度
             sleep(0.05)
             delta = time() - _start_time
 
+        return _ret
+
+    def handle_event(self, evt) -> bool:
+        _ret = True
+        cmd = evt['cmd']
+        if cmd == 'pause':
+            did = evt['deviceid']
+            cid = evt['channelid']
+            if did == self._process_task_dict['device_id'] and cid == self._process_task_dict['channel_id']:
+                # sleep(evt['timeout'])
+                self.log(f"[PAUSE] Got pause get rtsp stream message. {evt['timeout']}")
+                _ret = self._sleep_wrapper(evt['timeout'])
         return _ret
 
     def startup(self):

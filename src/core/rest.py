@@ -309,7 +309,9 @@ class RestWorker(ProcWorker):
                             raise RuntimeError(f'Cannot get the control of IPC: {deviceid}, {channelid}.')
 
                         # rest 需要等待一定时间，让rtsp进程停下来。
-                        time.sleep(rest_p)
+                        # FIXME: 此处最长时间应该为控制云台的延时+0.5
+                        # time.sleep(rest_p)
+                        time.sleep(_cfg_dict['ipc_ptz_delay'] + 0.5)
 
                         if url in _self_obj.cached_cvobjs_:
                             # 如果缓存过，就直接用缓存的流。

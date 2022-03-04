@@ -194,7 +194,7 @@ class IEventBusMixin:
             idx = msg.index(':') + 1
             ret = json.loads(msg[idx:])
         except json.decoder.JSONDecodeError as err:
-            IEventBusMixin.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)   # noqa
+            IEventBusMixin.log(f'{err}', level=log.LOG_LVL_ERRO)
         finally:
             return ret
 

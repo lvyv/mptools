@@ -141,7 +141,8 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
                     self.log("Recv EBUS_SPECIAL_MSG_CFG event.")
                     raise V2VErr.V2VConfigurationChangedError(evt)
                 elif evt:                                   # 其它广播事件，比如停止某个通道
-                    self.log(f'Got event in mainloop: {evt}.')
+                    pass
+                    # self.log(f'Got event in mainloop: {evt}.')
                 # 在每次循环完毕上报一次运行时间。
                 delta = time.time() - self._start_time
                 self.call_rpc(bus.CB_SET_METRICS, {'up': delta, 'application': self.name})
