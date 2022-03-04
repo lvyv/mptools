@@ -191,7 +191,7 @@ class AiWorker(ProcWorker):
         return array(image_list), template
 
     def startup(self):
-        self.log(f'started.', level=log.LOG_LVL_INFO)
+        self.log(f'Enter startup.', level=log.LOG_LVL_INFO)
         # 从主进程获取配置参数
         _v2v_cfg_dict = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
         mqttcfg = _v2v_cfg_dict['mqtt_svrs'][0]
@@ -245,7 +245,6 @@ class AiWorker(ProcWorker):
                 self.log(f'Call AI --> {_ai_http_api_url}.')  # by {template_in}.')
                 resp = requests.post(_ai_http_api_url, files=files, data=payload, verify=False)
                 if resp.status_code == 200:
-                    # result = resp.content.decode('utf-8')
                     self.log(f'The size of vector queue between ai & mqtt is: {self.out_q_.qsize()}.')
                     self.out_q_.put(resp.content)
                     # FIXME: 耗时情况

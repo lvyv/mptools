@@ -74,6 +74,21 @@ class V2VTaskNullRtspUrl(Exception):
         return self.message_
 
 
+class V2VTaskExitStartupStage(Exception):
+    """Raised when need exit process in startup function..
+
+    Attributes:
+        message -- explanation of what is going on.
+    """
+
+    def __init__(self, message):
+        super().__init__(self)
+        self.message_ = message
+
+    def __str__(self):
+        return self.message_
+
+
 if __name__ == '__main__':
     try:
         raise V2VConfigurationChangedError(f'进程运行时，相关配置文件更新错误触发')

@@ -97,7 +97,7 @@ class MqttWorker(ProcWorker):
     def startup(self):
         try:
             # 1.尝试获取配置数据
-            self.log(f'started.')
+            self.log(f'Enter startup.')
             _base_cfg_dict = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
             _mqtt_cfg_dict = _base_cfg_dict['mqtt_svrs'][0]
             self.mqtt_host_ = _mqtt_cfg_dict['mqtt_svr']

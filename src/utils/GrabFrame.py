@@ -52,8 +52,15 @@ class VideoCaptureThread(threading.Thread):
         return self.__current_frame_pos
 
     def run(self):
-        # print('Start VideoCaptureThread.')
-        cap_obj = cv2.VideoCapture(self.__rtsp_url)
+        try:
+            cap_obj = cv2.VideoCapture(self.__rtsp_url)
+        except cv2.error as err:
+            print(f"cv2.VideoCapture failed: {err}")
+            return
+
+        if not cap_obj.isOpened():
+            return
+
         if self.__is_exit is True:
             # 在阻塞连接流这段时间，上层已经等不及而关闭该线程
             if cap_obj is not None:
@@ -87,8 +94,6 @@ class VideoCaptureThread(threading.Thread):
             # 每秒25帧：1000 / 25 = 40ms，理解间隔为40ms，实际设置为10ms
             time.sleep(0.01)
         cap_obj.release()
-
-        # print('Exit VideoCaptureThread.', self.__is_exit)
 
 
 class GrabFrame:

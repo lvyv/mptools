@@ -47,7 +47,7 @@ class RtspWorker(ProcWorker):
         for key, value in channel_cfg.items():
             if key == 'rtsp_params':
                 self.args_ = value
-                # self.sample_rate_ = value['sample_rate']
+                break
         # 代表任务的配置文件，里面包含一个通道的信息
         self._process_task_dict = {}
         # 视频调度管理软件的地址
@@ -78,7 +78,6 @@ class RtspWorker(ProcWorker):
             cid = evt['channelid']
             if did == self._process_task_dict['device_id'] and cid == self._process_task_dict['channel_id']:
                 sleep(evt['timeout'])
-        pass
 
     def startup(self):
         # rtsp流地址
@@ -87,7 +86,7 @@ class RtspWorker(ProcWorker):
         _channel_cfg_dict = None
         try:
             # 1.尝试获取配置数据，找主进程获取一个流水线任务，复用了获取配置文件的命令
-            self.log(f'started.')
+            self.log(f'Enter startup.')
             _process_task_dict_from_main = self.call_rpc(bus.CB_GET_CFG,
                                                          {'cmd': 'get_task', 'source': self.name,
                                                           'assigned': self._process_task_dict})

@@ -35,6 +35,8 @@ import signal
 import os
 import time
 
+import zmq
+
 from core.rtsp import RtspWorker
 from core.ai import AiWorker
 from core.mqtt import MqttWorker
@@ -46,8 +48,8 @@ from utils.wrapper import proc_worker_wrapper, daemon_wrapper
 
 def init_worker():
     # 忽略ctrl+c信号
-    # FIXME: why ?
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+    pass
 
 
 class ProcSimpleFactory:
@@ -63,7 +65,7 @@ class ProcSimpleFactory:
         self.log = functools.partial(log.logger, f'ProcSimpleFactory')
         self._pool_size = nop
 
-    # 创建进程，每个进程的名称：RTSP(index)-PID
+    # 创建进程，每个进程的名称：NAME(PID)
     def create(self, worker_class, name, in_q=None, out_q=None, **kwargs):
         if self._process_pool_handle is None:
             self._process_pool_handle = multiprocessing.Pool(processes=self._pool_size, initializer=init_worker)
@@ -168,6 +170,9 @@ class MainContext(bus.IEventBusMixin):
         # 进程间消息队列
         self._queue_frame = multiprocessing.Manager().Queue(self.PIC_QUEUE_SIZE)  # Is JoinableQueue better?
         self._queue_vector = multiprocessing.Manager().Queue(self.VEC_QUEUE_SIZE)  # mqtt阻塞
+        # 进程间共享数据，用于标记是否该退出子进程，[False, False],第一个元素有效，第二个元素备用.
+        # 各个子进程中读取该状态，判断是否该立即退出进程
+        self._share_data = multiprocessing.Manager().list([False, False])
 
         # self.queues_ = []  # 子进程间数据传递队列
         # self.queues_.append(self.pic_q_)  # 图片
@@ -396,19 +401,21 @@ class MainContext(bus.IEventBusMixin):
         return res
 
     def start_v2v_pipeline_task(self, cfg):
+        # 复位子进程退出状态
+        self._share_data[0] = False
         try:
             # 根据通道列表启动每个通道的rtsp->ai->mqtt处理进程
             # FIXME: 1.根据每个通道的启用状态，决定是否开启rtsp->ai->mqtt流程;2.如果rtsp取流失败，不应该再启动后续的ai->mqtt进程
             for channel in cfg['rtsp_urls']:
                 # 不提供cnt=x参数，缺省1个通道启1个取RTSP流进程
-                self.switch_on_process('RTSP', rtsp_params=channel)
+                self.switch_on_process('RTSP', rtsp_params=channel, share_list=self._share_data)
                 # 取AI的识别结果比较慢，安排2个进程处理一个通道
-                self.switch_on_process('AI', cnt=2)
+                self.switch_on_process('AI', cnt=2, share_list=self._share_data)
                 # 上传文件，安排1个进程处理，不要多个进程，防止服务器端互相踢
                 mqtt = cfg['mqtt_svrs'][0]
                 self.switch_on_process('MQTT', cnt=1, mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'],
                                        mqtt_cid=mqtt['mqtt_cid'], mqtt_usr=mqtt['mqtt_usr'], mqtt_pwd=mqtt['mqtt_pwd'],
-                                       mqtt_topic=mqtt['mqtt_tp'], node_name=mqtt['node_name'])
+                                       mqtt_topic=mqtt['mqtt_tp'], node_name=mqtt['node_name'], share_list=self._share_data)
             self.log(f"Start v2v pipeline, total channel: {len(cfg['rtsp_urls'])}")
         except KeyError as err:
             self.log(f'2.[{__file__}]{err}', level=log.LOG_LVL_ERRO)
@@ -416,6 +423,9 @@ class MainContext(bus.IEventBusMixin):
     def stop_v2v_pipeline_task(self):
         # 停止流水线子进程，需要对任务列表初始化，便于重新分配任务。
         self.clear_tasks()
+        # 退出退出标记
+        self._share_data[0] = True
+
         # 微服务进程与主进程同时存在，不会停
         msg = bus.EBUS_SPECIAL_MSG_STOP
         self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)
@@ -546,9 +556,11 @@ class MainContext(bus.IEventBusMixin):
             _frame_start_time, _process_pool_time = time.time(), time.time()
             # FIXME: ctrl+c无法退出循环
             while loop:
-                # rpc远程调用服务启动，阻塞等待外部事件出发状态改变
-                # FIXME: 修改为非阻塞
-                loop = MainContext.rpc_service()
+                # rpc远程调用服务启动，非阻塞等待外部事件出发状态改变
+                try:
+                    loop = MainContext.rpc_service()
+                except zmq.Again as e:
+                    time.sleep(0.01)
                 # TODO: 监控二个队列的使用情况
                 if (time.time() - _frame_start_time) >= 5:
                     self.log(f"Frame queue size: {self._queue_frame.qsize()}", level=log.LOG_LVL_INFO)
