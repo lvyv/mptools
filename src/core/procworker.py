@@ -128,7 +128,7 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
             # self.subscriber_.close()
             # self.subscriber_ = None
             pass
-        self.log("ProcWorker close zmq handle.", level=log.LOG_LVL_INFO)
+        # self.log("ProcWorker close zmq handle.", level=log.LOG_LVL_INFO)
 
     def main_loop(self):
         try:

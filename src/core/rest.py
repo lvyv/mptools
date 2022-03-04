@@ -291,12 +291,12 @@ class RestWorker(ProcWorker):
                 _preset_image_path = f'{_nvr_samples_path}{deviceid}/'
                 if refresh:
                     # 如果是刷新，需要从spdd取该通道的流地址
-                    _self_obj.log("Call SPDD stream list api. --> ")
+                    _self_obj.log("[API] Call SPDD stream list api. --> ")
                     url = comn.get_rtsp_url(deviceid, channelid, _cfg_dict['media_service'])
                     presets = None
                     if url:
                         # 从spdd取预置位
-                        _self_obj.log("Call SPDD presets list api. --> ")
+                        _self_obj.log("[API] Call SPDD presets list api. --> ")
                         presets = comn.get_presets(deviceid, channelid, _cfg_dict['media_service'])
                     if url and presets:
                         # 通知主调度，暂停pipeline流水线对本摄像头的识别操作，让rtsp流水线rtsp进程sleep多少时间计算得出。
@@ -304,14 +304,15 @@ class RestWorker(ProcWorker):
                         rest_p, rtsp_p = self.calculate_delay_time(_cfg_dict, url)
                         pipeline_cmd = {'cmd': 'pause', 'deviceid': deviceid, 'channelid': channelid,
                                         'timeout': rtsp_p}
+                        _self_obj.log("[API] Pause RTSP process pull stream. --> ")
                         isok = _self_obj.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)
                         if not isok['reply']:
                             raise RuntimeError(f'Cannot get the control of IPC: {deviceid}, {channelid}.')
 
                         # rest 需要等待一定时间，让rtsp进程停下来。
-                        # FIXME: 此处最长时间应该为控制云台的延时+0.5
+                        # FIXME: 此处最长时间应该为请求SPDD接口时间或取一帧的时间+0.5
                         # time.sleep(rest_p)
-                        time.sleep(_cfg_dict['ipc_ptz_delay'] + 0.5)
+                        time.sleep(5 + 0.5)
 
                         if url in _self_obj.cached_cvobjs_:
                             # 如果缓存过，就直接用缓存的流。
@@ -327,6 +328,7 @@ class RestWorker(ProcWorker):
                         # 产生系列预置点图片。
                         item['rtsp_url'] = url  # 前端需要了解是否有合法url，才方便下发配置的时候填入正确的配置值
                         for prs in presets:
+                            _self_obj.log(f"[API] Call SPDD presets API. --> {prs['presetid']}")
                             ret = comn.run_to_viewpoints(deviceid, channelid,
                                                          prs['presetid'],
                                                          _cfg_dict['media_service'],
@@ -338,10 +340,12 @@ class RestWorker(ProcWorker):
                                     _self_obj.cached_cvobjs_.pop(url, None)  # 如果没有读出数据，清空缓存
                                     raise cv2.error(f'Got empty frame from cv2.')
                                 # 保存原始图像
+                                _self_obj.log(f"[API] Save preset image to png. --> {prs['presetid']}")
                                 filename = f'{_preset_image_path}{prs["presetid"]}.png'
                                 os.makedirs(os.path.dirname(filename), exist_ok=True)
                                 cv2.imwrite(filename, _video_frame_data)
                                 # 保存缩略图，1920x1080的长宽缩小20倍
+                                _self_obj.log(f"[API] Save preset image to base64 file. --> {prs['presetid']}")
                                 _video_frame_data = imutils.resize(_video_frame_data, width=96, height=54)
                                 buf = io.BytesIO()
                                 plt.imsave(buf, _video_frame_data, format='png')
