@@ -30,7 +30,9 @@ Publish recognized results to iot gateway.
 # License: Apache Licence 2.0
 
 import json
+import queue
 import socket
+import time
 
 import paho.mqtt.client as mqtt_client
 
@@ -134,8 +136,11 @@ class MqttWorker(ProcWorker):
             raise V2VErr.V2VConfigurationIllegalError(err)
 
     def main_func(self, event=None, *args):
-        # 全速
-        vec = self.in_q_.get()
+        try:
+            vec = self.in_q_.get_nowait()
+        except queue.Empty:
+            time.sleep(0.01)
+            return False
 
         payload = json.loads(str(vec.decode('utf-8')))
         data = {'payload': payload}
@@ -160,3 +165,4 @@ class MqttWorker(ProcWorker):
         self._mqtt_client_obj.loop_stop()
         self._mqtt_client_obj.disconnect()
         self._mqtt_client_obj = None
+        self.close_zmq()

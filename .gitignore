@@ -117,4 +117,4 @@ tests/nvr_samples
 /src/swagger_ui_dep/static/favicon.ico
 
 # 测试数据
-src/nvr_samples/airesults
+src/nvr_samples/

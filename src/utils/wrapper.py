@@ -72,7 +72,7 @@ def proc_worker_wrapper(proc_worker_class, name, in_q=None, out_q=None, dicts=No
     except KeyboardInterrupt:
         pass
     except RuntimeError as err:
-        log.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+        log.log(f'{err}', level=log.LOG_LVL_ERRO)
     return ret
 
 

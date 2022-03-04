@@ -432,6 +432,7 @@ class MainContext(bus.IEventBusMixin):
         # 标记退出状态，各个子进程可查询
         self._process_share_data[0] = True
         # 微服务进程与主进程同时存在，不会停
+        self.log("Broadcast event: --> EBUS_SPECIAL_MSG_STOP")
         msg = bus.EBUS_SPECIAL_MSG_STOP
         self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)
         return True
@@ -566,10 +567,10 @@ class MainContext(bus.IEventBusMixin):
                     self.log(f"Task list: {self._task_dict}", level=log.LOG_LVL_INFO)
                     _main_start_time = time.time()
         except KeyboardInterrupt as err:
-            self.log(f'Main loop get ctrl+c : {err}', level=log.LOG_LVL_ERRO)
+            self.log(f'Main process get ctrl+c : {err}', level=log.LOG_LVL_ERRO)
             self.factory_.teminate_rest()
             self.factory_.terminate()
         finally:
-            self.log(f'MainLoop exit.')
+            self.log(f'Main process exit.')
             self.factory_.close()
             self.factory_.join()

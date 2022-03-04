@@ -41,7 +41,7 @@ class BaseProcWorker:
         for key, value in dicts.items():
             if key == 'share_list':
                 self._is_break_out_startup = value
-                self.log(f"[__init__] Got startup exit status: {self._is_break_out_startup}")
+                self.log(f"[__init__] Got process share data : {self._is_break_out_startup}")
                 break
         # 用于标识是否该退出子进程的main_loop阶段
         self.is_break_out_main_loop = False
@@ -81,9 +81,12 @@ class BaseProcWorker:
                 self.startup()
                 self.main_loop()
                 self.shutdown()
+                break
             except V2VErr.V2VTaskExitStartupStage as err:
-                _is_restart = False
                 self.log(f"V2VTaskExitStartupStage: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
+                self.shutdown()
+                self.log("after shutdown.")
+                break
             except V2VErr.V2VConfigurationIllegalError as err:
                 # 发生配置不合法，等待配置下发正确，发生在startup，可以不shutdown，避免引入新的错误。
                 _is_restart = True
@@ -100,7 +103,7 @@ class BaseProcWorker:
                 _is_restart = True
                 self.log(f"V2VTaskNullRtspUrl: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
                 time.sleep(1)
-        self.log(f"[EXIT] BaseProcWorker run loop. restart:{_is_restart}", level=log.LOG_LVL_INFO)
+        self.log(f"[__exit__] Leaving run loop. restart:{_is_restart}", level=log.LOG_LVL_ERRO)
 
 
 class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
@@ -114,6 +117,17 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
         self.send_cmd(method, param)
         ret = self.recv_cmd()
         return ret
+
+    def close_zmq(self):
+        if self.beeper_ is not None:
+            # self.beeper_.disconnect()
+            # self.beeper_.close()
+            self.beeper_ = None
+        if self.subscriber_ is not None:
+            # self.subscriber_.disconnect()
+            # self.subscriber_.close()
+            self.subscriber_ = None
+        self.log("ProcWorker close zmq handle.", level=log.LOG_LVL_INFO)
 
     def main_loop(self):
         try:
@@ -131,10 +145,15 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
                 delta = time.time() - self._start_time
                 self.call_rpc(bus.CB_SET_METRICS, {'up': delta, 'application': self.name})
                 self.is_break_out_main_loop = self.main_func(evt)
-            self.log('[EXIT] Leaving main_loop.')
+            self.log(f'[EXIT] Leaving main_loop. {self.is_break_out_main_loop}', level=log.LOG_LVL_INFO)
         except KeyboardInterrupt:
-            self.log(f'Caught KeyboardInterrupt event.', level=log.LOG_LVL_ERRO)
-            self.beeper_.disconnect()
-            self.beeper_.close()
-            self.subscriber_.disconnect()
-            self.subscriber_.close()
+            self.log(f'Caught KeyboardInterrupt event in main loop.', level=log.LOG_LVL_ERRO)
+        # finally:
+            if self.beeper_ is not None:
+                self.beeper_.disconnect()
+                self.beeper_.close()
+                self.beeper_ = None
+            if self.subscriber_ is not None:
+                self.subscriber_.disconnect()
+                self.subscriber_.close()
+                self.subscriber_ = None

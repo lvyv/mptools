@@ -292,7 +292,7 @@ class RestWorker(ProcWorker):
                 if refresh:
                     # 如果是刷新，需要从spdd取该通道的流地址
                     _self_obj.log("Call SPDD stream list api. --> ")
-                    url = comn.get_url(deviceid, channelid, _cfg_dict['media_service'])
+                    url = comn.get_rtsp_url(deviceid, channelid, _cfg_dict['media_service'])
                     presets = None
                     if url:
                         # 从spdd取预置位
@@ -374,9 +374,11 @@ class RestWorker(ProcWorker):
                     item['width'], item['height'] = wpr.get_picture_size(pngfile)
                 else:
                     item['reply'] = False
-                    item['desc'] = '没有生成可标注的图片。'
+                    item['desc'] = '没有生成可标注的图片.'
             except FileNotFoundError as err:
                 _self_obj.log(f'Web api get_presets: {err}', level=log.LOG_LVL_ERRO)
+                item['reply'] = False
+                item['desc'] = '图片文件不存在.'
             except ValueError as err:
                 _self_obj.log(f'Web api get_presets: {err}', level=log.LOG_LVL_ERRO)
             except RuntimeError as err:

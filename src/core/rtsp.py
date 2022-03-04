@@ -75,6 +75,12 @@ class RtspWorker(ProcWorker):
             if did == self._process_task_dict['device_id'] and cid == self._process_task_dict['channel_id']:
                 sleep(evt['timeout'])
 
+    def _sleep_wrapper(self, timeout):
+        """
+        针对time.sleep()函数的封装，解决sleep时无法接收广播事件的问题
+        """
+        pass
+
     def startup(self):
         # rtsp流地址
         _rtsp_url = None
@@ -202,5 +208,5 @@ class RtspWorker(ProcWorker):
         self._stream_fps = None
         self._process_task_dict.clear()
         self._process_task_dict = {}  # 很重要，清空任务列表
-
+        self.close_zmq()
 

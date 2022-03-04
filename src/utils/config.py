@@ -328,7 +328,7 @@ class ConfigSet:
             cls.save_v2v_cfg()     # FIXME:有点野蛮，没有进行合法性校核，可能导致程序无法启动
             ret = cls.v2v_cfg_dict
         except KeyError as err:
-            log.log(f'{err}', level=log.LOG_LVL_ERRO)
+            log.log(f'update_v2v_cfg failed: {err}', level=log.LOG_LVL_ERRO)
             ret = None
         finally:
             return ret

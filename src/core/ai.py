@@ -27,12 +27,11 @@ Feed AI meter picture one by one and get recognized results.
 """
 
 import datetime
-# import time
 import io
 import json
-# Author: Awen <26896225@qq.com>
-# License: Apache Licence 2.0
 import os
+import queue
+import time
 from pathlib import Path
 
 import cv2
@@ -214,8 +213,12 @@ class AiWorker(ProcWorker):
         :return:
         """
         try:
-            # 全速
-            pic = self.in_q_.get()
+            pic = self.in_q_.get_nowait()
+        except queue.Empty:
+            time.sleep(0.01)
+            return False
+
+        try:
             _aoi_dict = pic['task']
             fid = pic['fid']
             fps = pic['fps']
@@ -260,3 +263,6 @@ class AiWorker(ProcWorker):
             self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
         finally:
             return False
+
+    def shutdown(self):
+        self.close_zmq()

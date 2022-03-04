@@ -63,7 +63,7 @@ def run_to_viewpoints(devid, channelid, presetid, spdd_url, ptz_delay=30):
         return ret
 
 
-def get_url(devid, channelid, spdd_url):
+def get_rtsp_url(devid, channelid, spdd_url):
     ret = None
     try:
         url = f'{spdd_url}/api/v1/ptz/streaminfo'
@@ -72,9 +72,6 @@ def get_url(devid, channelid, spdd_url):
         result = list(filter(lambda r: r['deviceid'] == devid and r['channelid'] == channelid, resp))
         if len(result) > 0:
             ret = result[0].get('url')
-        # for item in resp:
-        #     if item['deviceid'] == devid and item['channelid'] == channelid:
-        #         resp = item['url']
     except KeyError:
         pass
     finally:
