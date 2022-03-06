@@ -31,6 +31,8 @@ Pull av stream from nvr and decode pictures from the streams.
 
 import cv2
 from time import time, sleep
+
+from core.pools import ProcessState
 from utils import bus, comn, log, V2VErr, GrabFrame
 from core.procworker import ProcWorker
 
@@ -67,7 +69,7 @@ class RtspWorker(ProcWorker):
         self.args_ = channel
         pass
 
-    def _sleep_wrapper(self, timeout) -> bool:
+    def _sleep_wrapper(self, timeout) -> int:
         """
         针对time.sleep()函数的封装，解决sleep时无法接收广播事件的问题
 
@@ -77,19 +79,21 @@ class RtspWorker(ProcWorker):
         return:
         返回true表示正常，false表示sleep过程中有事件产生
         """
-        _ret = True
+        _ret = -1
         _start_time, delta = time(), 0
         while timeout >= delta:
             evt = self.subscribe()
             if evt:
-                if evt == bus.EBUS_SPECIAL_MSG_STOP:
-                    _ret = False
+                _evt_code = evt['code']
+                if _evt_code == bus.EBUS_SPECIAL_MSG_STOP['code']:
+                    _ret = _evt_code
+                    break
+                elif _evt_code == bus.EBUS_SPECIAL_MSG_STOP_RESUME_PIPE['code']:
+                    self.handle_event(evt)
+                    _ret = _evt_code
                     break
                 else:
-                    # 循环嵌套
-                    _ret = self.handle_event(evt)
-                    if _ret is False:
-                        break
+                    break
             # 使用更小的sleep粒度
             sleep(0.05)
             delta = time() - _start_time
@@ -99,21 +103,35 @@ class RtspWorker(ProcWorker):
     def handle_event(self, evt) -> bool:
         _ret = True
         cmd = evt['cmd']
-        if cmd == 'pause':
+        if cmd in ['pause', 'resume']:
             did = evt['deviceid']
             cid = evt['channelid']
-            if did == self._process_task_dict['device_id'] and cid == self._process_task_dict['channel_id']:
-                # sleep(evt['timeout'])
-                self.log(f"[PAUSE] Got pause get rtsp stream message. {evt['timeout']}")
-                _ret = self._sleep_wrapper(evt['timeout'])
+            # 取当前进程处理的通道，有可能通道为空
+            _p_did = self._process_task_dict.get('device_id', None)
+            _p_cid = self._process_task_dict.get('channel_id', None)
+            if _p_cid and _p_did and _p_cid == cid and _p_did == did:
+                if cmd == 'pause':
+                    _new_state = ProcessState.PAUSE
+                else:
+                    _new_state = ProcessState.RUN
+                self.log(f"[RTSP] Set Process State: {self.process_state} --> {_new_state}")
+                self.process_state = _new_state
+            # if did == self._process_task_dict['device_id'] and cid == self._process_task_dict['channel_id']:
+            #     self.log(f"[PAUSE] Got pause get rtsp stream message. {evt['timeout']}")
+            #     _ret = self._sleep_wrapper(evt['timeout'])
         return _ret
 
-    def startup(self):
+    def startup(self, evt=None):
         # rtsp流地址
         _rtsp_url = None
         # 通道的配置信息
         _channel_cfg_dict = None
         try:
+            if evt is not None:
+                self.handle_event(evt)
+            if self.process_state == ProcessState.PAUSE:
+                self._sleep_wrapper(0.1)
+
             # 1.尝试获取配置数据，找主进程获取一个流水线任务，复用了获取配置文件的命令
             self.log(f'Enter startup.')
             _process_task_dict_from_main = self.call_rpc(bus.CB_GET_CFG,
@@ -148,6 +166,9 @@ class RtspWorker(ProcWorker):
         except (cv2.error, IndexError, AttributeError) as err:
             self.log(f'[{__file__}]Rtsp startup task error:({_channel_cfg_dict})', level=log.LOG_LVL_ERRO)
             raise V2VErr.V2VConfigurationIllegalError(err)
+        else:
+            # startup阶段顺利完成
+            pass
 
     def main_func(self, event=None, *args):
         """
@@ -171,6 +192,10 @@ class RtspWorker(ProcWorker):
             # 4.读取流并设置处理该图片的参数
             if event:
                 self.handle_event(event)  # 主要处理暂停事件，当rest发过来请求暂停流水线
+            if self.process_state == ProcessState.PAUSE:
+                self._sleep_wrapper(0.1)
+                return
+
             did = self._process_task_dict['device_id']
             cid = self._process_task_dict['channel_id']
             vps = self._process_task_dict['view_ports']
@@ -186,20 +211,20 @@ class RtspWorker(ProcWorker):
                 # 让摄像头就位，阻塞操作，函数内部会休眠
                 self.log(f"Call PTZ preset. --> {presetid}")
                 comn.run_to_viewpoints(did, cid, presetid, self._spdd_url, self._ptz_delay)
-                if self._sleep_wrapper(self._ptz_delay) is False:
+                _sleep_ret = self._sleep_wrapper(self._ptz_delay)
+                if _sleep_ret == bus.EBUS_SPECIAL_MSG_STOP['code']:
                     self.log("Got manual exit event, so break ptz control.")
                     _ret = True
                     # 此处有坑，请搜索try..exception..finally中return
                     return _ret
-
+                elif _sleep_ret == bus.EBUS_SPECIAL_MSG_STOP_RESUME_PIPE['code']:
+                    # 跳过本次循环
+                    return _ret
                 # 读取停留时间，云台旋转到位后，在此画面停留时间
                 duration = vp[presetid][0]['seconds']  # 对某个具体的预置点vp，子分类aoi停留时间都是一样的，随便取一个即可。
                 st, delta = time(), 0
                 current_frame_pos = -1
                 while duration > delta:
-                    # if self.get_exit_state() is True:
-                    #     self.log("Got manual exit event, so break ptz while.")
-                    #     break
                     _video_frame_data = self._stream_obj.read_frame(0.1)
                     # 请求用时间戳，便于后续Ai识别后还能够知道是哪一个时间点的视频帧
                     requestid = int(time() * 1000)
@@ -220,11 +245,15 @@ class RtspWorker(ProcWorker):
                                 self.out_q_.put(_recognition_obj)
                     # FIXME: why?
                     self.log(f"截图休眠时间: {inteval - time() % inteval}")
-                    if self._sleep_wrapper(inteval - time() % inteval) is False:
+                    _sleep_ret = self._sleep_wrapper(inteval - time() % inteval)
+                    if _sleep_ret == bus.EBUS_SPECIAL_MSG_STOP['code']:
                         self.log("Got manual exit event, so break capture flow.")
                         _ret = True
-                        return
-                    # sleep(inteval - time() % inteval)  # 动态调速，休眠采样间隔的时间
+                        # 此处有坑，请搜索try..exception..finally中return
+                        return _ret
+                    elif _sleep_ret == bus.EBUS_SPECIAL_MSG_STOP_RESUME_PIPE['code']:
+                        # 跳过本次循环
+                        return _ret
                     # 计算是否到设定的时间了
                     delta = time() - st  # 消耗的时间（秒）
                 self.log(f'preset: "{presetid}" spend time: {delta} and current frame pos: {current_frame_pos}')
@@ -244,5 +273,5 @@ class RtspWorker(ProcWorker):
         self._stream_fps = None
         self._process_task_dict.clear()
         self._process_task_dict = {}  # 很重要，清空任务列表
-        self.close_zmq()
+        pass
 

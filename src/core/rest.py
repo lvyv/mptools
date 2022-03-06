@@ -124,6 +124,22 @@ class RestWorker(ProcWorker):
             elif key == 'ssl_certfile':
                 self.ssl_certfile_ = value
 
+    def _check_did_cid_valid(self, did, cid) -> bool:
+        """
+        校验传入的设备ID是否合法
+        """
+        _is_exist_cid = False
+        _cfg_dict = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
+        for channel in _cfg_dict['rtsp_urls']:
+            _did = channel.get('device_id', None)
+            _cid = channel.get('channel_id', None)
+            if not _did or not _cid:
+                continue
+            if _did == did and _cid == cid:
+                _is_exist_cid = True
+                break
+        return _is_exist_cid
+
     # 创建Web服务器
     def create_app(self) -> FastAPI:
         app_ = FastAPI(
@@ -265,8 +281,8 @@ class RestWorker(ProcWorker):
         async def provide_metrics(deviceid: str, channelid: str):
             """C&M之M：接受监控端比如promethus的调用，反馈自己是否在线和反馈各种运行时信息"""
             item = {'version': '1.0.0'}
-            _self_obj.log(deviceid)  # noqa
-            _self_obj.log(channelid)  # noqa
+            _self_obj.log(deviceid)
+            _self_obj.log(channelid)
 
             return item
 
@@ -279,6 +295,28 @@ class RestWorker(ProcWorker):
             streams = comn.get_urls(_cfg_dict['media_service'])
             item['streams'] = streams
             item['reply'] = True
+            return item
+
+        @app_.get("/api/v1/v2v/action/{deviceid}/{channelid}")
+        async def set_process_action(deviceid: str, channelid: str, action: str = 'pause'):
+            """对单个通道进行开始和关闭操作"""
+            item = {'version': '1.0.0', 'deviceid': deviceid, 'channelid': channelid, 'reply': 'SUCCEED'}
+            # 检测传入的did, cid是否合法
+            if action not in ['pause', 'resume']:
+                item['reply'] = 'action argument need "pause" or "resume"'
+                return item
+            # 在配置文件中检测是否存在该ID
+            if not _self_obj._check_did_cid_valid(deviceid, channelid):
+                item['reply'] = 'Invalid deviceid and channelid.'
+                return item
+            # FIXME: 还应该校验该ID是否已经被分配到任务进程
+            # 广播消息
+            process_cmd = {'cmd': action, 'deviceid': deviceid, 'channelid': channelid}
+            _self_obj.log(f"[API] {action} RTSP process pull stream. --> ")
+            _ret = _self_obj.call_rpc(bus.CB_PAUSE_RESUME_PIPE, process_cmd)
+            if not _ret['reply']:
+                item['reply'] = 'rpc call failed.'
+            # 返回结果
             return item
 
         @app_.get("/api/v1/v2v/presets/{deviceid}/{channelid}")
@@ -300,10 +338,7 @@ class RestWorker(ProcWorker):
                         presets = comn.get_presets(deviceid, channelid, _cfg_dict['media_service'])
                     if url and presets:
                         # 通知主调度，暂停pipeline流水线对本摄像头的识别操作，让rtsp流水线rtsp进程sleep多少时间计算得出。
-                        # FIXME: 暂停后，RTSP子进程会被time()阻塞，最好使用状态来区分
-                        rest_p, rtsp_p = self.calculate_delay_time(_cfg_dict, url)
-                        pipeline_cmd = {'cmd': 'pause', 'deviceid': deviceid, 'channelid': channelid,
-                                        'timeout': rtsp_p}
+                        pipeline_cmd = {'cmd': 'pause', 'deviceid': deviceid, 'channelid': channelid}
                         _self_obj.log("[API] Pause RTSP process pull stream. --> ")
                         isok = _self_obj.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)
                         if not isok['reply']:
@@ -394,6 +429,10 @@ class RestWorker(ProcWorker):
             else:
                 _self_obj.log(f'Preset pictures done.', level=log.LOG_LVL_INFO)
             finally:
+                pipeline_cmd = {'cmd': 'resume', 'deviceid': deviceid, 'channelid': channelid}
+                _self_obj.log("[API] Resume RTSP process to pull stream. --> ")
+                _self_obj.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)
+
                 return item
 
         class Directory(BaseModel):
@@ -435,9 +474,9 @@ class RestWorker(ProcWorker):
         rtsp_sleep_time = 0
         try:
             ret = self.call_rpc(bus.CB_GET_METRICS, {'cmd': 'get_metrics', 'desc': 'rest api is called.'})
-            tasks = ret['result_tasks']
+            tasks_urls = ret['result_tasks']
             ipc_ptz_delay = cfgobj['ipc_ptz_delay']
-            if url in tasks.keys():
+            for url in tasks_urls:
                 for urlchannel in cfgobj['rtsp_urls']:
                     if urlchannel['rtsp_url'] == url:
                         presets_size = len(urlchannel['view_ports'])

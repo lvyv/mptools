@@ -59,6 +59,7 @@ CB_STOP_REST = 'stop_rest'
 CB_SET_METRICS = 'set_metrics'
 CB_GET_METRICS = 'get_metrics'
 CB_PAUSE_RESUME_PIPE = 'pause_resume_pipe'
+CB_UPDATE_TASK_STATE = 'update_task_state'
 
 
 class IEventBusMixin:

@@ -27,6 +27,8 @@ All common behaviors of sub process.
 """
 import functools
 import time
+
+from core.pools import ProcessState
 from utils import bus, log, V2VErr
 
 
@@ -34,23 +36,15 @@ class BaseProcWorker:
     def __init__(self, name, dicts, **kwargs):
         # 进程名称 NAME(PID)
         self.name = name
-        self.log = functools.partial(log.logger, f'{name}')
-
-        self._is_break_out_startup = None
-        # 获取从主进程传输的进程间共享值，用于标记是否该退出子进程的startup阶段
-        for key, value in dicts.items():
-            if key == 'share_list':
-                self._is_break_out_startup = value
-                self.log(f"[__init__] Got process share data : {self._is_break_out_startup}")
-                break
         # 用于标识是否该退出子进程的main_loop阶段
         self.is_break_out_main_loop = False
+        self.log = functools.partial(log.logger, f'{name}')
 
     def main_loop(self):
         self.log("Entering main_loop.")
         raise NotImplementedError(f"{self.__class__.__name__}.main_loop is not implemented")
 
-    def startup(self):
+    def startup(self, event=None):
         self.log("Entering startup.")
         pass
 
@@ -62,28 +56,73 @@ class BaseProcWorker:
         self.log("Entering main_func.")
         raise NotImplementedError(f"{self.__class__.__name__}.main_func is not implemented")
 
-    def get_exit_state(self):
-        # 定义公共函数，用于查询是否该退出子进程.
-        # 主要用于RTSP子进程，在执行预置位操作时，阻塞旋转，无法接收退出事件，导致退出流程阻塞
-        if self._is_break_out_startup and self._is_break_out_startup[0] is True:
-            return True
-        else:
-            return False
+
+class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
+    def __init__(self, name, topic, dicts, **kwargs):
+        super().__init__(name, dicts, **kwargs)
+        self._start_time = time.time()                                      # 记录进程启动的时间戳
+        self.beeper_ = bus.IEventBusMixin.get_beeper()                   # req-rep客户端。
+        self.subscriber_ = bus.IEventBusMixin.get_subscriber(topic)      # pub-sub订阅端。
+        # 进程状态
+        self.process_state = ProcessState.INIT
+
+    def call_rpc(self, method, param):
+        self.send_cmd(method, param)
+        ret = self.recv_cmd()
+        return ret
+
+    def close_zmq(self):
+        if self.beeper_ is not None:
+            self.beeper_.disconnect()
+            self.beeper_.close()
+            self.beeper_ = None
+        if self.subscriber_ is not None:
+            self.subscriber_.disconnect()
+            self.subscriber_.close()
+            self.subscriber_ = None
+        self.log("ProcWorker close zmq handle.", level=log.LOG_LVL_INFO)
+
+    def _proc_broadcast_msg(self, evt):
+        if not evt:
+            return
+
+        if evt == bus.EBUS_SPECIAL_MSG_STOP:  # 共性操作：停止子进程
+            self.log("Recv EBUS_SPECIAL_MSG_STOP event.")
+            raise V2VErr.V2VTaskExitProcess('V2VTaskExitProcess.')
+        elif evt == bus.EBUS_SPECIAL_MSG_CFG:  # 共性操作：配置发生更新
+            self.log("Recv EBUS_SPECIAL_MSG_CFG event.")
+            raise V2VErr.V2VConfigurationChangedError('V2VConfigurationChangedError')
+        elif evt:  # 其它广播事件，比如停止某个通道
+            pass
+            # self.log(f'Got event in mainloop: {evt}.')
+
+    def main_loop(self):
+        while self.is_break_out_main_loop is False:
+            evt = self.subscribe()
+            self._proc_broadcast_msg(evt)
+            # 在每次循环完毕上报一次运行时间。
+            delta = time.time() - self._start_time
+            self.call_rpc(bus.CB_SET_METRICS, {'up': delta, 'application': self.name})
+            # 调用子类中的main_func函数
+            self.is_break_out_main_loop = self.main_func(evt)
+        self.log(f'[EXIT] Leaving main_loop. {self.is_break_out_main_loop}', level=log.LOG_LVL_INFO)
 
     def run(self):
         _is_restart = True
         while _is_restart:
             try:
-                # 由于架构限制，在startup阶段无法接收EMQ事件，因此通过进程间的共享状态标记是否该退出startup阶段.
-                # 该值在创建子进程时，由主进程传入，状态变更由主进程负责.
-                if self._is_break_out_startup and self._is_break_out_startup[0] is True:
-                    raise V2VErr.V2VTaskExitStartupStage('Exit startup stage.')
-                self.startup()
+                evt = self.subscribe()
+                self._proc_broadcast_msg(evt)
+                self.process_state = ProcessState.RUN
+                # 进程初始化
+                self.startup(evt)
+                # 进程主循环
                 self.main_loop()
+                # 进程清理阶段
                 self.shutdown()
                 break
-            except V2VErr.V2VTaskExitStartupStage as err:
-                self.log(f"V2VTaskExitStartupStage: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
+            except V2VErr.V2VTaskExitProcess as err:
+                self.log(f"V2VTaskExitProcess: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
                 self.shutdown()
                 break
             except V2VErr.V2VConfigurationIllegalError as err:
@@ -102,60 +141,7 @@ class BaseProcWorker:
                 _is_restart = True
                 self.log(f"V2VTaskNullRtspUrl: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
                 time.sleep(1)
+            except KeyboardInterrupt:
+                self.log(f'Caught KeyboardInterrupt event in run loop.', level=log.LOG_LVL_ERRO)
+                self.close_zmq()
         self.log(f"[__exit__] Leaving run loop. restart:{_is_restart}", level=log.LOG_LVL_ERRO)
-
-
-class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
-    def __init__(self, name, topic, dicts, **kwargs):
-        super().__init__(name, dicts, **kwargs)
-        self._start_time = time.time()                                      # 记录进程启动的时间戳
-        self.beeper_ = bus.IEventBusMixin.get_beeper()                   # req-rep客户端。
-        self.subscriber_ = bus.IEventBusMixin.get_subscriber(topic)      # pub-sub订阅端。
-
-    def call_rpc(self, method, param):
-        self.send_cmd(method, param)
-        ret = self.recv_cmd()
-        return ret
-
-    def close_zmq(self):
-        if self.beeper_ is not None:
-            # self.beeper_.disconnect()
-            # self.beeper_.close()
-            # self.beeper_ = None
-            pass
-        if self.subscriber_ is not None:
-            # self.subscriber_.disconnect()
-            # self.subscriber_.close()
-            # self.subscriber_ = None
-            pass
-        # self.log("ProcWorker close zmq handle.", level=log.LOG_LVL_INFO)
-
-    def main_loop(self):
-        try:
-            while self.is_break_out_main_loop is False:
-                evt = self.subscribe()
-                if evt and evt == bus.EBUS_SPECIAL_MSG_STOP:        # 共性操作：停止子进程
-                    self.log("Recv EBUS_SPECIAL_MSG_STOP event.")
-                    break
-                elif evt and evt == bus.EBUS_SPECIAL_MSG_CFG:       # 共性操作：配置发生更新
-                    self.log("Recv EBUS_SPECIAL_MSG_CFG event.")
-                    raise V2VErr.V2VConfigurationChangedError(evt)
-                elif evt:                                   # 其它广播事件，比如停止某个通道
-                    pass
-                    # self.log(f'Got event in mainloop: {evt}.')
-                # 在每次循环完毕上报一次运行时间。
-                delta = time.time() - self._start_time
-                self.call_rpc(bus.CB_SET_METRICS, {'up': delta, 'application': self.name})
-                self.is_break_out_main_loop = self.main_func(evt)
-            self.log(f'[EXIT] Leaving main_loop. {self.is_break_out_main_loop}', level=log.LOG_LVL_INFO)
-        except KeyboardInterrupt:
-            self.log(f'Caught KeyboardInterrupt event in main loop.', level=log.LOG_LVL_ERRO)
-        # finally:
-            if self.beeper_ is not None:
-                self.beeper_.disconnect()
-                self.beeper_.close()
-                self.beeper_ = None
-            if self.subscriber_ is not None:
-                self.subscriber_.disconnect()
-                self.subscriber_.close()
-                self.subscriber_ = None

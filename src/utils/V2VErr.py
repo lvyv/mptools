@@ -74,8 +74,8 @@ class V2VTaskNullRtspUrl(Exception):
         return self.message_
 
 
-class V2VTaskExitStartupStage(Exception):
-    """Raised when need exit process in startup function..
+class V2VTaskExitProcess(Exception):
+    """Raised when need exit process.
 
     Attributes:
         message -- explanation of what is going on.

@@ -99,7 +99,7 @@ class MqttWorker(ProcWorker):
             # self.tracer_ = global_tracer()
             self.tracer_ = AdaptorTracingUtility.init_tracer(servicename, agentip=aip, agentport=apt)
 
-    def startup(self):
+    def startup(self, evt=None):
         try:
             # 1.尝试获取配置数据
             self.log(f'Enter startup.')
@@ -165,4 +165,4 @@ class MqttWorker(ProcWorker):
         self._mqtt_client_obj.loop_stop()
         self._mqtt_client_obj.disconnect()
         self._mqtt_client_obj = None
-        self.close_zmq()
+        pass

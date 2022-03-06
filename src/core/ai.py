@@ -188,7 +188,7 @@ class AiWorker(ProcWorker):
             template[index]['pos'] = plc_det_adjust
         return array(image_list), template
 
-    def startup(self):
+    def startup(self, evt=None):
         self.log(f'Enter startup.', level=log.LOG_LVL_INFO)
         # 从主进程获取配置参数
         _v2v_cfg_dict = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
@@ -265,4 +265,4 @@ class AiWorker(ProcWorker):
             return False
 
     def shutdown(self):
-        self.close_zmq()
+        pass
