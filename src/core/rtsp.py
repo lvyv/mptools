@@ -71,6 +71,9 @@ class RtspWorker(ProcWorker):
         """
         针对time.sleep()函数的封装，解决sleep时无法接收广播事件的问题
 
+        param:
+        timeout: 休眠时间，单位秒
+
         return:
         返回true表示正常，false表示sleep过程中有事件产生
         """
@@ -220,7 +223,7 @@ class RtspWorker(ProcWorker):
                     if self._sleep_wrapper(inteval - time() % inteval) is False:
                         self.log("Got manual exit event, so break capture flow.")
                         _ret = True
-                        break
+                        return
                     # sleep(inteval - time() % inteval)  # 动态调速，休眠采样间隔的时间
                     # 计算是否到设定的时间了
                     delta = time() - st  # 消耗的时间（秒）

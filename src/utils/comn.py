@@ -101,3 +101,15 @@ def get_presets(devid, channelid, spdd_url):
         pass
     finally:
         return resp
+
+
+def get_time_in_ms():
+    """
+    获取当前的时间，单位毫秒
+    """
+    t = time.time()
+    return int(round(t * 1000))
+
+
+if __name__ == '__main__':
+    print(get_time_in_ms())

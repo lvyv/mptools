@@ -33,8 +33,8 @@ Log util for the project.
 # import logging
 import logging.config
 import os
+
 from conf import const
-from pathlib import Path
 
 # 日志级别从低到高
 LOG_LVL_DBG = logging.DEBUG

@@ -141,7 +141,7 @@ class MainContext(bus.IEventBusMixin):
     完成所有子进程的创建，终止工作。
     完成对所有运行子进程的下发配置和查询状态（主要是事件总线和图片及向量队列）。
     """
-    NUMBER_OF_PROCESSES = 18    # 进程池默认数量
+    NUMBER_OF_PROCESSES = 12    # 进程池默认数量
     PIC_QUEUE_SIZE = 20  # 允许RTSP存多少帧图像给AI，避免AI算不过来，RTSP把内存给撑死
     VEC_QUEUE_SIZE = 50  # 允许AI识别放多少结果到MQTT，避免MQTT死了，AI撑死内存
 
