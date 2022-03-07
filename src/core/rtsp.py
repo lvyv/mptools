@@ -29,12 +29,14 @@ Pull av stream from nvr and decode pictures from the streams.
 # Author: Awen <26896225@qq.com>
 # License: Apache Licence 2.0
 
-import cv2
 from time import time, sleep
 
+import cv2
+
 from core.pools import ProcessState
-from utils import bus, comn, log, V2VErr, GrabFrame
 from core.procworker import ProcWorker
+from third_api import spdd
+from utils import bus, log, V2VErr, GrabFrame
 
 
 class RtspWorker(ProcWorker):
@@ -229,7 +231,7 @@ class RtspWorker(ProcWorker):
                 presetid = list(vp.keys())[0]  # 目前配置文件格式规定：每个vp对象只有1个presetX的主键，value是一个json对象
                 # 让摄像头就位，阻塞操作，函数内部会休眠
                 self.log(f"Call PTZ preset. --> {presetid}")
-                comn.run_to_viewpoints(did, cid, presetid, self._spdd_url, self._ptz_delay)
+                spdd.run_to_viewpoints(did, cid, presetid, self._spdd_url, self._ptz_delay)
                 _sleep_ret = self._sleep_wrapper(self._ptz_delay)
                 if _sleep_ret == bus.EBUS_SPECIAL_MSG_STOP['code']:
                     self.log("Got manual exit event, so break ptz control.")
