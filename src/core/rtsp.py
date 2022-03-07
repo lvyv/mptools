@@ -175,7 +175,8 @@ class RtspWorker(ProcWorker):
                 raise V2VErr.V2VTaskNullRtspUrl(f'No more task left.')
             # 实例化取视频帧类
             cvobj = GrabFrame.GrabFrame()
-            # 非阻塞打开RTSP流
+            # 阻塞打开RTSP流
+            # FIXME: 因为阻塞，影响广播消息的接收和响应
             opened = cvobj.open_stream(_rtsp_url, GrabFrame.GrabFrame.OPEN_RTSP_TIMEOFF)
             if opened:
                 w, h, self._stream_fps = cvobj.get_stream_info()
@@ -183,6 +184,7 @@ class RtspWorker(ProcWorker):
                 self.log(f"Open RTSP stream success. w:{w}, h:{h}, fps:{self._stream_fps}, url:{_rtsp_url}")
             else:
                 self.log(f'Open RTSP stream failed. url:{_rtsp_url}', level=log.LOG_LVL_ERRO)
+                cvobj.stop_stream()
                 raise V2VErr.V2VConfigurationIllegalError(f'Open RTSP stream failed. url:{_rtsp_url}')
         except (cv2.error, IndexError, AttributeError) as err:
             self.log(f'[{__file__}]Rtsp startup task error:({_channel_cfg_dict})', level=log.LOG_LVL_ERRO)

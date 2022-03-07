@@ -58,8 +58,8 @@ class VideoCaptureThread(threading.Thread):
             print(f"cv2.VideoCapture failed: {err}")
             return
 
-        if not cap_obj.isOpened():
-            return
+        # if not cap_obj.isOpened():
+        #     return
 
         if self.__is_exit is True:
             # 在阻塞连接流这段时间，上层已经等不及而关闭该线程
