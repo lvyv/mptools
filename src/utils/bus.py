@@ -35,30 +35,28 @@ import functools
 from . import log
 # 特殊的通讯主题
 
-EBUS_TOPIC_RTSP = 'rtsp'
-EBUS_TOPIC_AI = 'ai'
-EBUS_TOPIC_MQTT = 'mqtt'
 EBUS_TOPIC_REST = 'rest'
-EBUS_TOPIC_MAIN = 'main'
-EBUS_TOPIC_PROC = 'procworker'  # base class topic
 EBUS_TOPIC_BROADCAST = 'broadcast'  # 广播主题
 
 # 特殊的广播总线事件，用于所有子进程的共性行为，广播主题目前只有一个EBUS_TOPIC_BROADCAST
+# 每个广播消息的CODE必须唯一.
 EBUS_SPECIAL_MSG_STOP = {'code': 0, 'desc': 'END'}               # 在基类处理的广播消息，退出主循环
-EBUS_SPECIAL_MSG_CFG = {'code': 1, 'desc': 'CONFIG'}             # 在基类处理的广播消息，配置发生更新
+EBUS_SPECIAL_MSG_CFG = {'code': 1, 'desc': 'CONFIG'}             # 在基类处理的广播消息，所有配置发生更新
 EBUS_SPECIAL_MSG_METRICS = {'code': 2, 'desc': 'METRICS'}        # 在基类处理的广播消息，采集监控指标
-EBUS_SPECIAL_MSG_STOP_RESUME_PIPE = {'code': 3, 'desc': 'METRICS'}  # 在子类处理的广播消息，启停某个流水线
+EBUS_SPECIAL_MSG_STOP_RESUME_PIPE = {'code': 3, 'desc': 'METRICS'}  # 子类中处理，启停某个流水线
+EBUS_SPECIAL_MSG_CHANNEL_CFG = {'code': 4, 'desc': 'CONFIG'}             # 子类中处理，单个通道配置发生更新
 
 # 特殊的call_rpc远程方法
-CB_STARTUP_PPL = 'start'
-CB_STOP_PPL = 'stop'
-CB_GET_CFG = 'get_cfg'
-CB_SET_CFG = 'set_cfg'
-CB_SAVE_CFG = 'save_cfg'
+CB_STARTUP_PPL = 'start'                # 开始流水线
+CB_STOP_PPL = 'stop'                    # 停止流水线
+CB_GET_CFG = 'get_cfg'                  # 获取配置文件
+CB_SET_CFG = 'set_cfg'                  # 设置所有通道的配置
+CB_SET_CHANNEL_CFG = 'set_channel_cfg'  # 设置单个通道的配置
+CB_SAVE_CFG = 'save_cfg'                # 写文件
 CB_STOP_REST = 'stop_rest'
 CB_SET_METRICS = 'set_metrics'
 CB_GET_METRICS = 'get_metrics'
-CB_PAUSE_RESUME_PIPE = 'pause_resume_pipe'
+CB_PAUSE_RESUME_PIPE = 'pause_resume_pipe'  # 暂停/启用进程
 CB_UPDATE_TASK_STATE = 'update_task_state'
 
 
@@ -119,18 +117,7 @@ class IEventBusMixin:
         ret = cls.rpc_implemention(msg)
         bus.send_string(ret)
         return True
-        # 下面的代码是为了解决在程序ctrl+c退出的时候，卡死在rpc_service的问题，通过引入退出循环的返回函数。
-        # if status in [getattr(FSM, y) for y in [x for x in dir(self) if x.find('STATUS') == 0]]:
-        # retobj = json.loads(ret)
-        # if isinstance(retobj, dict):
-        #     kl = 'continue'
-        #     if kl in retobj.keys():
-        #         return retobj[kl]     # 返回是否继续提供远程调用服务，如果返回False，就不能在响应客户端call_rpc了。
-        #     else:
-        #         return True
-        # else:
-        #     cls.log(f'----error callback_xxx return values:{ret}')
-        #     return True
+
 
     @classmethod
     def rpc_implemention(cls, msg):

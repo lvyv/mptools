@@ -7,25 +7,10 @@
 import copy
 import functools
 import os
-import time
 from enum import Enum, unique
 
 from utils import log
 from utils.config import ConfigSet
-
-
-@unique
-class TaskState(Enum):
-    # 该任务没有分配给任何进程
-    INIT = 0
-    # 该任务通过assign_task函数分配给子进程
-    ASSIGN = 1
-    # 该任务已经分配给子进程，正处于进程的初始化阶段
-    START = 2
-    # 该任务已经分配给子进程，正处于运行阶段
-    RUN = 3
-    # 该任务已经分配给子进程，正处于暂停阶段
-    PAUSE = 4
 
 
 @unique
@@ -47,9 +32,6 @@ class TaskInfo:
         self.rtsp_url = url
         # 进程名：NAME(PID)
         self._name = None
-        # type:TaskState
-        self._last_state = TaskState.INIT
-        self._state = TaskState.INIT
         # 处理该任务的子进程号
         # type: int
         self._task_pid = 0
@@ -64,7 +46,6 @@ class TaskInfo:
 
     def dump(self) -> dict:
         return {'url': self.rtsp_url,
-                'state': self.state,
                 'type': self._task_type,
                 'tpid': self._task_pid,
                 'deviceid': self._did,
@@ -88,22 +69,6 @@ class TaskInfo:
     @cid.setter
     def cid(self, value):
         self._cid = value
-
-    @property
-    def last_state(self):
-        return self._last_state
-
-    @property
-    def state(self):
-        return self._state
-
-    @state.setter
-    def state(self, value):
-        if not isinstance(value, TaskState):
-            value = TaskState(value)
-        self._last_state = self._state
-        self._state = value
-        self._time = time.time()
 
     @property
     def time(self):
@@ -134,9 +99,7 @@ class TaskInfo:
         _end = value.find(')')
         # 取任务进程号
         self._task_pid = int(value[_start + 1:_end])
-        # 设置任务状态
-        self._state = TaskState.ASSIGN
-        print(f'[TASK-MANAGE] name: {value}, tpid: {self._task_pid}, state: {self.state}, type: {self._task_type}')
+        print(f'[TASK-MANAGE] name: {value}, tpid: {self._task_pid}, type: {self._task_type}')
 
 
 class TaskManage:
@@ -146,9 +109,14 @@ class TaskManage:
         # {url: _TaskInfo}
         self._task_dict = dict()
 
-    def clear_task(self):
-        self._task_dict.clear()
-        self._task_dict = dict()
+    def clear_task(self, url=None):
+        if url is None:
+            # 清空所有任务
+            self._task_dict.clear()
+            self._task_dict = dict()
+        else:
+            # 清空指定的任务
+            self._task_dict.pop(url)
 
     def dump_rtsp_list(self) -> list:
         """

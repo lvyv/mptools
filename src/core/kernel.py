@@ -55,8 +55,8 @@ def init_worker():
 
 class ProcSimpleFactory:
     """创建子进程对象工厂类.
-    设置proc_worker_wrapper函数，作为所有子进程的入口。
-    子进程分别在该函数中实例化进程对象，并启动主循环。
+    设置proc_worker_wrapper函数，作为所有子进程的入口.
+    子进程分别在该函数中实例化进程对象，并启动主循环.
     """
     # 类变量，供类方法调用
     _web_process_handle = None  # rest 进程句柄
@@ -139,8 +139,8 @@ class FSM:
 
 class MainContext(bus.IEventBusMixin):
     """封装主进程模块类.
-    完成所有子进程的创建，终止工作。
-    完成对所有运行子进程的下发配置和查询状态（主要是事件总线和图片及向量队列）。
+    完成所有子进程的创建，终止工作.
+    完成对所有运行子进程的下发配置和查询状态（主要是事件总线和图片及向量队列）.
     """
     NUMBER_OF_PROCESSES = 12  # 进程池默认数量
     PIC_QUEUE_SIZE = 20  # 允许RTSP存多少帧图像给AI，避免AI算不过来，RTSP把内存给撑死
@@ -177,7 +177,7 @@ class MainContext(bus.IEventBusMixin):
         # 各个子进程中读取该状态，判断是否该立即退出进程
         self._process_share_data = multiprocessing.Manager().list([False, False])
 
-        # 保存所有进程（rest,rtsp,ai,mqtt）的所有监测指标数据：运行时间。rest基本能代表main自己。
+        # 保存所有进程（rest,rtsp,ai,mqtt）的所有监测指标数据：运行时间.rest基本能代表main自己.
         self.metrics_ = {}
         # 实例化工厂类
         self.factory_ = ProcSimpleFactory(self.NUMBER_OF_PROCESSES)
@@ -213,18 +213,43 @@ class MainContext(bus.IEventBusMixin):
         else:
             return {'reply': False}
 
+    def callback_set_channel_cfg(self, params):
+        """
+        对单个通道的配置文件进行更新，并通知指定的进程热加载配置
+        params: {
+          "rtsp_url": "rtsp://127.0.0.1:7554/live/main",
+          "device_id": "34020000001320000001",
+          "channel_id": "34020000001310000001",
+          "name": "",
+          "sample_rate": 1,
+          "view_ports": ""
+        """
+        _new_v2v_cfg_dict = ConfigSet.update_cfg(params)
+        if _new_v2v_cfg_dict:
+            # 配置更新事件发生，清空指定的任务.
+            if self._task_manage:
+                self._task_manage.clear_task(params['rtsp_url'])
+            # 广播到流水线进程，指定的进程收到消息后，将重启.
+            msg = bus.EBUS_SPECIAL_MSG_CHANNEL_CFG
+            msg.update(params)
+            # 广播配置信息给所有子进程
+            self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)
+            return {'reply': True, 'desc': f'已广播通知配置更新.{params["device_id"]}-{params["channel_id"]}'}
+        else:
+            return {'reply': False, 'desc': '不能识别的配置格式.'}
+
     def callback_set_cfg(self, params):
         """
-        本函数为REST子进程设置配置信息而设计。
+        本函数为REST子进程设置配置信息而设计.
 
         Parameters
         ----------
-        params:  Dict类型，可能是某单路视频通道配置，可能是全局配置。
+        params:  Dict类型，可能是某单路视频通道配置，可能是全局配置.
 
         Returns
         -------
         Dict
-            通用格式。
+            通用格式.
         Raises
         ----------
         RuntimeError
@@ -232,31 +257,30 @@ class MainContext(bus.IEventBusMixin):
         """
         _new_v2v_cfg_dict = ConfigSet.update_cfg(params)
         if _new_v2v_cfg_dict:
-            # 配置更新事件发生，需要对任务列表初始化，便于重新分配任务。
+            # 配置更新事件发生，需要对任务列表初始化，便于重新分配任务.
             if self._task_manage:
                 self._task_manage.clear_task()
-            # FIXME: 最好支持单个通道重启
-            # 广播到流水线进程，所有流水线上的所有进程将重启。
+            # 广播到流水线进程，所有流水线上的所有进程将重启.
             msg = bus.EBUS_SPECIAL_MSG_CFG
             self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)  # 广播配置信息给所有子进程
-            return {'reply': True, 'desc': '已广播通知配置更新。'}
+            return {'reply': True, 'desc': '已广播通知配置更新.'}
         else:
-            return {'reply': False, 'desc': '不能识别的配置格式。'}
+            return {'reply': False, 'desc': '不能识别的配置格式.'}
 
     def callback_get_cfg(self, params):
         """
-        本函数返回子进程对配置数据的请求。
+        本函数返回子进程对配置数据的请求.
 
         Parameters
         ----------
-        params:  Dict类型。
-            cmd键值为'get_cfg'或'get_task'。
+        params:  Dict类型.
+            cmd键值为'get_cfg'或'get_task'.
             当为get_task时，assigned键值为子进程当前的任务(也是主进程以前派发的)，取值{}或v2v.cfg中rtsp_urls数组的1元素.
-            source键值为子进程的名称唯一标识。
+            source键值为子进程的名称唯一标识.
         Returns
         -------
         Dict
-            通用格式。
+            通用格式.
         Raises
         ----------
         RuntimeError
@@ -285,16 +309,16 @@ class MainContext(bus.IEventBusMixin):
 
     def callback_stop_rest(self, params):
         """
-        本函数响应子进程对主进程的远程调用。
+        本函数响应子进程对主进程的远程调用.
 
         Parameters
         ----------
-        params:  在bus模块定义，Dict类型。
+        params:  在bus模块定义，Dict类型.
 
         Returns
         -------
         List
-            该进程池所有进程执行完成的结果构成的列表。
+            该进程池所有进程执行完成的结果构成的列表.
         Raises
         ----------
         RuntimeError
@@ -305,14 +329,14 @@ class MainContext(bus.IEventBusMixin):
 
     def callback_set_metrics(self, params):
         """
-        本函数响应子进程对所有监测指标的设置。
-        把子进程上报的自己持续运行的时间等指标记录到一个数据结构中等备查。
+        本函数响应子进程对所有监测指标的设置.
+        把子进程上报的自己持续运行的时间等指标记录到一个数据结构中等备查.
         维护metrics的结构如下：
         {'RTSP(0)-16380': {'up': 60},
          'AI(2)-10104': {'up': 50.51580286026001, 'down': 1},
          'MQTT(1)-16380': {'on': 0}}
 
-        :param params: dict, {'application': 'RTSP(0)-16380','up': 39.5527503490448, ...}, proc是固定的，除up外还可能增加其它键值。
+        :param params: dict, {'application': 'RTSP(0)-16380','up': 39.5527503490448, ...}, proc是固定的，除up外还可能增加其它键值.
         :return: dict, {'reply': True}
         """
         # self.log(f'callback_set_metrics: {params}')
@@ -329,8 +353,8 @@ class MainContext(bus.IEventBusMixin):
 
     def callback_get_metrics(self, params):
         """
-        本函数响应子进程对所有监测指标的获取。
-        TODO:后续可选支持正则表达式查询。
+        本函数响应子进程对所有监测指标的获取.
+        TODO:后续可选支持正则表达式查询.
         :param params: dict, {}或{'application': 'AI*'}
         :return: dict, {'reply': True, 'result_metrics': {'AI(0)-16380': {'up': 60},
                                                   'AI(2)-10104': {'up': 50.51580286026001, 'down': 1},
@@ -361,7 +385,7 @@ class MainContext(bus.IEventBusMixin):
 
     def callback_pause_resume_pipe(self, params):
         """
-        本函数响应子进程rest停止或者重启某个管道的请求。
+        本函数响应子进程rest停止或者重启某个管道的请求.
         :param params: dict, {'cmd': 'pause', 'deviceid': 'xxx', 'channelid': 'yyy'}
                              {'cmd': 'resume', 'deviceid': 'xxx', 'channelid': 'yyy'}
         :return: dict, {'reply': True}
@@ -369,21 +393,21 @@ class MainContext(bus.IEventBusMixin):
         msg = bus.EBUS_SPECIAL_MSG_STOP_RESUME_PIPE
         msg.update(params)
         self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)  # 广播启停某通道消息给所有子进程
-        return {'reply': True, 'desc': '广播启停某通道消息给所有子进程。'}
+        return {'reply': True, 'desc': f'广播启停某通道消息.{params["deviceid"]}-{params["channelid"]}'}
 
     def fork_restful_process(self, **kwargs):
         """
-        本函数调用工厂类在主进程上下文环境启动rest子进程。
-        rest子进程与其它子进程不一样，它与主进程是同生同死的，属于daemon子进程。
+        本函数调用工厂类在主进程上下文环境启动rest子进程.
+        rest子进程与其它子进程不一样，它与主进程是同生同死的，属于daemon子进程.
 
         Parameters
         ----------
-        *kwargs:  port, ssl_keyfile, ssl_certfile。
-            指定创建rest进程的端口，https。
+        *kwargs:  port, ssl_keyfile, ssl_certfile.
+            指定创建rest进程的端口，https.
         Returns
         -------
         List
-            该进程池所有进程执行完成的结果构成的列表。
+            该进程池所有进程执行完成的结果构成的列表.
         Raises
         ----------
         RuntimeError
@@ -394,20 +418,20 @@ class MainContext(bus.IEventBusMixin):
 
     def switch_on_process(self, name, **kwargs):
         """
-        本函数调用工厂类在主进程上下文环境启动所有子进程。
-        创建包含指定数量进程的进程池，运行所有进程，并把所有进程执行结果合并为列表，返回。
-        同时会将创建的进程池保存在列表中。
+        本函数调用工厂类在主进程上下文环境启动所有子进程.
+        创建包含指定数量进程的进程池，运行所有进程，并把所有进程执行结果合并为列表，返回.
+        同时会将创建的进程池保存在列表中.
 
         Parameters
         ----------
-        name : 区别不同子进程的名称。
-            包括：RTSP，AI，MQTT。
+        name : 区别不同子进程的名称.
+            包括：RTSP，AI，MQTT.
         *kwargs: dict, None
-            指定创建进程的数量，比如cnt=3, 表示创建和启动包含3个进程的进程池。
+            指定创建进程的数量，比如cnt=3, 表示创建和启动包含3个进程的进程池.
         Returns
         -------
         List
-            该进程池所有进程执行完成的结果构成的列表。
+            该进程池所有进程执行完成的结果构成的列表.
         Raises
         ----------
         RuntimeError
@@ -441,7 +465,7 @@ class MainContext(bus.IEventBusMixin):
             self.log(f'start_v2v_pipeline_task failed: {err}', level=log.LOG_LVL_ERRO)
 
     def stop_v2v_pipeline_task(self):
-        # 停止流水线子进程，需要对任务列表初始化，便于重新分配任务。
+        # 停止流水线子进程，需要对任务列表初始化，便于重新分配任务.
         if self._task_manage:
             self._task_manage.clear_task()
         # 微服务进程与主进程同时存在，不会停
@@ -452,9 +476,9 @@ class MainContext(bus.IEventBusMixin):
 
     def collect_procs_metrics(self, interval):
         """
-        向子进程广播采集监测参数的要求。
-        这个方式收集各子进程监测参数存在缺陷，一旦子进程暂停，会堆积大量的采集指令，造成后续命令排队。
-        因此未启用该方法。
+        向子进程广播采集监测参数的要求.
+        这个方式收集各子进程监测参数存在缺陷，一旦子进程暂停，会堆积大量的采集指令，造成后续命令排队.
+        因此未启用该方法.
         :return:
         """
         while True:
@@ -464,8 +488,8 @@ class MainContext(bus.IEventBusMixin):
 
     def run(self):
         """
-        主进程入口 —— 读取配置，启动rest后台服务进程，数据采集线程，进入子进程之间通信机制的主事件循环。
-        :return: 无。
+        主进程入口 —— 读取配置，启动rest后台服务进程，数据采集线程，进入子进程之间通信机制的主事件循环.
+        :return: 无.
         """
         try:
             # 读取配置文件内容
@@ -477,7 +501,7 @@ class MainContext(bus.IEventBusMixin):
             # 启动1个Restful进程，提供微服务调用
             self.fork_restful_process(port=_ms_port, ssl_keyfile=_ms_key, ssl_certfile=_ms_cer)
 
-            # 阻塞处理子进程之间的消息。
+            # 阻塞处理子进程之间的消息.
             self.log("Enter main event loop.", level=log.LOG_LVL_DBG)
             _main_start_time, _process_pool_time = time.time(), time.time()
             while True:

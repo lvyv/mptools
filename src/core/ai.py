@@ -238,7 +238,8 @@ class AiWorker(ProcWorker):
                     # self.log(f'plc:{template}--{rest}')
                     payload = {'cfg_info': str(template), 'req_id': requestid}
                 else:
-                    plt.imsave(buf, pic['frame'], format='jpg')
+                    # 统一传给V2V_AI的图片格式为RGB，2022.3.7
+                    plt.imsave(buf, pic['frame'][:, :, ::-1], format='jpg')
                     # self.log(f'panel & others:{template_in}--{rest}')
                     payload = {'cfg_info': str(template_in), 'req_id': requestid}
                 image_data = buf.getvalue()

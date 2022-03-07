@@ -55,7 +55,8 @@ from uvicorn.main import Server
 from core.procworker import ProcWorker
 from simplegallery.gallery_build import gallery_build
 from simplegallery.gallery_init import gallery_create
-from utils import bus, comn, log, GrabFrame, wrapper as wpr
+from utils import bus, log, GrabFrame, wrapper as wpr
+from third_api import spdd
 
 # 取RTSP流的超时时间
 OPEN_RTSP_TIMEOFF = 30
@@ -135,6 +136,7 @@ class RestWorker(ProcWorker):
             _cid = channel.get('channel_id', None)
             if not _did or not _cid:
                 continue
+            # 检测传入的ID是否存在于配置文件中
             if _did == did and _cid == cid:
                 _is_exist_cid = True
                 break
@@ -204,7 +206,7 @@ class RestWorker(ProcWorker):
             """C&M之C：设置配置文件，收到该配置文件后，v2v将更新单通道的配置文件"""
             """当前功能是接受一个单通道视频设置给到ai"""
             item = {'version': '1.0.0', 'reply': 'pending.'}
-            ret = _self_obj.call_rpc(bus.CB_SET_CFG, cfg.__dict__)  # noqa 调用主进程函数，传配置给它。
+            ret = _self_obj.call_rpc(bus.CB_SET_CHANNEL_CFG, cfg.__dict__)  # noqa 调用主进程函数，传配置给它。
             item['reply'] = ret['reply']
             item['desc'] = ret['desc']
             return item
@@ -292,7 +294,7 @@ class RestWorker(ProcWorker):
             """获取所有的视频通道列表"""
             item = {'version': '1.0.0', 'reply': 'pending.'}
             _cfg_dict = _self_obj.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': _self_obj.name})
-            streams = comn.get_urls(_cfg_dict['media_service'])
+            streams = spdd.get_urls(_cfg_dict['media_service'])
             item['streams'] = streams
             item['reply'] = True
             return item
@@ -330,12 +332,12 @@ class RestWorker(ProcWorker):
                 if refresh:
                     # 如果是刷新，需要从spdd取该通道的流地址
                     _self_obj.log("[API] Call SPDD stream list api. --> ")
-                    url = comn.get_rtsp_url(deviceid, channelid, _cfg_dict['media_service'])
+                    url = spdd.get_rtsp_url(deviceid, channelid, _cfg_dict['media_service'])
                     presets = None
                     if url:
                         # 从spdd取预置位
                         _self_obj.log("[API] Call SPDD presets list api. --> ")
-                        presets = comn.get_presets(deviceid, channelid, _cfg_dict['media_service'])
+                        presets = spdd.get_presets(deviceid, channelid, _cfg_dict['media_service'])
                     if url and presets:
                         # 通知主调度，暂停pipeline流水线对本摄像头的识别操作，让rtsp流水线rtsp进程sleep多少时间计算得出。
                         pipeline_cmd = {'cmd': 'pause', 'deviceid': deviceid, 'channelid': channelid}
@@ -364,7 +366,7 @@ class RestWorker(ProcWorker):
                         item['rtsp_url'] = url  # 前端需要了解是否有合法url，才方便下发配置的时候填入正确的配置值
                         for prs in presets:
                             _self_obj.log(f"[API] Call SPDD presets API. --> {prs['presetid']}")
-                            ret = comn.run_to_viewpoints(deviceid, channelid,
+                            ret = spdd.run_to_viewpoints(deviceid, channelid,
                                                          prs['presetid'],
                                                          _cfg_dict['media_service'],
                                                          _cfg_dict['ipc_ptz_delay'])

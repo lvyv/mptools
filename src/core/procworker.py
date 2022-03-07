@@ -94,7 +94,6 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
             raise V2VErr.V2VConfigurationChangedError('V2VConfigurationChangedError')
         elif evt:  # 其它广播事件，比如停止某个通道
             pass
-            # self.log(f'Got event in mainloop: {evt}.')
 
     def main_loop(self):
         while self.is_break_out_main_loop is False:

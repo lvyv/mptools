@@ -100,25 +100,44 @@ class RtspWorker(ProcWorker):
 
         return _ret
 
+    def _check_did_cid_pertain_process(self, did, cid) -> bool:
+        """
+        检测输入的did, cid是否属于该进程管理
+
+        :return true属于该进程，false不属于该进程
+        """
+        _ret = False
+        # 获取该进程管理的通道
+        _p_did = self._process_task_dict.get('device_id', None)
+        _p_cid = self._process_task_dict.get('channel_id', None)
+        if _p_cid and _p_did and _p_cid == cid and _p_did == did:
+            _ret = True
+        return _ret
+
     def handle_event(self, evt) -> bool:
         _ret = True
-        cmd = evt['cmd']
-        if cmd in ['pause', 'resume']:
-            did = evt['deviceid']
-            cid = evt['channelid']
-            # 取当前进程处理的通道，有可能通道为空
-            _p_did = self._process_task_dict.get('device_id', None)
-            _p_cid = self._process_task_dict.get('channel_id', None)
-            if _p_cid and _p_did and _p_cid == cid and _p_did == did:
-                if cmd == 'pause':
-                    _new_state = ProcessState.PAUSE
-                else:
-                    _new_state = ProcessState.RUN
-                self.log(f"[RTSP] Set Process State: {self.process_state} --> {_new_state}")
-                self.process_state = _new_state
-            # if did == self._process_task_dict['device_id'] and cid == self._process_task_dict['channel_id']:
-            #     self.log(f"[PAUSE] Got pause get rtsp stream message. {evt['timeout']}")
-            #     _ret = self._sleep_wrapper(evt['timeout'])
+        # EBUS_SPECIAL_MSG_STOP_RESUME_PIPE = {'code': 3, 'desc': 'METRICS'}
+        # 使用唯一的消息码进行判断
+        _evt_code = evt['code']
+        # 通道的启停
+        if _evt_code == bus.EBUS_SPECIAL_MSG_STOP_RESUME_PIPE['code']:
+            cmd = evt['cmd']
+            if cmd in ['pause', 'resume']:
+                did = evt['deviceid']
+                cid = evt['channelid']
+                if self._check_did_cid_pertain_process(did, cid) is True:
+                    if cmd == 'pause':
+                        _new_state = ProcessState.PAUSE
+                    else:
+                        _new_state = ProcessState.RUN
+                    self.log(f"[RTSP] Set Process State: {self.process_state} --> {_new_state}")
+                    self.process_state = _new_state
+        elif _evt_code == bus.EBUS_SPECIAL_MSG_CHANNEL_CFG['code']:
+            did = evt['device_id']
+            cid = evt['channel_id']
+            if self._check_did_cid_pertain_process(did, cid) is True:
+                self.log("[CONFIG] Single Channel's config changed. Restart Process.")
+                raise V2VErr.V2VConfigurationChangedError(f'{did}-{cid}')
         return _ret
 
     def startup(self, evt=None):
