@@ -441,17 +441,18 @@ class MainContext(bus.IEventBusMixin):
 
     def start_v2v_pipeline_task(self, cfg):
         try:
+            # TODO: 如果一个通道一个进程，将无法满足100路同时视频的指标，可考虑一个进程支持多路通道
             # 根据通道列表启动每个通道的rtsp->ai->mqtt处理进程
             for channel in cfg['rtsp_urls']:
                 # 不提供cnt=x参数，缺省1个通道启1个取RTSP流进程
                 self.switch_on_process('RTSP', rtsp_params=channel)
-                # 取AI的识别结果比较慢，安排2个进程处理一个通道，实际AI子进程处理所有IPC的数据
-                self.switch_on_process('AI', cnt=2)
-                # 上传文件，安排1个进程处理，不要多个进程，防止服务器端互相踢，实际MQTT子进程处理所有的结果数据
-                mqtt = cfg['mqtt_svrs'][0]
-                self.switch_on_process('MQTT', cnt=1, mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'],
-                                       mqtt_cid=mqtt['mqtt_cid'], mqtt_usr=mqtt['mqtt_usr'], mqtt_pwd=mqtt['mqtt_pwd'],
-                                       mqtt_topic=mqtt['mqtt_tp'], node_name=mqtt['node_name'])
+            # 当前模式，一台电脑一个AI和MQTT进程，待测试验证
+            self.switch_on_process('AI', cnt=1)
+            mqtt = cfg['mqtt_svrs'][0]
+            self.switch_on_process('MQTT', cnt=1, mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'],
+                                   mqtt_cid=mqtt['mqtt_cid'], mqtt_usr=mqtt['mqtt_usr'], mqtt_pwd=mqtt['mqtt_pwd'],
+                                   mqtt_topic=mqtt['mqtt_tp'], node_name=mqtt['node_name'])
+
             self.log(f"Start v2v pipeline, total channel: {len(cfg['rtsp_urls'])}", level=log.LOG_LVL_DBG)
         except KeyError as err:
             self.log(f'start_v2v_pipeline_task failed: {err}', level=log.LOG_LVL_ERRO)

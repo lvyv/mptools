@@ -118,7 +118,6 @@ class IEventBusMixin:
         bus.send_string(ret)
         return True
 
-
     @classmethod
     def rpc_implemention(cls, msg):
         """服务端程序收到客户端数据，在本函数中进行处理，输入需要为json字符串，返回值也需要为json字符串"""

@@ -249,8 +249,8 @@ class AiWorker(ProcWorker):
                 resp = requests.post(_ai_http_api_url, files=files, data=payload, verify=False)
                 if resp.status_code == 200:
                     self.log(f'The size of vector queue between ai & mqtt is: {self.out_q_.qsize()}.')
-                    self.out_q_.put(resp.content)
-                    # FIXME: 耗时情况
+                    # TODO: 如果MQTT进程消费出错，此处将阻塞
+                    self.out_q_.put_nowait(resp.content)
                     self.image_post_process(_frame_data, requestid, resp.content)
                 else:
                     self.log(f'ai服务访问失败，错误号：{resp.status_code}', level=log.LOG_LVL_WARN)
@@ -260,6 +260,9 @@ class AiWorker(ProcWorker):
             # 把出错的url取出来记下，但是要去掉/?req_id
             self.badurls_.add(_ai_http_api_url.split('/?req_id=')[0])     # noqa
             self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+        except queue.Full:
+            self.log("[FULL] Vector queue is full.", level=log.LOG_LVL_ERRO)
+            self.out_q_.clear()
         except Exception as err:
             self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
         finally:

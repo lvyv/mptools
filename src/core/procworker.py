@@ -103,7 +103,7 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
             self.subscriber_.disconnect()
             self.subscriber_.close()
             self.subscriber_ = None
-        self.log("ProcWorker close zmq handle.", level=log.LOG_LVL_INFO)
+        self.log("ProcWorker Close ZMQ handle.", level=log.LOG_LVL_INFO)
 
     def _proc_broadcast_msg(self, evt):
         if not evt:
