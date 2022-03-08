@@ -26,23 +26,20 @@ main module
 Entry point of the project.
 """
 
-# Author: Awen <26896225@qq.com>
-# License: Apache Licence 2.0
-import copy
-import multiprocessing
 import functools
-import signal
+import multiprocessing
 import os
+import signal
 import time
 
 import zmq
 
-from core.rtsp import RtspWorker
 from core.ai import AiWorker
 from core.mqtt import MqttWorker
 from core.rest import RestWorker
-from core.tasks import TaskManage
-from utils import bus, log
+from core.rtsp import RtspWorker
+from core.tasks import TaskManage, TaskInfo
+from utils import bus, log, comn
 from utils.config import ConfigSet
 from utils.wrapper import proc_worker_wrapper, daemon_wrapper
 
@@ -165,20 +162,18 @@ class MainContext(bus.IEventBusMixin):
         MainContext.register(bus.CB_SET_METRICS, self.callback_set_metrics)
         MainContext.register(bus.CB_GET_METRICS, self.callback_get_metrics)
         MainContext.register(bus.CB_PAUSE_RESUME_PIPE, self.callback_pause_resume_pipe)
-        # MainContext.register(bus.CB_UPDATE_TASK_STATE, self.callback_update_task_state)
+        MainContext.register(bus.CB_UPDATE_PROCESS_STATE, self.callback_update_process_state)
 
         # 管理分配的任务：数据结构：{rtsp地址: 进程名称}，任务的粒度为一个通道
         # 数据示例: {'rtsp://127.0.0.1:7554/live/main': 'RTSP(23792)'}
         self._task_manage = TaskManage()
         # 进程间消息队列
-        self._queue_frame = multiprocessing.Manager().Queue(self.PIC_QUEUE_SIZE)  # Is JoinableQueue better?
-        self._queue_vector = multiprocessing.Manager().Queue(self.VEC_QUEUE_SIZE)  # mqtt阻塞
-        # 进程间共享数据，用于标记是否该退出子进程，[False, False],第一个元素有效，第二个元素备用.
-        # 各个子进程中读取该状态，判断是否该立即退出进程
-        self._process_share_data = multiprocessing.Manager().list([False, False])
-
+        self._queue_frame = multiprocessing.Manager().Queue(self.PIC_QUEUE_SIZE)
+        self._queue_vector = multiprocessing.Manager().Queue(self.VEC_QUEUE_SIZE)
         # 保存所有进程（rest,rtsp,ai,mqtt）的所有监测指标数据：运行时间.rest基本能代表main自己.
         self.metrics_ = {}
+        # TODO: 统筹计算CPU核数，以及对应的进程数量
+
         # 实例化工厂类
         self.factory_ = ProcSimpleFactory(self.NUMBER_OF_PROCESSES)
         # 初始化进程状态管理类
@@ -332,15 +327,15 @@ class MainContext(bus.IEventBusMixin):
         本函数响应子进程对所有监测指标的设置.
         把子进程上报的自己持续运行的时间等指标记录到一个数据结构中等备查.
         维护metrics的结构如下：
-        {'RTSP(0)-16380': {'up': 60},
-         'AI(2)-10104': {'up': 50.51580286026001, 'down': 1},
-         'MQTT(1)-16380': {'on': 0}}
-
-        :param params: dict, {'application': 'RTSP(0)-16380','up': 39.5527503490448, ...}, proc是固定的，除up外还可能增加其它键值.
+        :param params: dict, {'application': 'RTSP(16380)','up': 39.5527503490448, ...}
         :return: dict, {'reply': True}
         """
-        # self.log(f'callback_set_metrics: {params}')
+        # 新的统计方案
+        # 取pid
+        _pid = comn.get_pid_from_process_name(params['application'])
+        self._task_manage.update_process_info({'pid': _pid, 'up': params['up']})
 
+        # 向下兼容
         pname = params['application']
         params.pop('application', None)
         if pname in self.metrics_.keys():
@@ -349,6 +344,7 @@ class MainContext(bus.IEventBusMixin):
             self.metrics_[pname] = proc
         else:
             self.metrics_[pname] = params
+
         return {'reply': True}
 
     def callback_get_metrics(self, params):
@@ -369,18 +365,14 @@ class MainContext(bus.IEventBusMixin):
             ret = self.metrics_
         return {'reply': True, 'result_metrics': ret, 'result_tasks': self._task_manage.dump_rtsp_list()}
 
-    def callback_update_task_state(self, params):
+    def callback_update_process_state(self, params):
         """
         响应子进程更新进程的状态
-        :param: dict, {name: 'NAME(PID)', pid: pid, state: TaskState.number}
+        :param: dict, {name: 'NAME(PID)', pid: pid, pre_state: ProcessState.number, new_state: ProcessState.number}
         """
         _ret = True
-        # type: TaskInfo
-        _task_info = self._task_manage.query_task_obj_by_pid(params['pid'])
-        if _task_info is None:
-            _ret = False
-        else:
-            _task_info.state = params['state']
+        self.log(f"callback_update_process_state: {params}", level=log.LOG_LVL_DBG)
+        self._task_manage.update_process_info(params)
         return {'reply': _ret}
 
     def callback_pause_resume_pipe(self, params):
@@ -520,7 +512,7 @@ class MainContext(bus.IEventBusMixin):
                     self.log(f"Task Number: {len(_task_list)}, Task: {_task_list}", level=log.LOG_LVL_INFO)
                     _main_start_time = time.time()
         except KeyboardInterrupt as err:
-            self.log(f'Main process get ctrl+c : {err}', level=log.LOG_LVL_ERRO)
+            self.log(f'Main process get ctrl+c', level=log.LOG_LVL_ERRO)
             self.factory_.teminate_rest()
             self.factory_.terminate()
         finally:

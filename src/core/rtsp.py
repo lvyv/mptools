@@ -25,10 +25,6 @@ rtsp module
 
 Pull av stream from nvr and decode pictures from the streams.
 """
-
-# Author: Awen <26896225@qq.com>
-# License: Apache Licence 2.0
-
 from time import time, sleep
 
 import cv2
@@ -132,8 +128,8 @@ class RtspWorker(ProcWorker):
                         _new_state = ProcessState.PAUSE
                     else:
                         _new_state = ProcessState.RUN
-                    self.log(f"[RTSP] Set Process State: {self.process_state} --> {_new_state}")
-                    self.process_state = _new_state
+                    self.log(f"[RTSP] Set Process State: {self.state} --> {_new_state}")
+                    self.state = _new_state
         elif _evt_code == bus.EBUS_SPECIAL_MSG_CHANNEL_CFG['code']:
             did = evt['device_id']
             cid = evt['channel_id']
@@ -150,7 +146,7 @@ class RtspWorker(ProcWorker):
         try:
             if evt is not None:
                 self.handle_event(evt)
-            if self.process_state == ProcessState.PAUSE:
+            if self.state == ProcessState.PAUSE:
                 self._sleep_wrapper(0.1)
 
             # 1.尝试获取配置数据，找主进程获取一个流水线任务，复用了获取配置文件的命令
@@ -215,7 +211,7 @@ class RtspWorker(ProcWorker):
             # 4.读取流并设置处理该图片的参数
             if event:
                 self.handle_event(event)  # 主要处理暂停事件，当rest发过来请求暂停流水线
-            if self.process_state == ProcessState.PAUSE:
+            if self.state == ProcessState.PAUSE:
                 self._sleep_wrapper(0.1)
                 return
 
@@ -237,11 +233,12 @@ class RtspWorker(ProcWorker):
                 _sleep_ret = self._sleep_wrapper(self._ptz_delay)
                 if _sleep_ret == bus.EBUS_SPECIAL_MSG_STOP['code']:
                     self.log("Got manual exit event, so break ptz control.")
+                    # 类似于break
                     _ret = True
                     # 此处有坑，请搜索try..exception..finally中return
                     return _ret
                 elif _sleep_ret == bus.EBUS_SPECIAL_MSG_STOP_RESUME_PIPE['code']:
-                    # 跳过本次循环
+                    # 类似于continue
                     return _ret
                 # 读取停留时间，云台旋转到位后，在此画面停留时间
                 duration = vp[presetid][0]['seconds']  # 对某个具体的预置点vp，子分类aoi停留时间都是一样的，随便取一个即可。
@@ -267,7 +264,7 @@ class RtspWorker(ProcWorker):
                                 self.log(f'The size of picture queue between rtsp & ai is: {self.out_q_.qsize()}.')
                                 self.out_q_.put(_recognition_obj)
                     # FIXME: why?
-                    self.log(f"截图休眠时间: {inteval - time() % inteval}")
+                    self.log(f"云台截图休眠时间: {inteval - time() % inteval}")
                     _sleep_ret = self._sleep_wrapper(inteval - time() % inteval)
                     if _sleep_ret == bus.EBUS_SPECIAL_MSG_STOP['code']:
                         self.log("Got manual exit event, so break capture flow.")

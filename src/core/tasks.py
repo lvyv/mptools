@@ -9,7 +9,9 @@ import functools
 import os
 from enum import Enum, unique
 
+from core.pools import ProcessManage
 from utils import log
+from utils.comn import get_pid_from_process_name
 from utils.config import ConfigSet
 
 
@@ -95,25 +97,24 @@ class TaskInfo:
         else:
             self._task_type = TaskType.UNKNOWN
         # 解析出进程号
-        _start = value.find('(')
-        _end = value.find(')')
-        # 取任务进程号
-        self._task_pid = int(value[_start + 1:_end])
-        print(f'[TASK-MANAGE] name: {value}, tpid: {self._task_pid}, type: {self._task_type}')
+        self._task_pid = get_pid_from_process_name(value)
 
 
 class TaskManage:
     def __init__(self):
         self.log = functools.partial(log.logger, f'TASK-MANAGE-{os.getpid()}')
-        # 数据示例: {'rtsp://127.0.0.1:7554/live/main': 'RTSP(23792)'}
         # {url: _TaskInfo}
         self._task_dict = dict()
+        # 管理进程状态信息，进程和任务通过PID进行关联，进程的状态信息由子进程主动更新
+        # type: ProcessManage
+        self._p_manage = ProcessManage()
 
     def clear_task(self, url=None):
         if url is None:
             # 清空所有任务
             self._task_dict.clear()
             self._task_dict = dict()
+            self._p_manage.clear()
         else:
             # 清空指定的任务
             self._task_dict.pop(url)
@@ -232,5 +233,17 @@ class TaskManage:
         """
         _dump_list = []
         for _task_info in self._task_dict.values():
-            _dump_list.append(_task_info.dump())
+            # 获取进程状态
+            _process_info_dict = self._p_manage.get_process_state_info(_task_info.tpid)
+            _task_info_dict = _task_info.dump()
+            self.log(f"{_task_info_dict}-{_process_info_dict}", level=log.LOG_LVL_DBG)
+            if _process_info_dict is not None:
+                _task_info_dict.update(_process_info_dict)
+            _dump_list.append(_task_info_dict)
         return _dump_list
+
+    def update_process_info(self, param):
+        self._p_manage.update_process_info(param)
+
+    def dump_process_info(self):
+        pass

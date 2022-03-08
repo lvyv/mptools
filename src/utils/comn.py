@@ -19,5 +19,16 @@ def get_time_in_ms():
     return int(round(t * 1000))
 
 
+def get_pid_from_process_name(value) -> int:
+    _pid = -1
+    _start = value.find('(')
+    _end = value.find(')')
+    if _start != -1 and _end != -1:
+        # 取任务进程号
+        _pid = int(value[_start + 1:_end])
+    return _pid
+
+
 if __name__ == '__main__':
-    print(get_time_in_ms())
+    # print(get_time_in_ms())
+    print(get_pid_from_process_name("RTSP(12350)"))

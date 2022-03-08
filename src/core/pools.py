@@ -31,8 +31,11 @@ class ProcessInfo:
         self.up_time = 0
         # 进程号
         self.pid = 0
-        # 进程状态
-        self.state = ProcessState.INIT
+        # 进程的标识名称，不是进程名
+        self.name = None
+        # 进程上一次的状态
+        self.pre_state = ProcessState.INIT
+        self.new_state = ProcessState.INIT
 
 
 class ProcessManage:
@@ -45,4 +48,38 @@ class ProcessManage:
         self._process_dict.clear()
         self._process_dict = dict()
 
+    def get_process_state_info(self, pid) -> None or dict:
+        _ret = None
+        if pid in self._process_dict.keys():
+            _p_obj = self._process_dict[pid]
+            _ret = {'pre_state': _p_obj.pre_state,
+                    'new_state': _p_obj.new_state,
+                    'uptime': _p_obj.up_time}
+        return _ret
 
+    def update_process_info(self, params):
+        _pid = params.get('pid', None)
+        if _pid is None:
+            return
+
+        _name = params.get('name', None)
+        _pre_state = params.get('pre_state', None)
+        _new_state = params.get('new_state', None)
+        _up_time = params.get('up', None)
+
+        _p_obj = None
+        if _pid in self._process_dict.keys():
+            _p_obj = self._process_dict[_pid]
+        else:
+            _p_obj = ProcessInfo()
+            self._process_dict.update({_pid: _p_obj})
+
+        _p_obj.pid = _pid
+        if _name:
+            _p_obj.name = _name
+        if _pre_state:
+            _p_obj.pre_state = ProcessState(_pre_state)
+        if _new_state:
+            _p_obj.new_state = ProcessState(_new_state)
+        if _up_time:
+            _p_obj.up_time = _up_time

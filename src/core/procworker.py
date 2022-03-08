@@ -26,6 +26,7 @@ Sub process base class  module
 All common behaviors of sub process.
 """
 import functools
+import os
 import time
 
 from core.pools import ProcessState
@@ -64,7 +65,29 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
         self.beeper_ = bus.IEventBusMixin.get_beeper()                   # req-rep客户端。
         self.subscriber_ = bus.IEventBusMixin.get_subscriber(topic)      # pub-sub订阅端。
         # 进程状态
-        self.process_state = ProcessState.INIT
+        # type: ProcessState
+        self._process_state = ProcessState.INIT
+
+    # 设备编号
+    @property
+    def state(self):
+        return self._process_state
+
+    @state.setter
+    def state(self, value: ProcessState):
+        if self._process_state == value:
+            return
+        _pre_state = self._process_state
+        self._process_state = value
+
+        # {name: 'NAME(PID)', pid: pid, pre_state: ProcessState.number, new_state: ProcessState.number}
+        _params = {'name': self.name,
+                   'pid': os.getpid(),
+                   'pre_state': _pre_state.value,
+                   'new_state': value.value
+                   }
+        # 通知主进程
+        self.call_rpc(bus.CB_UPDATE_PROCESS_STATE, _params)
 
     def call_rpc(self, method, param):
         self.send_cmd(method, param)
@@ -92,7 +115,7 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
         elif evt == bus.EBUS_SPECIAL_MSG_CFG:  # 共性操作：配置发生更新
             self.log("Recv EBUS_SPECIAL_MSG_CFG event.")
             raise V2VErr.V2VConfigurationChangedError('V2VConfigurationChangedError')
-        elif evt:  # 其它广播事件，比如停止某个通道
+        elif evt:
             pass
 
     def main_loop(self):
@@ -112,12 +135,14 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
             try:
                 evt = self.subscribe()
                 self._proc_broadcast_msg(evt)
-                self.process_state = ProcessState.RUN
+                self.state = ProcessState.START
                 # 进程初始化
                 self.startup(evt)
                 # 进程主循环
+                self.state = ProcessState.RUN
                 self.main_loop()
                 # 进程清理阶段
+                self.state = ProcessState.SHUT
                 self.shutdown()
                 break
             except V2VErr.V2VTaskExitProcess as err:
