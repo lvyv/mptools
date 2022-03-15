@@ -253,7 +253,8 @@ class RtspWorker(ProcWorker):
                                                     'task': _aoi_dict, 'fid': current_frame_pos,
                                                     'fps': self._stream_fps,
                                                     'frame': _video_frame_data}
-                                self.log(f'The size of picture queue between rtsp & ai is: {self.out_q_.qsize()}.')
+                                self.log(f'The size of picture queue between rtsp & ai is: {self.out_q_.qsize()}.',
+                                         level=log.LOG_LVL_DBG)
                                 self.out_q_.put_nowait(_recognition_obj)
                     # FIXME: why?
                     self.log(f"云台截图休眠时间: {inteval - time() % inteval}")

@@ -54,7 +54,7 @@ class AdaptorTracingUtility:
                     "reporting_host": agentip,
                     "reporting_port": agentport
                 },
-                'logging': True,
+                'logging': False,
                 'reporter_bath_size': 1,
             },
             service_name=service,
