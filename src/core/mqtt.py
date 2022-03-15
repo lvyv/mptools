@@ -156,7 +156,7 @@ class MqttWorker(ProcWorker):
                 scope.span.set_tag('link.remoteHost', self.mqtt_host_)
                 span = self.tracer_.active_span
                 AdaptorTracingUtility.inject_span_ctx(self.tracer_, span, data)
-        self.log(f"Publish data to MQTT. --> {data}")
+        self.log(f"Publish data to MQTT. --> {data}", level=log.LOG_LVL_DBG)
         self._mqtt_client_obj.publish(self._mqtt_pub_topic, json.dumps(data), 1)
 
         return False

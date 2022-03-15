@@ -26,7 +26,7 @@ rtsp module
 Pull av stream from nvr and decode pictures from the streams.
 """
 import queue
-from time import time, sleep, time_ns
+from time import time, sleep
 
 import cv2
 
@@ -83,20 +83,10 @@ class RtspWorker(ProcWorker):
         while timeout >= delta:
             evt = self.subscribe()
             if evt:
-                _evt_code = evt['code']
-                if _evt_code == bus.EBUS_SPECIAL_MSG_STOP['code']:
-                    _ret = _evt_code
-                    break
-                elif _evt_code == bus.EBUS_SPECIAL_MSG_STOP_RESUME_PIPE['code']:
-                    self.handle_event(evt)
-                    _ret = _evt_code
-                    break
-                else:
-                    break
+                self._proc_broadcast_msg(evt)
             # 使用更小的sleep粒度
             sleep(0.05)
             delta = time() - _start_time
-
         return _ret
 
     def _check_did_cid_pertain_process(self, did, cid) -> bool:
@@ -113,7 +103,7 @@ class RtspWorker(ProcWorker):
             _ret = True
         return _ret
 
-    def handle_event(self, evt) -> bool:
+    def _proc_broadcast_msg(self, evt) -> bool:
         _ret = True
         # EBUS_SPECIAL_MSG_STOP_RESUME_PIPE = {'code': 3, 'desc': 'METRICS'}
         # 使用唯一的消息码进行判断
@@ -135,8 +125,14 @@ class RtspWorker(ProcWorker):
             did = evt['device_id']
             cid = evt['channel_id']
             if self._check_did_cid_pertain_process(did, cid) is True:
-                self.log("[CONFIG] Single Channel's config changed. Restart Process.")
+                self.log("[RTSP] Single Channel's config changed. Restart Process.")
                 raise V2VErr.V2VConfigurationChangedError(f'{did}-{cid}')
+        elif _evt_code == bus.EBUS_SPECIAL_MSG_CFG['code']:
+            self.log("[RTSP] EBUS_SPECIAL_MSG_CFG. Restart Process.")
+            raise V2VErr.V2VConfigurationChangedError(f'EBUS_SPECIAL_MSG_CFG')
+        elif _evt_code == bus.EBUS_SPECIAL_MSG_STOP['code']:
+            self.log("[RTSP] Recv EBUS_SPECIAL_MSG_STOP event.")
+            raise V2VErr.V2VTaskExitProcess('V2VTaskExitProcess.')
         return _ret
 
     def startup(self, evt=None):
@@ -146,7 +142,7 @@ class RtspWorker(ProcWorker):
         _channel_cfg_dict = None
         try:
             if evt is not None:
-                self.handle_event(evt)
+                self._proc_broadcast_msg(evt)
             if self.state == ProcessState.PAUSE:
                 self._sleep_wrapper(0.1)
 
@@ -157,7 +153,8 @@ class RtspWorker(ProcWorker):
                                                           'assigned': self._process_task_dict})
             self._spdd_url = _process_task_dict_from_main['media_service']
             self._ptz_delay = _process_task_dict_from_main['ipc_ptz_delay']
-            self.log(f'Get spdd url: {self._spdd_url} ptz_delay:{self._ptz_delay} value from main process.')
+            self.log(f'Get spdd url: {self._spdd_url} ptz_delay:{self._ptz_delay} value from main process.',
+                     level=log.LOG_LVL_DBG)
             # 2.访问对应的rtsp流
             # 如果此前已经分配过任务，但因为下发配置事件、配置不合法、网络断流等导致重新初始化。
             # 则有新分配任务，按新任务执行，没有新任务，按老任务执行。
@@ -169,6 +166,8 @@ class RtspWorker(ProcWorker):
                 self._process_task_dict.update(_channel_cfg_dict)  # 记录分配到的任务
             if _rtsp_url is None:
                 # 这个错误是因为返回的配置信息中的任务没有，已经分配完了，或者原来分配任务，但新下发配置终止了原来任务（shutdown调用）
+                self.log(f"[RTSP] No rtsp url to eat. sleep 10s", level=log.LOG_LVL_WARN)
+                self._sleep_wrapper(10)
                 raise V2VErr.V2VTaskNullRtspUrl(f'No more task left.')
             # 实例化取视频帧类
             cvobj = GrabFrame.GrabFrame()
@@ -184,11 +183,8 @@ class RtspWorker(ProcWorker):
                 cvobj.stop_stream()
                 raise V2VErr.V2VConfigurationIllegalError(f'Open RTSP stream failed. url:{_rtsp_url}')
         except (cv2.error, IndexError, AttributeError) as err:
-            self.log(f'[{__file__}]Rtsp startup task error:({_channel_cfg_dict})', level=log.LOG_LVL_ERRO)
+            self.log(f'[RTSP] Startup task error:({_channel_cfg_dict})', level=log.LOG_LVL_ERRO)
             raise V2VErr.V2VConfigurationIllegalError(err)
-        else:
-            # startup阶段顺利完成
-            pass
 
     def main_func(self, event=None, *args):
         """
@@ -211,10 +207,10 @@ class RtspWorker(ProcWorker):
             # 3.假设fps比如是30帧，而采样率1Hz，则需要丢弃fps-sample_rate帧图像
             # 4.读取流并设置处理该图片的参数
             if event:
-                self.handle_event(event)  # 主要处理暂停事件，当rest发过来请求暂停流水线
+                self._proc_broadcast_msg(event)  # 主要处理暂停事件，当rest发过来请求暂停流水线
             if self.state == ProcessState.PAUSE:
                 self._sleep_wrapper(0.1)
-                return
+                return _ret
 
             did = self._process_task_dict['device_id']
             cid = self._process_task_dict['channel_id']
@@ -231,16 +227,8 @@ class RtspWorker(ProcWorker):
                 # 让摄像头就位，阻塞操作，函数内部会休眠
                 self.log(f"Call PTZ preset. --> {presetid}")
                 spdd.run_to_viewpoints(did, cid, presetid, self._spdd_url, self._ptz_delay)
-                _sleep_ret = self._sleep_wrapper(self._ptz_delay)
-                if _sleep_ret == bus.EBUS_SPECIAL_MSG_STOP['code']:
-                    self.log("Got manual exit event, so break ptz control.")
-                    # 类似于break
-                    _ret = True
-                    # 此处有坑，请搜索try..exception..finally中return
-                    return _ret
-                elif _sleep_ret == bus.EBUS_SPECIAL_MSG_STOP_RESUME_PIPE['code']:
-                    # 类似于continue
-                    return _ret
+                self._sleep_wrapper(self._ptz_delay)
+
                 # 读取停留时间，云台旋转到位后，在此画面停留时间
                 duration = vp[presetid][0]['seconds']  # 对某个具体的预置点vp，子分类aoi停留时间都是一样的，随便取一个即可。
                 st, delta = time(), 0
@@ -268,28 +256,20 @@ class RtspWorker(ProcWorker):
                                 self.out_q_.put_nowait(_recognition_obj)
                     # FIXME: why?
                     self.log(f"云台截图休眠时间: {inteval - time() % inteval}")
-                    _sleep_ret = self._sleep_wrapper(inteval - time() % inteval)
-                    if _sleep_ret == bus.EBUS_SPECIAL_MSG_STOP['code']:
-                        self.log("Got manual exit event, so break capture flow.")
-                        _ret = True
-                        # 此处有坑，请搜索try..exception..finally中return
-                        return _ret
-                    elif _sleep_ret == bus.EBUS_SPECIAL_MSG_STOP_RESUME_PIPE['code']:
-                        # 跳过本次循环
-                        return _ret
+                    self._sleep_wrapper(inteval - time() % inteval)
                     # 计算是否到设定的时间了
                     delta = time() - st  # 消耗的时间（秒）
                 self.log(f'preset: "{presetid}" spend time: {delta} and current frame pos: {current_frame_pos}')
+                return _ret
         except (cv2.error, AttributeError, UnboundLocalError) as err:
             self.log(f'1.cv2.error:({err}){self._process_task_dict}', level=log.LOG_LVL_ERRO)
+            return _ret
         except TypeError as err:
             self.log(f'2.TypeError:{err}', level=log.LOG_LVL_ERRO)
+            return _ret
         except queue.Full:
             self.log("[FULL] Image queue is full.", level=log.LOG_LVL_ERRO)
             self.out_q_.clear()
-        except Exception as err:
-            self.log(f'3.Unkown error:{err}', level=log.LOG_LVL_ERRO)
-        finally:
             return _ret
 
     def shutdown(self):

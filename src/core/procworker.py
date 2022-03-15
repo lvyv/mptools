@@ -103,25 +103,24 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
             self.subscriber_.disconnect()
             self.subscriber_.close()
             self.subscriber_ = None
-        self.log("ProcWorker Close ZMQ handle.", level=log.LOG_LVL_INFO)
+        self.log("[BASE] ProcWorker Close ZMQ handle.", level=log.LOG_LVL_INFO)
 
-    def _proc_broadcast_msg(self, evt):
+    def proc_broadcast_msg(self, evt):
         if not evt:
             return
-
         if evt == bus.EBUS_SPECIAL_MSG_STOP:  # 共性操作：停止子进程
-            self.log("Recv EBUS_SPECIAL_MSG_STOP event.")
+            self.log("[BASE] Recv EBUS_SPECIAL_MSG_STOP event.")
             raise V2VErr.V2VTaskExitProcess('V2VTaskExitProcess.')
         elif evt == bus.EBUS_SPECIAL_MSG_CFG:  # 共性操作：配置发生更新
-            self.log("Recv EBUS_SPECIAL_MSG_CFG event.")
-            raise V2VErr.V2VConfigurationChangedError('V2VConfigurationChangedError')
+            self.log("[BASE] Recv EBUS_SPECIAL_MSG_CFG event.")
+            raise V2VErr.V2VConfigurationChangedError('V2VConfigurationChanged.')
         elif evt:
             pass
 
     def main_loop(self):
         while self.is_break_out_main_loop is False:
             evt = self.subscribe()
-            self._proc_broadcast_msg(evt)
+            self.proc_broadcast_msg(evt)
             # 在每次循环完毕上报一次运行时间。
             delta = time.time() - self._start_time
             self.call_rpc(bus.CB_SET_METRICS, {'up': delta, 'application': self.name})
@@ -134,7 +133,7 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
         while _is_restart:
             try:
                 evt = self.subscribe()
-                self._proc_broadcast_msg(evt)
+                self.proc_broadcast_msg(evt)
                 self.state = ProcessState.START
                 # 进程初始化
                 self.startup(evt)
@@ -146,26 +145,27 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
                 self.shutdown()
                 break
             except V2VErr.V2VTaskExitProcess as err:
-                self.log(f"V2VTaskExitProcess: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
+                self.log(f"[BASE] V2VTaskExitProcess: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
                 self.shutdown()
                 break
             except V2VErr.V2VConfigurationIllegalError as err:
                 # 发生配置不合法，等待配置下发正确，发生在startup，可以不shutdown，避免引入新的错误。
                 _is_restart = True
-                self.log(f"V2VConfigurationIllegalError: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
-                time.sleep(1)
+                self.log(f"[BASE] V2VConfigurationIllegalError: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
+                # time.sleep(1)
             except V2VErr.V2VConfigurationChangedError as err:
                 # 发生运行时配置更新，先shutdown，完成资源回收，再重启动，发生在main_loop。
                 _is_restart = True
-                self.log(f"V2VConfigurationChangedError: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
+                self.log(f"[BASE] V2VConfigurationChangedError: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
                 self.shutdown()
-                time.sleep(1)
+                # time.sleep(1)
             except V2VErr.V2VTaskNullRtspUrl as err:
                 # 暂时没活干也不要退出，毕竟流水线后面还起了ai，mqtt几个等着吧。
                 _is_restart = True
-                self.log(f"V2VTaskNullRtspUrl: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
-                time.sleep(1)
+                self.log(f"[BASE] V2VTaskNullRtspUrl: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
             except KeyboardInterrupt:
                 self.log(f'Caught KeyboardInterrupt event in run loop.', level=log.LOG_LVL_ERRO)
                 self.close_zmq()
+            except Exception as err:
+                self.log(f'[BASE] Unknown error:{err}', level=log.LOG_LVL_ERRO)
         self.log(f"[__exit__] Leaving run loop. restart:{_is_restart}", level=log.LOG_LVL_ERRO)
