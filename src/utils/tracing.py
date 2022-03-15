@@ -30,16 +30,14 @@ encapsulate jaeger client, prometheus fastapi client.
 # License: Apache Licence 2.0
 
 
-import logging
+import time
+from typing import Callable
+
+import psutil
 from jaeger_client import Config
 from opentracing import Format
-
-from prometheus_fastapi_instrumentator.metrics import Info
 from prometheus_client import Gauge, Counter
-from typing import Callable
-# from prometheus_fastapi_instrumentator import Instrumentator
-import psutil
-import time
+from prometheus_fastapi_instrumentator.metrics import Info
 
 
 class AdaptorTracingUtility:

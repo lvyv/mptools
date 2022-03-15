@@ -59,6 +59,21 @@ class V2VConfigurationIllegalError(Exception):
         return self.message_
 
 
+class V2VPauseRtspProcess(Exception):
+    """Raised when need pause rtsp process.
+
+    Attributes:
+        message -- explanation of what is going on.
+    """
+
+    def __init__(self, message):
+        super().__init__(self)
+        self.message_ = message
+
+    def __str__(self):
+        return self.message_
+
+
 class V2VTaskNullRtspUrl(Exception):
     """Raised when no more rtsp task could be assigned.
 

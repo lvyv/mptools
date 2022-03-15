@@ -245,7 +245,7 @@ class AiWorker(ProcWorker):
                 image_data = buf.getvalue()
                 files = {'files': (comn.replace_non_ascii(f'{fid}-{fps}'), image_data, 'image/jpg')}
                 _ai_http_api_url = f'{_ai_http_api_url}/?req_id={requestid}'
-                self.log(f'Call AI --> {_ai_http_api_url}.')  # by {template_in}.')
+                self.log(f'Call AI --> {_ai_http_api_url}.', level=log.LOG_LVL_DBG)  # by {template_in}.')
                 resp = requests.post(_ai_http_api_url, files=files, data=payload, verify=False)
                 if resp.status_code == 200:
                     self.log(f'The size of vector queue between ai & mqtt is: {self.out_q_.qsize()}.')

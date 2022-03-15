@@ -121,6 +121,7 @@ class RtspWorker(ProcWorker):
                         _new_state = ProcessState.RUN
                     self.log(f"[RTSP] Set Process State: {self.state} --> {_new_state}")
                     self.state = _new_state
+                    raise V2VErr.V2VPauseRtspProcess("[RTSP] Pause RTSP Process.")
         elif _evt_code == bus.EBUS_SPECIAL_MSG_CHANNEL_CFG['code']:
             did = evt['device_id']
             cid = evt['channel_id']
@@ -266,6 +267,9 @@ class RtspWorker(ProcWorker):
             return _ret
         except TypeError as err:
             self.log(f'2.TypeError:{err}', level=log.LOG_LVL_ERRO)
+            return _ret
+        except V2VErr.V2VPauseRtspProcess as err:
+            self.log(f"[RTSP] Pause/Resume RTSP process.", level=log.LOG_LVL_WARN)
             return _ret
         except queue.Full:
             self.log("[FULL] Image queue is full.", level=log.LOG_LVL_ERRO)
