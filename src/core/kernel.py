@@ -446,8 +446,8 @@ class MainContext(bus.IEventBusMixin):
             for channel in cfg['rtsp_urls']:
                 # 不提供cnt=x参数，缺省1个通道启1个取RTSP流进程
                 self.switch_on_process('RTSP', rtsp_params=channel)
-            # 当前模式，一台电脑一个AI和MQTT进程，待测试验证
-            self.switch_on_process('AI', cnt=1)
+                # 当前模式，一个通道一个进程
+                self.switch_on_process('AI', cnt=1)
             mqtt = cfg['mqtt_svrs'][0]
             self.switch_on_process('MQTT', cnt=1, mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'],
                                    mqtt_cid=mqtt['mqtt_cid'], mqtt_usr=mqtt['mqtt_usr'], mqtt_pwd=mqtt['mqtt_pwd'],

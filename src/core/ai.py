@@ -262,7 +262,7 @@ class AiWorker(ProcWorker):
             self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
         except queue.Full:
             self.log("[FULL] Vector queue is full.", level=log.LOG_LVL_ERRO)
-            self.out_q_.clear()
+            self.out_q_.queue.clear()
         except Exception as err:
             self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
         finally:
