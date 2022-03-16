@@ -10,7 +10,7 @@ import simplegallery.common as spg_common
 import simplegallery.logic.gallery_logic as gallery_logic
 import logging
 
-lg_ = logging.getLogger('v2v')
+_v2v_logger = logging.getLogger('v2v')
 
 
 def parse_args():
@@ -257,17 +257,17 @@ def gallery_create(rootdir, imagedir=None):
         datestr = gallery_root.split('/')[-1]
         create_gallery_json(gallery_root, None, True, tt=datestr, desc='识别结果')
     except spg_common.SPGException as err:
-        lg_.exception(err.message)
+        _v2v_logger.exception(err.message)
         return False
     except Exception as err:
-        lg_.exception(err)
+        _v2v_logger.exception(err)
         return False
 
     # Copy the template files to the gallery root
     try:
         create_gallery_folder_structure(gallery_root, image_source)
     except Exception as err:
-        lg_.error(
+        _v2v_logger.error(
             f"Something went wrong while generating the gallery structure: {str(err)}"
         )
         return False

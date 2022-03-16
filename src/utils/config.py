@@ -33,20 +33,30 @@ Configuration related stuff here.
 # License: Apache Licence 2.0
 
 import json
-from utils import log
+from . import log
 
 
+# TODO:重构为标准类，避免使用类方法
 class ConfigSet:
-    baseconfig_ = None      # 本地配置
-    path2basecfg_ = None    # 本地配置路径
-    cfg_ = None             # 下发配置
-    path2cfg_ = None        # 下发配置路径
+    basecfg_cfg_dict = None      # 本地配置
+    basecfg_file_path = None    # 本地配置路径
+
+    v2v_cfg_dict = None             # 下发配置
+    v2vcfg_file_path = None        # 下发配置路径
+
+    # 设置配置文件路径
+    @classmethod
+    def set_basecfg_file_path(cls, _path):
+        cls.basecfg_file_path = _path
+
+    @classmethod
+    def set_v2vcfg_file_path(cls, _path):
+        cls.v2vcfg_file_path = _path
 
     @classmethod
     def load_json(cls, fp):
         try:
             load_dict = None
-            cls.path2cfg_ = fp
             with open(fp, 'r', encoding='UTF-8') as load_f:
                 load_dict = json.load(load_f)
                 load_f.close()
@@ -54,44 +64,36 @@ class ConfigSet:
             return load_dict
 
     @classmethod
-    def save_json(cls):
-        formatted_cfg = json.dumps(cls.cfg_, ensure_ascii=False, indent=2)
-        if cls.path2cfg_:
-            with open(cls.path2cfg_, 'w', encoding='utf-8') as fp:
-                fp.write(formatted_cfg)
-                fp.close()
+    def save_v2v_cfg(cls):
+        return cls._do_save_cfg(cls.v2vcfg_file_path, cls.v2v_cfg_dict)
 
     @classmethod
-    def get_basecfg(cls, pathtobasecfg='baseconfig.cfg'):
-        load_dict = None
-        try:
-            if cls.baseconfig_ is None:
-                with open(pathtobasecfg, 'r', encoding='UTF-8') as load_f:
-                    load_dict = json.load(load_f)
-                cls.baseconfig_ = load_dict
-                cls.path2basecfg_ = pathtobasecfg
-            else:
-                load_dict = cls.baseconfig_
-        finally:
-            return load_dict
+    def get_base_cfg_obj(cls):
+        if cls.basecfg_cfg_dict is None:
+            cls.basecfg_cfg_dict = cls.load_json(cls.basecfg_file_path)
+        return cls.basecfg_cfg_dict
 
     @classmethod
-    def save_basecfg(cls):
+    def save_base_cfg(cls):
+        return cls._do_save_cfg(cls.basecfg_file_path, cls.basecfg_cfg_dict)
+
+    @classmethod
+    def _do_save_cfg(cls, file_path, cfg_dict):
         ret = False
         try:
-            formatted_cfg = json.dumps(cls.baseconfig_, ensure_ascii=False, indent=2)
-            if cls.path2basecfg_:
-                with open(cls.path2basecfg_, 'w', encoding='utf-8') as fp:
+            formatted_cfg = json.dumps(cfg_dict, ensure_ascii=False, indent=2)
+            if file_path:
+                with open(file_path, 'w', encoding='utf-8') as fp:
                     fp.write(formatted_cfg)
             ret = True
         finally:
             return ret
 
     @classmethod
-    def get_cfg(cls, pathtocfg='v2v.cfg'):
-        if cls.cfg_ is None:
-            cls.cfg_ = cls.load_json(pathtocfg)
-        return cls.cfg_
+    def get_v2v_cfg_obj(cls):
+        if cls.v2v_cfg_dict is None:
+            cls.v2v_cfg_dict = cls.load_json(cls.v2vcfg_file_path)
+        return cls.v2v_cfg_dict
 
     @classmethod
     def geometry_fix(cls, mxcell):
@@ -294,13 +296,13 @@ class ConfigSet:
                           'ui_config_dir': params['ui_config_dir'],
                           'media_service': params['media_service'],
                           'ipc_ptz_delay': params['ipc_ptz_delay']}
-                cls.cfg_ = cfgobj
+                cls.v2v_cfg_dict = cfgobj
             elif 'view_ports' in params.keys():
                 # 根据params新设置过来的device_id和channel_id，更新cls.cfg_下面的各项值，或插入新项
                 exist = False
 
                 # 更新
-                for it in cls.cfg_['rtsp_urls']:
+                for it in cls.v2v_cfg_dict['rtsp_urls']:
                     if it['device_id'] == params['device_id'] and it['channel_id'] == params['channel_id']:  # update
                         # 在目前的ui测试界面，没有设置rtsp_url和name，默认为''
                         if params['rtsp_url'] != '':
@@ -320,13 +322,13 @@ class ConfigSet:
                         'sample_rate': params['sample_rate'],
                         'view_ports': cls.ui2ai(json.loads(params['view_ports']))
                     }
-                    cls.cfg_['rtsp_urls'].append(obj)
+                    cls.v2v_cfg_dict['rtsp_urls'].append(obj)
             # 保存配置文件
-            cls.cfg_ = cls.validate_cfg(cls.cfg_)
-            cls.save_json()     # FIXME:有点野蛮，没有进行合法性校核，可能导致程序无法启动
-            ret = cls.cfg_
+            cls.v2v_cfg_dict = cls.validate_cfg(cls.v2v_cfg_dict)
+            cls.save_v2v_cfg()     # FIXME:有点野蛮，没有进行合法性校核，可能导致程序无法启动
+            ret = cls.v2v_cfg_dict
         except KeyError as err:
-            log.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+            log.log(f'update_v2v_cfg failed: {err}', level=log.LOG_LVL_ERRO)
             ret = None
         finally:
             return ret

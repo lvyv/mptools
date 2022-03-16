@@ -26,22 +26,22 @@ ai module
 Feed AI meter picture one by one and get recognized results.
 """
 
-# Author: Awen <26896225@qq.com>
-# License: Apache Licence 2.0
-import os
 import datetime
-# import time
 import io
-import requests
 import json
-import cv2
+import os
+import queue
+import time
+from pathlib import Path
 
+import cv2
+import requests
+from PIL import Image, ImageDraw, ImageFont
 from matplotlib import cm, pyplot as plt
 from numpy import array
-from utils import bus, comn, log
+
 from core.procworker import ProcWorker
-from utils.config import ConfigSet
-from PIL import Image, ImageDraw, ImageFont
+from utils import bus, comn, log
 
 
 class UrlStatisticsHelper:
@@ -86,6 +86,22 @@ class UrlStatisticsHelper:
 
 
 class AiWorker(ProcWorker):
+    def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
+        super().__init__(name, bus.EBUS_TOPIC_BROADCAST, dicts, **kwargs)
+        # self.bus_topic_ = bus.EBUS_TOPIC_AI
+        self.in_q_ = in_q
+        self.out_q_ = out_q
+        # 识别结果保存到文件服务器
+        self.fsvr_url_ = None
+        self.nvr_samples_ = None
+        # 是否显示窗体展示识别结果
+        self.showimage_ = False
+        # 出现调用连接失败等的url需要被记录，下次再收到这样的url要丢弃
+        self.badurls_ = UrlStatisticsHelper()
+        # 加载字体文件
+        _font_path_obj = Path(Path(__file__).parent).joinpath("../fonts/cf.ttf")
+        self.font_ = ImageFont.truetype(str(_font_path_obj), size=24)
+
     def draw_text(self, img, pos, text):
         # write Chinese.
         img_pil = Image.fromarray(img)
@@ -172,28 +188,17 @@ class AiWorker(ProcWorker):
             template[index]['pos'] = plc_det_adjust
         return array(image_list), template
 
-    def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
-        super().__init__(name, bus.EBUS_TOPIC_BROADCAST, dicts, **kwargs)
-        # self.bus_topic_ = bus.EBUS_TOPIC_AI
-        self.in_q_ = in_q
-        self.out_q_ = out_q
-        # 识别结果保存到文件服务器
-        self.fsvr_url_ = None
-        self.nvr_samples_ = None
-        # 是否显示窗体展示识别结果
-        self.showimage_ = False
-        # 出现调用连接失败等的url需要被记录，下次再收到这样的url要丢弃
-        self.badurls_ = UrlStatisticsHelper()
-        self.font_ = ImageFont.truetype('fonts/cf.ttf', size=24)
-
-    def startup(self):
-        self.log(f'{self.name} started......')
-        cfg = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
-        mqttcfg = cfg['mqtt_svrs'][0]
+    def startup(self, evt=None):
+        self.log(f'Enter startup.', level=log.LOG_LVL_INFO)
+        # 从主进程获取配置参数
+        _v2v_cfg_dict = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
+        mqttcfg = _v2v_cfg_dict['mqtt_svrs'][0]
         self.fsvr_url_ = mqttcfg['fsvr_url']
-        self.nvr_samples_ = cfg['nvr_samples']
+        self.nvr_samples_ = _v2v_cfg_dict['nvr_samples']
 
-        self.showimage_ = ConfigSet.get_basecfg()['showimage']
+        # 从主进程获取配置参数
+        _base_cfg_dict = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_basecfg', 'source': self.name})
+        self.showimage_ = _base_cfg_dict.get('showimage', False)
 
     def main_func(self, event=None, *args):
         """
@@ -208,48 +213,60 @@ class AiWorker(ProcWorker):
         :return:
         """
         try:
-            # 全速
-            pic = self.in_q_.get()
-            task = pic['task']
+            pic = self.in_q_.get_nowait()
+        except queue.Empty:
+            time.sleep(0.01)
+            return False
+
+        try:
+            _aoi_dict = pic['task']
             fid = pic['fid']
             fps = pic['fps']
-            frame = pic['frame']
+            _frame_data = pic['frame']
             requestid = pic['requestid']
-            rest = f'{task["ai_service"]}'
-            template_in = task['area_of_interest']
-            if self.badurls_.get_cnts(rest) < 3:    # 事不过三。
+            _ai_http_api_url = f'{_aoi_dict["ai_service"]}'
+            template_in = _aoi_dict['area_of_interest']
+
+            if self.badurls_.get_cnts(_ai_http_api_url) < 3:    # 事不过三。
                 buf = io.BytesIO()
                 # template = None
-                if '/api/v1/ai/plc' in rest:
+                if '/api/v1/ai/plc' in _ai_http_api_url:
                     # self.log(f'in:{template_in}')
-                    sub_image, template = self.plc_sub_image(frame, template_in)
+                    sub_image, template = self.plc_sub_image(_frame_data, template_in)
                     plt.imsave(buf, sub_image, format='jpg', cmap=cm.gray)  # noqa
                     # cv2.imwrite(f'{self.name}-plc-extract.jpg', sub_image)
                     # self.log(f'plc:{template}--{rest}')
                     payload = {'cfg_info': str(template), 'req_id': requestid}
                 else:
-                    plt.imsave(buf, pic['frame'], format='jpg')
+                    # 统一传给V2V_AI的图片格式为RGB，2022.3.7
+                    plt.imsave(buf, pic['frame'][:, :, ::-1], format='jpg')
                     # self.log(f'panel & others:{template_in}--{rest}')
                     payload = {'cfg_info': str(template_in), 'req_id': requestid}
                 image_data = buf.getvalue()
                 files = {'files': (comn.replace_non_ascii(f'{fid}-{fps}'), image_data, 'image/jpg')}
-                rest = f'{rest}/?req_id={requestid}'
-                self.log(f'Going to call {rest}.')  # by {template_in}.')
-                resp = requests.post(rest, files=files, data=payload, verify=False)
+                _ai_http_api_url = f'{_ai_http_api_url}/?req_id={requestid}'
+                self.log(f'Call AI --> {_ai_http_api_url}.', level=log.LOG_LVL_DBG)  # by {template_in}.')
+                resp = requests.post(_ai_http_api_url, files=files, data=payload, verify=False)
                 if resp.status_code == 200:
-                    # result = resp.content.decode('utf-8')
                     self.log(f'The size of vector queue between ai & mqtt is: {self.out_q_.qsize()}.')
-                    self.out_q_.put(resp.content)
-                    self.image_post_process(frame, requestid, resp.content)
+                    # TODO: 如果MQTT进程消费出错，此处将阻塞
+                    self.out_q_.put_nowait(resp.content)
+                    self.image_post_process(_frame_data, requestid, resp.content)
                 else:
                     self.log(f'ai服务访问失败，错误号：{resp.status_code}', level=log.LOG_LVL_WARN)
             else:
-                self.badurls_.waitforrecover(rest)     # 并不真的去访问该rest，而是要等累计若干次以后再说。
+                self.badurls_.waitforrecover(_ai_http_api_url)     # 并不真的去访问该rest，而是要等累计若干次以后再说。
         except requests.exceptions.ConnectionError as err:
             # 把出错的url取出来记下，但是要去掉/?req_id
-            self.badurls_.add(rest.split('/?req_id=')[0])     # noqa
+            self.badurls_.add(_ai_http_api_url.split('/?req_id=')[0])     # noqa
             self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+        except queue.Full:
+            self.log("[FULL] Vector queue is full.", level=log.LOG_LVL_ERRO)
+            self.out_q_.clear()
         except Exception as err:
             self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
         finally:
             return False
+
+    def shutdown(self):
+        pass

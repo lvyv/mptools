@@ -29,17 +29,25 @@ mock module
 # Author: Awen <26896225@qq.com>
 # License: MIT
 
-from fastapi import FastAPI, Form, UploadFile, File
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional
-# , List, Tuple
-from utils import log
-from typing import List
-import uvicorn
+
+import sys
+from pathlib import Path
+
+# 配置python加载路径，避免在命令行手动设置环境变量
+_module_path = Path(Path(__file__).absolute().parent)
+sys.path.append(str(_module_path))
+sys.path.append(str(_module_path.parent))
+print(sys.path)
+
 import random
-# import requests
-# import json
+from typing import List
+from typing import Optional
+
+import uvicorn
+from fastapi import FastAPI, Form, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from utils import log
 
 
 def call_aimeter(contents):
@@ -63,7 +71,7 @@ def call_objcounting(contents):
     ret = {'req_id': None,
            'api_type': 'Person',
            'obj_info': [{'name': 'CNT_001', 'type': 'COMPUTER', 'score': 0.889299750328064,
-                         'pos': (26, 263, 416, 422,  2, 3, 1, 1,    2, 3, 1, 1,),
+                         'pos': (26, 263, 416, 422, 2, 3, 1, 1, 2, 3, 1, 1,),
                          'value': '3',
                          'inter_type': None}],
            'stats_info': None,
@@ -98,10 +106,13 @@ app.add_middleware(
 
 # EIF4:REST IOT 外部接口-物联网文件服务器/WS服务（针对实时上传的图片）
 # iot图片文件服务
-app.mount('/viewport', StaticFiles(directory='upfiles'), name='local')
-app.mount('/ui', StaticFiles(directory='../ui'), name='ui')
-app.mount('/docs', StaticFiles(directory='../../docs'), name='docs')
-app.mount('/static', StaticFiles(directory='../swagger_ui_dep/static'), name='static')
+
+# 当前文件的路径
+_pwd_path = Path(Path(__file__).parent)
+app.mount('/viewport', StaticFiles(directory=str(_pwd_path.joinpath("upfiles"))), name='local')
+app.mount('/ui', StaticFiles(directory=str(_pwd_path.joinpath("../ui"))), name='ui')
+app.mount('/docs', StaticFiles(directory=str(_pwd_path.joinpath("../../docs"))), name='docs')
+app.mount('/static', StaticFiles(directory=str(_pwd_path.joinpath("../swagger_ui_dep/static"))), name='static')
 
 
 # iot登录
@@ -115,7 +126,7 @@ async def post_iot_login():
 @app.post("/api/v1/{devicetoken}/telemetry")
 async def post_iot_telemetry(devicetoken: str):
     """模拟物联网遥测数据推送接口，有物联网服务器，暂未实现"""
-    log.log(devicetoken)
+    print(devicetoken)
     pass
 
 
@@ -138,14 +149,14 @@ async def uploadfiles(files: List[UploadFile] = File(...)):
 
 @app.post("/api/v1/uploadfile_with_params")
 async def uploadfile_with_params(file: bytes = File(...), jso: str = Form(...)):
-    log.log(len(file))
-    log.log(jso)
+    print(len(file))
+    print(jso)
     return {"reply": True}
 
 
 @app.post("/api/v1/uploadfiles_with_params")
 async def uploadfiles_with_params(files: List[UploadFile] = File(...), jsos: str = Form(...)):
-    # log.log(len(files[0]))
+    print(len(files[0]))
     for file in files:
         if file.filename == 'iobytes.png':
             with open("abc.png", "wb") as f:
@@ -162,12 +173,13 @@ async def uploadfiles_with_params(files: List[UploadFile] = File(...), jsos: str
 @app.get("/api/v1/ptz/streaminfo")
 async def stream_info():
     """获取所有的视频通道列表"""
+    print("Call /api/v1/ptz/streaminfo")
     item = {'version': '1.0.0',
             'channels': [
                 {'deviceid': '34020000001320000001', 'channelid': '34020000001310000001', 'desc': '标准测试视频',
-                 'url': 'rtsp://127.0.0.1:7554/main'},
+                 'url': 'rtsp://127.0.0.1:7554/live/main'},
                 {'deviceid': '44020000001320000001', 'channelid': '44020000001310000001', 'desc': '人员识别',
-                 'url': 'rtsp://127.0.0.1:7554/person'},
+                 'url': 'rtsp://127.0.0.1:7554/live/person'},
                 {'deviceid': '54020000001320000001', 'channelid': '54020000001310000001', 'desc': '测试静态仪表识别',
                  'url': 'rtsp://127.0.0.1:7554/panel'},
                 {'deviceid': '64020000001320000001', 'channelid': '64020000001310000001', 'desc': 'PLC',
@@ -182,6 +194,7 @@ async def stream_info():
 @app.get("/api/v1/ptz/streaminfo/{desc}")
 async def stream_info_by_desc(desc: str):
     """按照对用户有意义的名称，获取视频通道列表"""
+    print(f"call /api/v1/ptz/streaminfo/{desc}")
     item = {'version': '1.0.0',
             'channels': [
                 {'deviceid': '34020000001320000001', 'channelid': '34020000001310000001', 'desc': f'{desc}房间前门',
@@ -195,7 +208,7 @@ async def stream_info_by_desc(desc: str):
 @app.get("/api/v1/ptz/front_end_command/{deviceid}/{channelid}")
 async def get_all_presets(deviceid: str, channelid: str):
     """模拟视频调度的获取某路视频的所有预置点接口"""
-    log.log(channelid)
+    print(channelid)
     item = {'version': '1.0.0',
             'deviceid': f'{deviceid}',
             'url': 'rtsp://127.0.0.1/live',
@@ -210,7 +223,7 @@ async def get_all_presets(deviceid: str, channelid: str):
 
 
 @app.post("/api/v1/ptz/front_end_command/{deviceid}/{channelid}")
-async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(...)):   # noqa
+async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(...)):  # noqa
     """模拟视频调度的跳转到预置点接口"""
     # item = {"deviceId": deviceid, "channelId": channelid,
     # "cmdCode": 130, "parameter1": 0, "parameter2": int(viewpoint),
@@ -232,7 +245,7 @@ async def zoom_to_postion(deviceid: str, channelid: str, viewpoint: str = Form(.
 # IF2 REST API  内部接口-智能识别
 @app.post("/api/v1/ai/panel")
 async def meter_recognization(files: UploadFile = File(...), cfg_info: str = Form(...), req_id: Optional[str] = None):
-    log.log(f'{files.filename}, {files.content_type}, {cfg_info}')
+    print(f'{files.filename}, {files.content_type}, {cfg_info}')
     contents = files.file.read()
     # outfile = open(upfile.filename, 'wb')
     # outfile.write(contents)
@@ -244,7 +257,7 @@ async def meter_recognization(files: UploadFile = File(...), cfg_info: str = For
 
 @app.post("/api/v1/ai/person")
 async def object_counting(files: UploadFile = File(...), cfg_info: str = Form(...), req_id: Optional[str] = None):
-    log.log(f'{files.filename}, {files.content_type}, {cfg_info}')
+    print(f'{files.filename}, {files.content_type}, {cfg_info}')
     contents = files.file.read()
     # outfile = open(upfile.filename, 'wb')
     # outfile.write(contents)
@@ -256,7 +269,7 @@ async def object_counting(files: UploadFile = File(...), cfg_info: str = Form(..
 
 @app.post("/api/v1/ai/plc")
 async def indicator_frequency(files: UploadFile = File(...), cfg_info: str = Form(...), req_id: Optional[str] = None):
-    log.log(f'{files.filename}, {files.content_type}, {cfg_info}, {req_id}')
+    print(f'{files.filename}, {files.content_type}, {cfg_info}, {req_id}')
     contents = files.file.read()
     # outfile = open(upfile.filename, 'wb')
     # outfile.write(contents)
@@ -265,12 +278,11 @@ async def indicator_frequency(files: UploadFile = File(...), cfg_info: str = For
     ret.update({'req_id': int(req_id)})  # noqa
     return ret
 
+
 if __name__ == '__main__':
     log_config = uvicorn.config.LOGGING_CONFIG
-    log_config["formatters"]["default"]["fmt"] = log.get_v2v_logger_formatter()
-    log_config["formatters"]["access"]["fmt"] = log.get_v2v_logger_formatter()
-    log_config["loggers"]['uvicorn.error'].update({"propagate": False, "handlers": ["default"]})
-    uvicorn.run(app,                # noqa
+
+    uvicorn.run(app,  # noqa
                 host="0.0.0.0",
                 port=7180,
                 ssl_keyfile="cert.key",

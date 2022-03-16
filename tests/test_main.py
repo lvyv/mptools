@@ -30,7 +30,7 @@ unit test module
 # License: MIT
 
 import unittest
-from core.main import MainContext
+from ..src.core.kernel import MainContext
 # from utils import config, bus
 
 

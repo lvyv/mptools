@@ -67,16 +67,13 @@ def proc_worker_wrapper(proc_worker_class, name, in_q=None, out_q=None, dicts=No
     ret = 0
     try:
         pid = os.getpid()
-        proc_worker = proc_worker_class(f'{name}-{pid}', in_q, out_q, dicts, **kwargs)
+        proc_worker = proc_worker_class(f'{name}({pid})', in_q, out_q, dicts, **kwargs)
         ret = proc_worker.run()
     except KeyboardInterrupt:
         pass
     except RuntimeError as err:
-        log.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+        log.log(f'{err}', level=log.LOG_LVL_ERRO)
     return ret
-
-
-# OpenCV-Python timeout for opening a non-existent RTSP video stream
 
 
 class MyThread(threading.Thread):
@@ -130,13 +127,6 @@ def limit_decor(limit_time):
 
 
 TIME_LIMITED: int = 10
-
-
-@limit_decor(TIME_LIMITED)
-def video_capture_open(rtsp):
-    print(f'rtsp AAAA{rtsp}')
-    capture = cv2.VideoCapture(rtsp)
-    return True, capture
 
 
 def get_picture_size(path2pic):

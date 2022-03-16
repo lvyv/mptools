@@ -36,10 +36,12 @@ class V2VConfigurationChangedError(Exception):
     Attributes:
         message -- explanation of what is going on.
     """
-
     def __init__(self, message):
         super().__init__(self)
         self.message_ = message
+
+    def __str__(self):
+        return self.message_
 
 
 class V2VConfigurationIllegalError(Exception):
@@ -53,6 +55,24 @@ class V2VConfigurationIllegalError(Exception):
         super().__init__(self)
         self.message_ = message
 
+    def __str__(self):
+        return self.message_
+
+
+class V2VPauseRtspProcess(Exception):
+    """Raised when need pause rtsp process.
+
+    Attributes:
+        message -- explanation of what is going on.
+    """
+
+    def __init__(self, message):
+        super().__init__(self)
+        self.message_ = message
+
+    def __str__(self):
+        return self.message_
+
 
 class V2VTaskNullRtspUrl(Exception):
     """Raised when no more rtsp task could be assigned.
@@ -65,9 +85,28 @@ class V2VTaskNullRtspUrl(Exception):
         super().__init__(self)
         self.message_ = message
 
+    def __str__(self):
+        return self.message_
+
+
+class V2VTaskExitProcess(Exception):
+    """Raised when need exit process.
+
+    Attributes:
+        message -- explanation of what is going on.
+    """
+
+    def __init__(self, message):
+        super().__init__(self)
+        self.message_ = message
+
+    def __str__(self):
+        return self.message_
+
 
 if __name__ == '__main__':
     try:
-        raise V2VConfigurationChangedError(f'进程运行时，相关配置文件更新错误触发。')
+        raise V2VConfigurationChangedError(f'进程运行时，相关配置文件更新错误触发')
     except V2VConfigurationChangedError as e:
         print(e)
+    print('Normal exit.')
