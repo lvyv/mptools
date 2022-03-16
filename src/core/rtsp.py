@@ -274,7 +274,7 @@ class RtspWorker(ProcWorker):
             return _ret
         except queue.Full:
             self.log("[FULL] Image queue is full.", level=log.LOG_LVL_ERRO)
-            self.out_q_.clear()
+            self.out_q_.queue.clear()
             return _ret
 
     def shutdown(self):
