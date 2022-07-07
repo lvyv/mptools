@@ -339,7 +339,7 @@ class RestWorker(ProcWorker):
                         _self_obj.log("[API] Call SPDD presets list api. --> ")
                         presets = spdd.get_presets(deviceid, channelid, _cfg_dict['media_service'])
                     if url and presets:
-                        # 通知主调度，暂停pipeline流水线对本摄像头的识别操作，让rtsp流水线rtsp进程sleep多少时间计算得出。
+                        # 通知主调度，暂停pipeline流水线对本摄像头的识别操作，直到重新发送resume指令。
                         pipeline_cmd = {'cmd': 'pause', 'deviceid': deviceid, 'channelid': channelid}
                         _self_obj.log("[API] Pause RTSP process pull stream. --> ")
                         isok = _self_obj.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)

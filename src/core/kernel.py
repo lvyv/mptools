@@ -167,7 +167,7 @@ class MainContext(bus.IEventBusMixin):
         # 管理分配的任务：数据结构：{rtsp地址: 进程名称}，任务的粒度为一个通道
         # 数据示例: {'rtsp://127.0.0.1:7554/live/main': 'RTSP(23792)'}
         self._task_manage = TaskManage()
-        # 进程间消息队列
+        # 进程间消息队列，供所有子进程消费
         self._queue_frame = multiprocessing.Manager().Queue(self.PIC_QUEUE_SIZE)
         self._queue_vector = multiprocessing.Manager().Queue(self.VEC_QUEUE_SIZE)
         # 保存所有进程（rest,rtsp,ai,mqtt）的所有监测指标数据：运行时间.rest基本能代表main自己.
@@ -441,7 +441,7 @@ class MainContext(bus.IEventBusMixin):
 
     def start_v2v_pipeline_task(self, cfg):
         try:
-            # TODO: 如果一个通道一个进程，将无法满足100路同时视频的指标，可考虑一个进程支持多路通道
+            # TODO: 此处要考虑如何分配进程比例，1路视频流对应1个子进程，多少路视频流对应AI和MQTT进程？
             # 根据通道列表启动每个通道的rtsp->ai->mqtt处理进程
             for channel in cfg['rtsp_urls']:
                 # 不提供cnt=x参数，缺省1个通道启1个取RTSP流进程
@@ -487,6 +487,8 @@ class MainContext(bus.IEventBusMixin):
         try:
             # 读取配置文件内容
             _v2v_cfg_dict = ConfigSet.get_v2v_cfg_obj()
+
+            # 读取本地微服务的参数，也就是http服务
             _ms_cfg_dict = _v2v_cfg_dict['micro_service']
             (_ms_port, _ms_key, _ms_cer) = \
                 (_ms_cfg_dict['http_port'], _ms_cfg_dict['ssl_keyfile'], _ms_cfg_dict['ssl_certfile'])
@@ -494,7 +496,7 @@ class MainContext(bus.IEventBusMixin):
             # 启动1个Restful进程，提供微服务调用
             self.fork_restful_process(port=_ms_port, ssl_keyfile=_ms_key, ssl_certfile=_ms_cer)
 
-            # 阻塞处理子进程之间的消息.
+            # 进入主循环，阻塞处理子进程之间的消息.
             self.log("Enter main event loop.", level=log.LOG_LVL_DBG)
             _main_start_time, _process_pool_time = time.time(), time.time()
             while True:

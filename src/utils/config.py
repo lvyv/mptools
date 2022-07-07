@@ -141,7 +141,6 @@ class ConfigSet:
         :return:
         """
         channels = config['rtsp_urls']
-
         for ch in channels:
             for vp in ch['view_ports']:
                 ai_set = set()  # 在某个预置点，收集该预置点下配置的所有ai地址，以合并重复项
