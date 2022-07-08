@@ -55,8 +55,8 @@ from uvicorn.main import Server
 from core.procworker import ProcWorker
 from simplegallery.gallery_build import gallery_build
 from simplegallery.gallery_init import gallery_create
-from utils import bus, log, GrabFrame, wrapper as wpr
 from third_api import spdd
+from utils import bus, log, GrabFrame, wrapper as wpr
 
 # 取RTSP流的超时时间
 OPEN_RTSP_TIMEOFF = 30
@@ -327,73 +327,93 @@ class RestWorker(ProcWorker):
             item = {'version': '1.0.0', 'reply': 'pending.', 'rtsp_url': None}
             try:
                 _cfg_dict = _self_obj.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': _self_obj.name})
+                _spdd_url = _cfg_dict['media_service']
                 # 不支持nvrsamples的热更新，因为启动程序需要mount本地目录
                 _preset_image_path = f'{_nvr_samples_path}{deviceid}/'
+
+                # 是否需要重新从预置位点获取截图
                 if refresh:
-                    # 如果是刷新，需要从spdd取该通道的流地址
-                    _self_obj.log("[API] Call SPDD stream list api. --> ")
-                    url = spdd.get_rtsp_url(deviceid, channelid, _cfg_dict['media_service'])
-                    presets = None
-                    if url:
+                    # 重新获取预置位截图前，需要删除该设备之前的截图文件
+                    # FIXME: 子目录没有分类到通道ID一级，如果一个设备包含多个通道，则删除所有通道的截图，会影响其它通道的配置？
+                    _preset_files = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}'
+                                     for f in listdir(_preset_image_path) if
+                                     isfile(join(_preset_image_path, f)) and ('.png' not in f)]
+                    for file in _preset_files:
+                        os.remove(file)
+
+                    _self_obj.log("[PRESET API] 1.Get channel rtsp url from SPDD. --> ")
+                    _url = spdd.get_rtsp_url(deviceid, channelid, _spdd_url)
+                    _preset_list = None
+                    if _url:
                         # 从spdd取预置位
-                        _self_obj.log("[API] Call SPDD presets list api. --> ")
-                        presets = spdd.get_presets(deviceid, channelid, _cfg_dict['media_service'])
-                    if url and presets:
+                        _self_obj.log("[PRESET API] 2.Get presets list from SPDD. --> ")
+                        _preset_list = spdd.get_presets(deviceid, channelid, _spdd_url)
+                    if _url and _preset_list:
                         # 通知主调度，暂停pipeline流水线对本摄像头的识别操作，直到重新发送resume指令。
                         pipeline_cmd = {'cmd': 'pause', 'deviceid': deviceid, 'channelid': channelid}
-                        _self_obj.log("[API] Pause RTSP process pull stream. --> ")
-                        isok = _self_obj.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)
-                        if not isok['reply']:
+                        _self_obj.log("[PRESET API] 3.Pause RTSP process pull stream. --> ")
+                        _rpc_ret = _self_obj.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)
+                        if not _rpc_ret['reply']:
+                            _self_obj.log("[PRESET API] 3.Call RPC Pause stream failed. --> ")
                             raise RuntimeError(f'Cannot get the control of IPC: {deviceid}, {channelid}.')
+                        # FIXME:此处需要等待一定时间，让rtsp进程取流的动作停下来，等多长时间，是个问题。
+                        time.sleep(5)
 
-                        # rest 需要等待一定时间，让rtsp进程停下来。
-                        # FIXME: 此处最长时间应该为请求SPDD接口时间或取一帧的时间+0.5
-                        # time.sleep(rest_p)
-                        time.sleep(5 + 0.5)
-
-                        if url in _self_obj.cached_cvobjs_:
+                        if _url in _self_obj.cached_cvobjs_:
                             # 如果缓存过，就直接用缓存的流。
-                            cvobj = _self_obj.cached_cvobjs_[url]
+                            cvobj = _self_obj.cached_cvobjs_[_url]
                         else:
                             # 如果这个url没配置过，则打开一个新的对象来取流。
                             cvobj = GrabFrame.GrabFrame()
-                            opened = cvobj.open_stream(url, GrabFrame.GrabFrame.OPEN_RTSP_TIMEOFF)
+                            opened = cvobj.open_stream(_url, GrabFrame.GrabFrame.OPEN_RTSP_TIMEOFF)
                             if opened:
-                                _self_obj.cached_cvobjs_[url] = cvobj
+                                _self_obj.cached_cvobjs_[_url] = cvobj
                             else:
-                                raise cv2.error(f'Failed to open {url}.')
-                        # 产生系列预置点图片。
-                        item['rtsp_url'] = url  # 前端需要了解是否有合法url，才方便下发配置的时候填入正确的配置值
-                        for prs in presets:
-                            _self_obj.log(f"[API] Call SPDD presets API. --> {prs['presetid']}")
-                            ret = spdd.run_to_viewpoints(deviceid, channelid,
-                                                         prs['presetid'],
-                                                         _cfg_dict['media_service'],
-                                                         _cfg_dict['ipc_ptz_delay'])
-                            if ret:
-                                _video_frame_data = cvobj.read_frame()
-                                if _video_frame_data is None:
-                                    cvobj.stop_stream()
-                                    _self_obj.cached_cvobjs_.pop(url, None)  # 如果没有读出数据，清空缓存
-                                    raise cv2.error(f'Got empty frame from cv2.')
-                                # 保存原始图像
-                                _self_obj.log(f"[API] Save preset image to png. --> {prs['presetid']}")
-                                filename = f'{_preset_image_path}{prs["presetid"]}.png'
-                                os.makedirs(os.path.dirname(filename), exist_ok=True)
-                                cv2.imwrite(filename, _video_frame_data)
-                                # 保存缩略图，1920x1080的长宽缩小20倍
-                                _self_obj.log(f"[API] Save preset image to base64 file. --> {prs['presetid']}")
-                                _video_frame_data = imutils.resize(_video_frame_data, width=96, height=54)
-                                buf = io.BytesIO()
-                                plt.imsave(buf, _video_frame_data, format='png')
-                                image_data = buf.getvalue()
-                                image_data = base64.b64encode(image_data)
-                                outfile = open(f'{_preset_image_path}{prs["presetid"]}', 'wb')
-                                outfile.write(image_data)
-                                outfile.close()
+                                _self_obj.log("[PRESET API] 4.Get rtsp stream cv obj failed. --> ")
+                                raise cv2.error(f'Failed to open {_url}.')
+                        _self_obj.log("[PRESET API] 4.Get rtsp stream cv obj success. --> ")
+                        # 产生系列预置点图片
+                        item['rtsp_url'] = _url  # 前端需要了解是否有合法url，才方便下发配置的时候填入正确的配置值
+                        # 开始遍历预置位，进行截图
+                        for prs in _preset_list:
+                            _self_obj.log(f"[PRESET API] 5.Run to presets {prs['presetid']}. --> ")
+                            _preset_ret = spdd.run_to_viewpoints(deviceid, channelid,
+                                                                 prs['presetid'],
+                                                                 _spdd_url,
+                                                                 _cfg_dict['ipc_ptz_delay'])
+                            if _preset_ret:
+                                continue
+
+                            # FIXME:旋转预置位后，由于摄像头的物理动作比较慢，因此需要延时等待，待多长时间，是个问题.
+                            time.sleep(6)
+
+                            _video_frame_data = cvobj.read_frame()
+                            if _video_frame_data is None:
+                                cvobj.stop_stream()
+                                _self_obj.cached_cvobjs_.pop(_url, None)  # 如果没有读出数据，清空缓存
+                                _self_obj.log(f"[PRESET API] 6.Get presets {prs['presetid']} image failed. -->")
+                                raise cv2.error(f'Got empty frame from cv2.')
+                            _self_obj.log(f"[PRESET API] 6.Get presets {prs['presetid']} image success. -->")
+
+                            # 保存原始图像
+                            filename = f'{_preset_image_path}{prs["presetid"]}.png'
+                            os.makedirs(os.path.dirname(filename), exist_ok=True)
+                            cv2.imwrite(filename, _video_frame_data)
+                            _self_obj.log(f"[PRESET API] 7.Save preset {prs['presetid']} image to png {filename}. -->")
+
+                            # 保存缩略图，1920x1080的长宽缩小20倍
+                            _video_frame_data = imutils.resize(_video_frame_data, width=96, height=54)
+                            buf = io.BytesIO()
+                            plt.imsave(buf, _video_frame_data, format='png')
+                            image_data = buf.getvalue()
+                            image_data = base64.b64encode(image_data)
+                            outfile = open(f'{_preset_image_path}{prs["presetid"]}', 'wb')
+                            outfile.write(image_data)
+                            outfile.close()
+                            _self_obj.log(f"[PRESET API] 8.Save preset {prs['presetid']} image to base64 file. -->")
                     else:
                         # 不是合法的设备号
-                        errmsg = f'摄像头{deviceid}-{channelid}查询流地址或预置点失败。'
+                        errmsg = f'查询RTSP地址或获取预置点失败，摄像头{deviceid}-{channelid}.'
                         item['reply'] = errmsg
                         raise ValueError(errmsg)
                     # # 通知主调度，恢复pipeline流水线对本摄像头的识别操作
@@ -415,9 +435,11 @@ class RestWorker(ProcWorker):
                     item['presets'] = onlyfiles
                     pngfile = f'{_preset_image_path}{pngfiles[0]}'
                     item['width'], item['height'] = wpr.get_picture_size(pngfile)
+                    _self_obj.log(f"[PRESET API] API work success. -->")
                 else:
                     item['reply'] = False
                     item['desc'] = '没有生成可标注的图片.'
+                    _self_obj.log(f"[PRESET API] API work failed. -->")
             except FileNotFoundError as err:
                 _self_obj.log(f'Web api get_presets: {err}', level=log.LOG_LVL_ERRO)
                 item['reply'] = False

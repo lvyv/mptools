@@ -127,6 +127,7 @@ def get_urls(base_url, deviceid=None) -> list or None:
         _ip = _obj.get("ipAddress", None)
         _name = _obj.get("smartUsername", None)
         _pwd = _obj.get("smartPassword", None)
+        _online = _obj.get("status", 0)
         # 校验值
         if _did is None or _cid is None:
             print("设置ID或通道ID错误.")
@@ -136,6 +137,9 @@ def get_urls(base_url, deviceid=None) -> list or None:
             continue
         if _name is None or _pwd is None or len(_name) < 1 or len(_pwd) < 1:
             print("未配置用户名和密码.")
+            continue
+        # 如果通道不在线，则忽略
+        if _online == 0:
             continue
         # 优先使用别名，然后是name
         if _desc is None or len(_desc) < 1:
