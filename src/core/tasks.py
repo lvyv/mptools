@@ -199,6 +199,16 @@ class TaskManage:
             _v2v_cfg_dict['rtsp_urls'] = []
         return _v2v_cfg_dict
 
+    def query_task_number(self) -> ():
+        """
+        返回各任务的进程数量
+        格式：(RTSP, AI, MQTT)
+        """
+        if self._p_manage:
+            return self._p_manage.get_process_number()
+        else:
+            return 0, 0, 0
+
     def query_task_obj_by_url(self, rtsp_url) -> None or TaskInfo:
         """
         通过RTSP链接查询，执行该RTSP链接的任务对象

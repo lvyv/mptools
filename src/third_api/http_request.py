@@ -7,6 +7,7 @@
 
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
@@ -16,14 +17,14 @@ class HttpRequest:
         self._read_time_out = read_time_out
         self._resp = None
 
-    def _do_http_request(self, _type, _url, _data=None):
+    def _do_http_request(self, _type, _url, _data=None, _file=None):
         _headers = {'Content-Type': 'application/json'}
         try:
             if _type == 'GET':
                 self._resp = requests.get(_url, verify=False, headers=_headers,
                                           timeout=(self._connect_time_out, self._read_time_out))
             else:
-                self._resp = requests.post(_url, verify=False, headers=_headers, data=_data,
+                self._resp = requests.post(_url, verify=False, headers=_headers, data=_data, files=_file,
                                            timeout=(self._connect_time_out, self._read_time_out))
         except requests.exceptions.Timeout as e:
             # 超时
@@ -43,5 +44,5 @@ class HttpRequest:
     def http_timeout_get(self, url):
         return self._do_http_request('GET', url)
 
-    def http_timeout_post(self, url, data):
-        return self._do_http_request('POST', url, data)
+    def http_timeout_post(self, url, data, file=None):
+        return self._do_http_request('POST', url, data, file)

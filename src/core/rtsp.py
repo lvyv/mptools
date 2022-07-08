@@ -182,7 +182,7 @@ class RtspWorker(ProcWorker):
             else:
                 self.log(f'Open RTSP stream failed. url:{_rtsp_url}', level=log.LOG_LVL_ERRO)
                 cvobj.stop_stream()
-                raise V2VErr.V2VConfigurationIllegalError(f'Open RTSP stream failed. url:{_rtsp_url}')
+                raise V2VErr.V2VTaskConnectError(f'Open RTSP stream failed. url:{_rtsp_url}')
         except (cv2.error, IndexError, AttributeError) as err:
             self.log(f'[RTSP] Startup task error:({_channel_cfg_dict})', level=log.LOG_LVL_ERRO)
             raise V2VErr.V2VConfigurationIllegalError(err)
@@ -213,25 +213,25 @@ class RtspWorker(ProcWorker):
                 self._sleep_wrapper(0.1)
                 return _ret
 
-            did = self._process_task_dict['device_id']
-            cid = self._process_task_dict['channel_id']
-            vps = self._process_task_dict['view_ports']
-            sar = self._process_task_dict['sample_rate']
+            _device_id = self._process_task_dict['device_id']
+            _channel_id = self._process_task_dict['channel_id']
+            _preset_list = self._process_task_dict['view_ports']
+            _sample_rate = self._process_task_dict['sample_rate']
             # 采样的周期（秒），比如采样率1Hz，则睡1秒工作一次
-            inteval = 1 / sar
+            inteval = 1 / _sample_rate
             # 计算需要丢弃的帧数
             # skip = self.fps_ / sar
             # 遍历预置位 ["preset1": [], "preset2": []]
-            for vp in vps:
+            for _preset in _preset_list:
                 # 取"preset1"值
-                presetid = list(vp.keys())[0]  # 目前配置文件格式规定：每个vp对象只有1个presetX的主键，value是一个json对象
-                # 让摄像头就位，阻塞操作，函数内部会休眠
-                self.log(f"Call PTZ preset. --> {presetid}")
-                spdd.run_to_viewpoints(did, cid, presetid, self._spdd_url, self._ptz_delay)
+                _preset_id = list(_preset.keys())[0]  # 目前配置文件格式规定：每个vp对象只有1个presetX的主键，value是一个json对象
+                self.log(f"[RTSP] 旋转云台到预置位: {_preset_id}. -->")
+                spdd.run_to_viewpoints(_device_id, _channel_id, _preset_id, self._spdd_url, self._ptz_delay)
+                # 云台的物理旋转动作较慢，延时等待
                 self._sleep_wrapper(self._ptz_delay)
 
                 # 读取停留时间，云台旋转到位后，在此画面停留时间
-                duration = vp[presetid][0]['seconds']  # 对某个具体的预置点vp，子分类aoi停留时间都是一样的，随便取一个即可。
+                duration = _preset[_preset_id][0]['seconds']  # 对某个具体的预置点vp，子分类aoi停留时间都是一样的，随便取一个即可。
                 st, delta = time(), 0
                 current_frame_pos = -1
                 while duration > delta:
@@ -243,25 +243,26 @@ class RtspWorker(ProcWorker):
 
                     # 为实现ai效率最大化，把图片中不同ai仪表识别任务分包，一个vp，不同类ai标注类型给不同的ai进程去处理
                     # 这样会导致同一图片重复放到工作队列中（只是aoi不同）。
-                    aitasks = vp[presetid]
+                    aitasks = _preset[_preset_id]
                     # 遍历每一个presetX下的对象
                     for _aoi_dict in aitasks:
-                        if _aoi_dict['ai_service'] != '':
-                            # 把图像数据和任务信息通过队列传给后续进程，fid和fps可以用来计算流开始以来的时间
-                            if _video_frame_data is not None:
-                                _recognition_obj = {'requestid': requestid,
-                                                    'task': _aoi_dict, 'fid': current_frame_pos,
-                                                    'fps': self._stream_fps,
-                                                    'frame': _video_frame_data}
-                                self.log(f'The size of picture queue between rtsp & ai is: {self.out_q_.qsize()}.',
-                                         level=log.LOG_LVL_DBG)
-                                self.out_q_.put_nowait(_recognition_obj)
-                    # FIXME: why?
-                    self.log(f"云台截图休眠时间: {inteval - time() % inteval}")
+                        if _aoi_dict['ai_service'] == '':
+                            continue
+                        # 把图像数据和任务信息通过队列传给后续进程，fid和fps可以用来计算流开始以来的时间
+                        if _video_frame_data is None:
+                            continue
+                        _recognition_obj = {'requestid': requestid,
+                                            'task': _aoi_dict, 'fid': current_frame_pos,
+                                            'fps': self._stream_fps,
+                                            'frame': _video_frame_data}
+                        self.log(f'The size of picture queue between rtsp & ai is: {self.out_q_.qsize()}.',
+                                 level=log.LOG_LVL_DBG)
+                        self.out_q_.put_nowait(_recognition_obj)
+                    # self.log(f"云台截图休眠时间: {inteval - time() % inteval}")
                     self._sleep_wrapper(inteval - time() % inteval)
                     # 计算是否到设定的时间了
                     delta = time() - st  # 消耗的时间（秒）
-                self.log(f'preset: "{presetid}" spend time: {delta} and current frame pos: {current_frame_pos}')
+                self.log(f'preset: "{_preset_id}" spend time: {delta} and current frame pos: {current_frame_pos}')
                 return _ret
         except (cv2.error, AttributeError, UnboundLocalError) as err:
             self.log(f'1.cv2.error:({err}){self._process_task_dict}', level=log.LOG_LVL_ERRO)
@@ -273,7 +274,7 @@ class RtspWorker(ProcWorker):
             self.log(f"[RTSP] Pause/Resume RTSP process.", level=log.LOG_LVL_WARN)
             return _ret
         except queue.Full:
-            self.log("[FULL] Image queue is full.", level=log.LOG_LVL_ERRO)
+            self.log("[FULL] Image queue is full, clear it.", level=log.LOG_LVL_ERRO)
             self.out_q_.queue.clear()
             return _ret
 

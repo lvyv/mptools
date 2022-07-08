@@ -129,8 +129,8 @@ class MqttWorker(ProcWorker):
             self._mqtt_client_obj.loop_start()
         except (socket.gaierror, TimeoutError, UnicodeError, ConnectionRefusedError) as err:
             self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
-            msg = f'Cannot connect to {self.mqtt_host_}:{self.mqtt_port_} with {self.mqtt_cid_}/{self.mqtt_pwd_}'
-            raise V2VErr.V2VConfigurationIllegalError(msg)
+            msg = f'[MQTT] 连接MQTT服务失败: {self.mqtt_host_}:{self.mqtt_port_} {self.mqtt_cid_}/{self.mqtt_pwd_}'
+            raise V2VErr.V2VTaskConnectError(msg)
         except (KeyError, ValueError, Exception) as err:
             self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
             raise V2VErr.V2VConfigurationIllegalError(err)
@@ -142,23 +142,37 @@ class MqttWorker(ProcWorker):
             time.sleep(0.01)
             return False
 
-        payload = json.loads(str(vec.decode('utf-8')))
-        data = {'payload': payload}
+        # 解析返回值
+        try:
+            payload = json.loads(str(vec.decode('utf-8')))
+        except json.decoder.JSONDecodeError:
+            # 如果JSON数据格式错误
+            self.log(f'[MQTT] 格式化JSON数据出错.', level=log.LOG_LVL_ERRO)
+            return False
+        else:
+            data = {'payload': payload}
+
         # FIXME: why?
         # 从类方法或属性中查找'tracer_'
         if 'tracer_' in dir(self):    # 如果配置项有jaeger，将记录
             # inject和extract配合使用，先extract去取出数据包中的metadata的traceid的span上下文，
             # 然后再对上下文进行操作，并把它注入到下一个环节，因为mqtt这个进程是本模块的起点，因此只有inject。
             nodename = self.node_name_
-            with self.tracer_.start_active_span(f'v2v_mqtt_{nodename}_send_msg') as scope:       # 带内数据插入trace id
+            with self.tracer_.start_active_span(f'v2v_mqtt_{nodename}_send_msg') as scope: # 带内数据插入trace id
                 scope.span.set_tag('originalMsg', vec.decode('utf-8'))
                 scope.span.set_tag('link.localHost', socket.gethostname())
                 scope.span.set_tag('link.remoteHost', self.mqtt_host_)
                 span = self.tracer_.active_span
                 AdaptorTracingUtility.inject_span_ctx(self.tracer_, span, data)
-        self.log(f"Publish data to MQTT. --> {data}", level=log.LOG_LVL_DBG)
-        self._mqtt_client_obj.publish(self._mqtt_pub_topic, json.dumps(data), 1)
 
+        try:
+            _ret = self._mqtt_client_obj.publish(self._mqtt_pub_topic, json.dumps(data), 1)
+            if _ret == mqtt_client.MQTT_ERR_SUCCESS:
+                self.log(f"[MQTT] 上报数据到MQTT服务器成功. -->", level=log.LOG_LVL_INFO)
+            else:
+                self.log(f"[MQTT] 上报数据到MQTT服务器失败. -->", level=log.LOG_LVL_ERRO)
+        except ValueError:
+            self.log(f"[MQTT] 上报数据到MQTT服务器失败. --> ValueError.", level=log.LOG_LVL_ERRO)
         return False
 
     def shutdown(self):

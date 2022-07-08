@@ -507,12 +507,17 @@ class MainContext(bus.IEventBusMixin):
                     time.sleep(0.01)
                 # 每隔10秒输出程序运行状态
                 if (time.time() - _main_start_time) >= 10:
-                    self.log(f"Frame queue size: {self._queue_frame.qsize()}", level=log.LOG_LVL_INFO)
-                    self.log(f"Mqtt  queue size: {self._queue_vector.qsize()}", level=log.LOG_LVL_INFO)
-                    # TODO: 监控进程池的运行情况，RTSP,AI,MQTT进程数量，以及所在阶段(startup, mainloop)
+                    self.log(f"视频截图 queue size: {self._queue_frame.qsize()}", level=log.LOG_LVL_INFO)
+                    self.log(f"识别结果 queue size: {self._queue_vector.qsize()}", level=log.LOG_LVL_INFO)
                     # 输出主进程管理的任务列表
                     _task_list = self._task_manage.dump_task_info()
-                    self.log(f"Task Number: {len(_task_list)}, Task: {_task_list}", level=log.LOG_LVL_INFO)
+                    self.log(f"任务数量: {len(_task_list)}")
+                    for _tk in _task_list:
+                        self.log(f'{_tk}', level=log.LOG_LVL_INFO)
+
+                    # 各进程的详细数量
+                    _rtsp, _ai, _mqtt = self._task_manage.query_task_number()
+                    self.log(f"RTSP进程数量: {_rtsp}, AI进程数量: {_ai}, MQTT进程数量: {_mqtt}", level=log.LOG_LVL_INFO)
                     _main_start_time = time.time()
         except KeyboardInterrupt as err:
             self.log(f'Main process get ctrl+c', level=log.LOG_LVL_ERRO)

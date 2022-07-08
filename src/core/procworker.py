@@ -144,25 +144,26 @@ class ProcWorker(BaseProcWorker, bus.IEventBusMixin):
                 self.state = ProcessState.SHUT
                 self.shutdown()
                 break
+            except V2VErr.V2VTaskConnectError as err:
+                self.log(f"[BASE] V2VTaskConnectError: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
+                time.sleep(1.5)
             except V2VErr.V2VTaskExitProcess as err:
                 self.log(f"[BASE] V2VTaskExitProcess: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
                 self.shutdown()
-                break
+                break   # 退出进程
             except V2VErr.V2VConfigurationIllegalError as err:
                 # 发生配置不合法，等待配置下发正确，发生在startup，可以不shutdown，避免引入新的错误。
-                _is_restart = True
                 self.log(f"[BASE] V2VConfigurationIllegalError: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
-                # time.sleep(1)
+                time.sleep(1)
             except V2VErr.V2VConfigurationChangedError as err:
                 # 发生运行时配置更新，先shutdown，完成资源回收，再重启动，发生在main_loop。
-                _is_restart = True
                 self.log(f"[BASE] V2VConfigurationChangedError: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
                 self.shutdown()
-                # time.sleep(1)
+                time.sleep(1)
             except V2VErr.V2VTaskNullRtspUrl as err:
                 # 暂时没活干也不要退出，毕竟流水线后面还起了ai，mqtt几个等着吧。
-                _is_restart = True
                 self.log(f"[BASE] V2VTaskNullRtspUrl: {err} restart:{_is_restart}", level=log.LOG_LVL_ERRO)
+                time.sleep(1)
             except KeyboardInterrupt:
                 self.log(f'Caught KeyboardInterrupt event in run loop.', level=log.LOG_LVL_ERRO)
                 self.close_zmq()

@@ -48,7 +48,28 @@ class ProcessManage:
         self._process_dict.clear()
         self._process_dict = dict()
 
+    def get_process_number(self) -> ():
+        """
+        返回所有进程的初始类型数量.
+        此处统计数量更准备.
+        返回格式：(RTSP, AI, MQTT)
+        {name: 'NAME(PID)', pid: pid, pre_state: ProcessState.number, new_state: ProcessState.number}
+        """
+        _rtsp, _ai, _mqtt = 0, 0, 0
+        for _obj in self._process_dict.values():
+            if 'RTSP' in _obj.name:
+                _rtsp += 1
+            elif 'AI' in _obj.name:
+                _ai += 1
+            elif 'MQTT' in _obj.name:
+                _mqtt += 1
+
+        return _rtsp, _ai, _mqtt
+
     def get_process_state_info(self, pid) -> None or dict:
+        """
+        输入进程号，查询该进程的工作状态
+        """
         _ret = None
         if pid in self._process_dict.keys():
             _p_obj = self._process_dict[pid]
@@ -58,6 +79,9 @@ class ProcessManage:
         return _ret
 
     def update_process_info(self, params):
+        """
+        更新进程的工作状态，数据来源于各个子进程的主动上报.
+        """
         _pid = params.get('pid', None)
         if _pid is None:
             return
