@@ -107,13 +107,13 @@ class RtspWorker(ProcWorker):
         _ret = True
         # EBUS_SPECIAL_MSG_STOP_RESUME_PIPE = {'code': 3, 'desc': 'METRICS'}
         # 使用唯一的消息码进行判断
-        _evt_code = evt['code']
+        _evt_code = evt.get('code', -1)
         # 通道的启停
         if _evt_code == bus.EBUS_SPECIAL_MSG_STOP_RESUME_PIPE['code']:
-            cmd = evt['cmd']
+            cmd = evt.get('cmd', None)
             if cmd in ['pause', 'resume']:
-                did = evt['deviceid']
-                cid = evt['channelid']
+                did = evt.get('deviceid', None)
+                cid = evt.get('channelid', None)
                 if self._check_did_cid_pertain_process(did, cid) is True:
                     if cmd == 'pause':
                         _new_state = ProcessState.PAUSE
@@ -123,8 +123,8 @@ class RtspWorker(ProcWorker):
                     self.state = _new_state
                     raise V2VErr.V2VPauseRtspProcess("[RTSP] Pause RTSP Process.")
         elif _evt_code == bus.EBUS_SPECIAL_MSG_CHANNEL_CFG['code']:
-            did = evt['device_id']
-            cid = evt['channel_id']
+            did = evt.get('deviceid', None)
+            cid = evt.get('channelid', None)
             if self._check_did_cid_pertain_process(did, cid) is True:
                 self.log("[RTSP] Single Channel's config changed. Restart Process.")
                 raise V2VErr.V2VConfigurationChangedError(f'{did}-{cid}')
@@ -141,50 +141,57 @@ class RtspWorker(ProcWorker):
         _rtsp_url = None
         # 通道的配置信息
         _channel_cfg_dict = None
-        try:
-            if evt is not None:
-                self._proc_broadcast_msg(evt)
-            if self.state == ProcessState.PAUSE:
-                self._sleep_wrapper(0.1)
 
-            # 1.尝试获取配置数据，找主进程获取一个流水线任务，复用了获取配置文件的命令
-            self.log(f'Enter startup.')
-            _process_task_dict_from_main = self.call_rpc(bus.CB_GET_CFG,
-                                                         {'cmd': 'get_task', 'source': self.name,
-                                                          'assigned': self._process_task_dict})
-            self._spdd_url = _process_task_dict_from_main['media_service']
-            self._ptz_delay = _process_task_dict_from_main['ipc_ptz_delay']
-            self.log(f'Get spdd url: {self._spdd_url} ptz_delay:{self._ptz_delay} value from main process.',
-                     level=log.LOG_LVL_DBG)
-            # 2.访问对应的rtsp流
-            # 如果此前已经分配过任务，但因为下发配置事件、配置不合法、网络断流等导致重新初始化。
-            # 则有新分配任务，按新任务执行，没有新任务，按老任务执行。
-            if self._process_task_dict:
-                _rtsp_url = self._process_task_dict['rtsp_url']
-            if _process_task_dict_from_main['rtsp_urls']:
-                _channel_cfg_dict = _process_task_dict_from_main['rtsp_urls'][0]
-                _rtsp_url = _channel_cfg_dict['rtsp_url']  # 分配给自己的任务
-                self._process_task_dict.update(_channel_cfg_dict)  # 记录分配到的任务
-            if _rtsp_url is None:
-                # 这个错误是因为返回的配置信息中的任务没有，已经分配完了，或者原来分配任务，但新下发配置终止了原来任务（shutdown调用）
-                self.log(f"[RTSP] No rtsp url to eat. sleep 10s", level=log.LOG_LVL_WARN)
-                self._sleep_wrapper(10)
-                raise V2VErr.V2VTaskNullRtspUrl(f'No more task left.')
-            # 实例化取视频帧类
-            cvobj = GrabFrame.GrabFrame()
+        if evt is not None:
+            self._proc_broadcast_msg(evt)
+        if self.state == ProcessState.PAUSE:
+            self._sleep_wrapper(0.1)
+
+        # 1.尝试获取配置数据，找主进程获取一个流水线任务，复用了获取配置文件的命令
+        self.log(f'[RTSP STARTUP] Enter startup.')
+        _process_task_dict_from_main = self.call_rpc(bus.CB_GET_CFG,
+                                                     {'cmd': 'get_task', 'source': self.name,
+                                                      'assigned': self._process_task_dict})
+        self._spdd_url = _process_task_dict_from_main.get('media_service', None)
+        self._ptz_delay = _process_task_dict_from_main.get('ipc_ptz_delay', None)
+        _rtsp_list = _process_task_dict_from_main.get('rtsp_urls', None)
+        if self._spdd_url is None or _rtsp_list is None or len(_rtsp_list) < 1:
+            self.log(f'[RTSP STARTUP] 0.读取配置文件失败，无法执行RTSP进程的余下任务.', level=log.LOG_LVL_ERRO)
+            raise V2VErr.V2VConfigurationIllegalError("[RTSP STARTUP] 0.读取配置文件失败")
+
+        # 2.访问对应的rtsp流
+        # 如果此前已经分配过任务，但因为下发配置事件、配置不合法、网络断流等导致重新初始化。
+        # 则有新分配任务，按新任务执行，没有新任务，按老任务执行。
+        if self._process_task_dict:
+            _rtsp_url = self._process_task_dict['rtsp_url']
+        if _rtsp_list:
+            _channel_cfg_dict = _rtsp_list[0]
+            _rtsp_url = _channel_cfg_dict.get('rtsp_url', None)  # 分配给自己的任务
+        if _rtsp_url is None:
+            # 这个错误是因为返回的配置信息中的任务没有，已经分配完了，或者原来分配任务，但新下发配置终止了原来任务（shutdown调用）
+            self.log(f"[RTSP STARTUP] 1.该进程没有分配到RTSP流地址，非阻塞休眠10s", level=log.LOG_LVL_WARN)
+            self._sleep_wrapper(10)
+            raise V2VErr.V2VTaskNullRtspUrl(f'No more task left.')
+        else:
+            self._process_task_dict.update(_channel_cfg_dict)  # 记录分配到的任务
+            self.log(f"[RTSP STARTUP] 1.进程分配到RTSP流地址: {_rtsp_url}", level=log.LOG_LVL_WARN)
+
+        # 实例化取视频帧类
+        cvobj = GrabFrame.GrabFrame()
+        try:
             # 阻塞打开RTSP流
             # FIXME: 因为阻塞，影响广播消息的接收和响应
             opened = cvobj.open_stream(_rtsp_url, GrabFrame.GrabFrame.OPEN_RTSP_TIMEOFF)
             if opened:
                 w, h, self._stream_fps = cvobj.get_stream_info()
                 self._stream_obj = cvobj
-                self.log(f"Open RTSP stream success. w:{w}, h:{h}, fps:{self._stream_fps}, url:{_rtsp_url}")
+                self.log(f"[RTSP STARTUP] 2.获取RTSP流成功. w:{w}, h:{h}, fps:{self._stream_fps}, url:{_rtsp_url}")
             else:
-                self.log(f'Open RTSP stream failed. url:{_rtsp_url}', level=log.LOG_LVL_ERRO)
+                self.log(f'[RTSP STARTUP] 2.获取RTSP流失败. url:{_rtsp_url}', level=log.LOG_LVL_ERRO)
                 cvobj.stop_stream()
                 raise V2VErr.V2VTaskConnectError(f'Open RTSP stream failed. url:{_rtsp_url}')
         except (cv2.error, IndexError, AttributeError) as err:
-            self.log(f'[RTSP] Startup task error:({_channel_cfg_dict})', level=log.LOG_LVL_ERRO)
+            self.log(f'[RTSP STARTUP] 2.获取RTSP流失败. url:{_rtsp_url}', level=log.LOG_LVL_ERRO)
             raise V2VErr.V2VConfigurationIllegalError(err)
 
     def main_func(self, event=None, *args):
@@ -223,10 +230,10 @@ class RtspWorker(ProcWorker):
             # skip = self.fps_ / sar
             # 遍历预置位 ["preset1": [], "preset2": []]
             for _preset in _preset_list:
-                # 取"preset1"值
                 _preset_id = list(_preset.keys())[0]  # 目前配置文件格式规定：每个vp对象只有1个presetX的主键，value是一个json对象
-                self.log(f"[RTSP] 旋转云台到预置位: {_preset_id}. -->")
-                spdd.run_to_viewpoints(_device_id, _channel_id, _preset_id, self._spdd_url, self._ptz_delay)
+                _api_ret = spdd.run_to_viewpoints(_device_id, _channel_id, _preset_id, self._spdd_url, self._ptz_delay)
+                self.log(f"[RTSP RUN] 1.旋转云台到预置位: {_preset_id}. -->", _api_ret)
+
                 # 云台的物理旋转动作较慢，延时等待
                 self._sleep_wrapper(self._ptz_delay)
 
@@ -236,9 +243,11 @@ class RtspWorker(ProcWorker):
                 current_frame_pos = -1
                 while duration > delta:
                     _video_frame_data = self._stream_obj.read_frame(0.1)
+                    if _video_frame_data is None:
+                        self.log(f"[RTSP RUN] 取预置位: {_preset_id} 的视频帧失败. -->")
+                        continue
                     # 请求用时间戳，便于后续Ai识别后还能够知道是哪一个时间点的视频帧
                     requestid = int(time() * 1000)
-                    # requestid = time_ns()
                     current_frame_pos = self._stream_obj.get_stream_frame_pos()
 
                     # 为实现ai效率最大化，把图片中不同ai仪表识别任务分包，一个vp，不同类ai标注类型给不同的ai进程去处理
@@ -249,32 +258,31 @@ class RtspWorker(ProcWorker):
                         if _aoi_dict['ai_service'] == '':
                             continue
                         # 把图像数据和任务信息通过队列传给后续进程，fid和fps可以用来计算流开始以来的时间
-                        if _video_frame_data is None:
-                            continue
                         _recognition_obj = {'requestid': requestid,
                                             'task': _aoi_dict, 'fid': current_frame_pos,
                                             'fps': self._stream_fps,
                                             'frame': _video_frame_data}
-                        self.log(f'The size of picture queue between rtsp & ai is: {self.out_q_.qsize()}.',
+                        self.log(f'[RTSP RUN] The size of picture queue between rtsp & ai is: {self.out_q_.qsize()}.',
                                  level=log.LOG_LVL_DBG)
                         self.out_q_.put_nowait(_recognition_obj)
                     # self.log(f"云台截图休眠时间: {inteval - time() % inteval}")
                     self._sleep_wrapper(inteval - time() % inteval)
                     # 计算是否到设定的时间了
                     delta = time() - st  # 消耗的时间（秒）
-                self.log(f'preset: "{_preset_id}" spend time: {delta} and current frame pos: {current_frame_pos}')
+                    _video_frame_data = None
+                self.log(f'[RTSP RUN] preset: "{_preset_id}" spend time: {delta} and frame pos: {current_frame_pos}')
                 return _ret
         except (cv2.error, AttributeError, UnboundLocalError) as err:
-            self.log(f'1.cv2.error:({err}){self._process_task_dict}', level=log.LOG_LVL_ERRO)
+            self.log(f'[RTSP RUN] cv2.error:({err}){self._process_task_dict}', level=log.LOG_LVL_ERRO)
             return _ret
         except TypeError as err:
-            self.log(f'2.TypeError:{err}', level=log.LOG_LVL_ERRO)
+            self.log(f'[RTSP RUN] TypeError:{err}', level=log.LOG_LVL_ERRO)
             return _ret
         except V2VErr.V2VPauseRtspProcess as err:
-            self.log(f"[RTSP] Pause/Resume RTSP process.", level=log.LOG_LVL_WARN)
+            self.log(f"[RTSP RUN] Pause/Resume RTSP process.", level=log.LOG_LVL_WARN)
             return _ret
         except queue.Full:
-            self.log("[FULL] Image queue is full, clear it.", level=log.LOG_LVL_ERRO)
+            self.log("[RTSP RUN] Image queue is [FULL], clear it, may lose data.", level=log.LOG_LVL_ERRO)
             self.out_q_.queue.clear()
             return _ret
 

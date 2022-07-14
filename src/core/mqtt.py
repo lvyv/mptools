@@ -114,7 +114,7 @@ class MqttWorker(ProcWorker):
             self._mqtt_pub_topic = _mqtt_cfg_dict['mqtt_tp']
             self.fsvr_url_ = _mqtt_cfg_dict['fsvr_url']
             # 更新service name
-            # 下发的node name 与原来（系统安装的时候）配置不一样了
+            # 从IOT界面下发的node name与配置文件中的不一样时
             if self.node_name_ != self.jaeger_['node_name']:
                 # 缓存tracer便于后面使用
                 self.tracer_ = self.reset_jaeger(self.jaeger_['agent_ip'], self.jaeger_['agent_port'], self.node_name_)

@@ -341,21 +341,23 @@ class RestWorker(ProcWorker):
                     for file in _preset_files:
                         os.remove(file)
 
-                    _self_obj.log("[PRESET API] 1.Get channel rtsp url from SPDD. --> ")
                     _url = spdd.get_rtsp_url(deviceid, channelid, _spdd_url)
+                    _self_obj.log("[PRESET API] 1.Get channel rtsp url from SPDD. --> ", _url)
                     _preset_list = None
                     if _url:
                         # 从spdd取预置位
-                        _self_obj.log("[PRESET API] 2.Get presets list from SPDD. --> ")
                         _preset_list = spdd.get_presets(deviceid, channelid, _spdd_url)
+                        _self_obj.log("[PRESET API] 2.Get presets list from SPDD. --> ", _preset_list)
                     if _url and _preset_list:
                         # 通知主调度，暂停pipeline流水线对本摄像头的识别操作，直到重新发送resume指令。
                         pipeline_cmd = {'cmd': 'pause', 'deviceid': deviceid, 'channelid': channelid}
-                        _self_obj.log("[PRESET API] 3.Pause RTSP process pull stream. --> ")
                         _rpc_ret = _self_obj.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)
                         if not _rpc_ret['reply']:
-                            _self_obj.log("[PRESET API] 3.Call RPC Pause stream failed. --> ")
-                            raise RuntimeError(f'Cannot get the control of IPC: {deviceid}, {channelid}.')
+                            _self_obj.log("[PRESET API] 3.Pause RTSP process pull stream failed. --> ",
+                                          level=log.LOG_LVL_ERRO)
+                            raise RuntimeError(f'Pause RTSP process pull stream failed: {deviceid}, {channelid}.')
+                        else:
+                            _self_obj.log("[PRESET API] 3.Pause RTSP process pull stream success. --> ")
                         # FIXME:此处需要等待一定时间，让rtsp进程取流的动作停下来，等多长时间，是个问题。
                         time.sleep(5)
 
@@ -376,17 +378,18 @@ class RestWorker(ProcWorker):
                         item['rtsp_url'] = _url  # 前端需要了解是否有合法url，才方便下发配置的时候填入正确的配置值
                         # 开始遍历预置位，进行截图
                         for prs in _preset_list:
-                            _self_obj.log(f"[PRESET API] 5.Run to presets {prs['presetid']}. --> ")
                             _preset_ret = spdd.run_to_viewpoints(deviceid, channelid,
                                                                  prs['presetid'],
                                                                  _spdd_url,
                                                                  _cfg_dict['ipc_ptz_delay'])
-                            if _preset_ret:
+                            if _preset_ret is False:
+                                _self_obj.log(f"[PRESET API] 5.Run to presets {prs['presetid']} failed. --> ")
                                 continue
+                            _self_obj.log(f"[PRESET API] 5.Run to presets {prs['presetid']} success. --> ")
 
                             # FIXME:旋转预置位后，由于摄像头的物理动作比较慢，因此需要延时等待，待多长时间，是个问题.
                             time.sleep(6)
-
+                            # 从视频流中取当前帧
                             _video_frame_data = cvobj.read_frame()
                             if _video_frame_data is None:
                                 cvobj.stop_stream()
@@ -413,16 +416,9 @@ class RestWorker(ProcWorker):
                             _self_obj.log(f"[PRESET API] 8.Save preset {prs['presetid']} image to base64 file. -->")
                     else:
                         # 不是合法的设备号
-                        errmsg = f'查询RTSP地址或获取预置点失败，摄像头{deviceid}-{channelid}.'
+                        errmsg = f'查询RTSP地址或获取预置点失败，摄像头信息:{deviceid}-{channelid}.'
                         item['reply'] = errmsg
                         raise ValueError(errmsg)
-                    # # 通知主调度，恢复pipeline流水线对本摄像头的识别操作
-                    # pipeline_cmd['cmd'] = 'resume'
-                    # isok = rest_proc_.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)  # noqa 调用主进程函数，传配置给它。
-                    # if not isok['reply']:
-                    #     raise RuntimeError(f'Cannot get the control of IPC: {deviceid}, {channelid}.')
-                    #
-                    # 不需要通知恢复，因为rest自己先停，等rtsp，然后rtsp停，再等rest，rest操作完，rtsp自动恢复（sleep超时）。
                 onlyfiles = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}'
                              for f in listdir(_preset_image_path) if
                              isfile(join(_preset_image_path, f)) and ('.png' not in f)]
@@ -454,8 +450,8 @@ class RestWorker(ProcWorker):
                 _self_obj.log(f'Preset pictures done.', level=log.LOG_LVL_INFO)
             finally:
                 pipeline_cmd = {'cmd': 'resume', 'deviceid': deviceid, 'channelid': channelid}
-                _self_obj.log("[API] Resume RTSP process to pull stream. --> ")
-                _self_obj.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)
+                _rpc_ret = _self_obj.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)
+                _self_obj.log("[PRESET API] Finally Resume RTSP process to pull stream. --> ", _rpc_ret)
 
                 return item
 

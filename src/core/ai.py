@@ -42,7 +42,7 @@ from numpy import array
 
 from core.procworker import ProcWorker
 from third_api.http_request import HttpRequest
-from utils import bus, comn, log
+from utils import bus, comn, log, V2VErr
 
 
 class AiWorker(ProcWorker):
@@ -52,8 +52,8 @@ class AiWorker(ProcWorker):
         self.in_q_ = in_q
         self.out_q_ = out_q
         # 识别结果保存到文件服务器
-        self.fsvr_url_ = None
-        self.nvr_samples_ = None
+        self._fsvr_url = None
+        self._nvr_samples_path = None
         # 是否显示窗体展示识别结果
         self.showimage_ = False
         # 加载字体文件
@@ -115,7 +115,7 @@ class AiWorker(ProcWorker):
             # fn = dt.strftime('%Y-%m-%d-%H-%M-%S')
             # os.makedirs(os.path.dirname(filename), exist_ok=True)
             prefix = datetime.datetime.fromtimestamp(reqid / 1000).strftime('%Y-%m-%d')
-            filename = f'{self.nvr_samples_}airesults/{prefix}/{reqid}.jpg'
+            filename = f'{self._nvr_samples_path}airesults/{prefix}/{reqid}.jpg'
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             if reqid % 50 == 0:    # 50抽1
                 cv2.imwrite(f'{filename}', frame)
@@ -147,12 +147,22 @@ class AiWorker(ProcWorker):
         return array(image_list), template
 
     def startup(self, evt=None):
-        self.log(f'Enter startup.', level=log.LOG_LVL_INFO)
+        self.log(f'[AI STARTUP] Enter startup.', level=log.LOG_LVL_INFO)
         # 从主进程获取配置参数
         _v2v_cfg_dict = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
-        mqttcfg = _v2v_cfg_dict['mqtt_svrs'][0]
-        self.fsvr_url_ = mqttcfg['fsvr_url']
-        self.nvr_samples_ = _v2v_cfg_dict['nvr_samples']
+
+        # 校验
+        _mqtt_srv_list = _v2v_cfg_dict.get("mqtt_svrs", None)
+        if _mqtt_srv_list is None or len(_mqtt_srv_list) < 1:
+            raise V2VErr.V2VConfigurationIllegalError("[AI STARTUP] 配置文件错误.")
+        self._nvr_samples_path = _v2v_cfg_dict.get('nvr_samples', None)
+        if self._nvr_samples_path is None:
+            raise V2VErr.V2VConfigurationIllegalError("[AI STARTUP] _nvr_samples_path is None.")
+
+        _mqtt_obj = _mqtt_srv_list[0]
+        self._fsvr_url = _mqtt_obj.get('fsvr_url', None)
+        if self._fsvr_url is None:
+            raise V2VErr.V2VConfigurationIllegalError("[AI STARTUP] _fsvr_url is None.")
 
         # 从主进程获取配置参数
         _base_cfg_dict = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_basecfg', 'source': self.name})
@@ -201,20 +211,21 @@ class AiWorker(ProcWorker):
 
             # 构造AI请求地址
             _ai_http_api_url = f'{_ai_http_api_url}/?req_id={_requestid}'
-            self.log(f'[AI] 调用AI服务接口. --> {_ai_http_api_url}.', level=log.LOG_LVL_DBG)
+
             _ai_resp = _http_obj.http_timeout_post(_ai_http_api_url, file=files, data=payload)
             # _ai_resp = requests.post(_ai_http_api_url, files=files, data=payload, verify=False)
             if _ai_resp is not None:
                 # self.log(f'The size of vector queue between ai & mqtt is: {self.out_q_.qsize()}.')
+                self.log(f'[AI RUN] 调用AI服务接口成功. --> {_ai_http_api_url}.', level=log.LOG_LVL_DBG)
                 # 将识别结果放入队列，供MQTT进程消费
                 self.out_q_.put_nowait(_ai_resp)
                 # 后处理
                 self.image_post_process(_frame_data, _requestid, _ai_resp)
             else:
-                self.log(f'调用ai服务接口失败.{_ai_http_api_url}', level=log.LOG_LVL_WARN)
+                self.log(f'[AI RUN] 调用AI服务接口失败. --> {_ai_http_api_url}', level=log.LOG_LVL_WARN)
                 time.sleep(1)
         except queue.Full:
-            self.log("[FULL] Vector queue is full, clear it.", level=log.LOG_LVL_ERRO)
+            self.log("[AI RUN] Vector queue is [FULL], clear it, may lose data.", level=log.LOG_LVL_ERRO)
             self.out_q_.queue.clear()
         except Exception as err:
             self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
