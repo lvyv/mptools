@@ -14,3 +14,28 @@
 2022.7.15号问题：
 2022-07-15 17:17:46,183 - ERROR - AI(4720)   [AI RUN] Vector queue is [FULL], clear it, may lose data.
 2022-07-15 17:17:47,152 - ERROR - AI(4720)   [AI RUN] Vector queue is [FULL], clear it, may lose data.
+
+已修复该问题；
+[v2v           ] 2022-07-15 17:57:35,042 - ERROR - MAIN-15032 1.argument of type 'NoneType' is not iterable
+Traceback (most recent call last):
+  File "E:/projects/python_prj/v2v_dispatch/src/main.py", line 33, in _main_entry
+    main_ctx.run()
+  File "E:\projects\python_prj\v2v_dispatch\src\core\kernel.py", line 519, in run
+    _rtsp, _ai, _mqtt = self._task_manage.query_task_number()
+  File "E:\projects\python_prj\v2v_dispatch\src\core\tasks.py", line 227, in query_task_number
+    return self._p_manage.get_process_number()
+  File "E:\projects\python_prj\v2v_dispatch\src\core\pools.py", line 60, in get_process_number
+    if 'RTSP' in _obj.name:
+TypeError: argument of type 'NoneType' is not iterable
+Traceback (most recent call last):
+  File "E:/projects/python_prj/v2v_dispatch/src/main.py", line 37, in <module>
+    _main_entry()
+  File "E:/projects/python_prj/v2v_dispatch/src/main.py", line 33, in _main_entry
+    main_ctx.run()
+  File "E:\projects\python_prj\v2v_dispatch\src\core\kernel.py", line 519, in run
+    _rtsp, _ai, _mqtt = self._task_manage.query_task_number()
+  File "E:\projects\python_prj\v2v_dispatch\src\core\tasks.py", line 227, in query_task_number
+    return self._p_manage.get_process_number()
+  File "E:\projects\python_prj\v2v_dispatch\src\core\pools.py", line 60, in get_process_number
+    if 'RTSP' in _obj.name:
+TypeError: argument of type 'NoneType' is not iterable

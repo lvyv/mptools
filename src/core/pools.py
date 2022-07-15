@@ -57,6 +57,8 @@ class ProcessManage:
         """
         _rtsp, _ai, _mqtt = 0, 0, 0
         for _obj in self._process_dict.values():
+            if _obj is None:
+                continue
             if 'RTSP' in _obj.name:
                 _rtsp += 1
             elif 'AI' in _obj.name:
