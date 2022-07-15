@@ -6,8 +6,11 @@
 
 3.完善各种异常的处理，比如：AI断开，MQTT断开，流断开，下发的配置有错误，通道增加等。
 
-二、2022.7.14号问题
-[v2v           ] 2022-07-14 17:33:48,503 - INFO - RTSP(1592) [RTSP STARTUP] Enter startup.
-[v2v           ] 2022-07-14 17:33:48,518 - ERROR - RTSP(1592) [RTSP STARTUP] 0.读取配置文件失败，无法执行RTSP进程的余下任务.
-[v2v           ] 2022-07-14 17:33:48,518 - ERROR - RTSP(1592) [BASE] V2VConfigurationIllegalError: [RTSP STARTUP] 0.读取配置文件失败 restart:True
+2022.7.14号问题 FIXED
+2022-07-14 17:33:48,503 - INFO - RTSP(1592) [RTSP STARTUP] Enter startup.
+2022-07-14 17:33:48,518 - ERROR - RTSP(1592) [RTSP STARTUP] 0.读取配置文件失败，无法执行RTSP进程的余下任务.
+2022-07-14 17:33:48,518 - ERROR - RTSP(1592) [BASE] V2VConfigurationIllegalError: [RTSP STARTUP] 0.读取配置文件失败 restart:True
 
+2022.7.15号问题：
+2022-07-15 17:17:46,183 - ERROR - AI(4720)   [AI RUN] Vector queue is [FULL], clear it, may lose data.
+2022-07-15 17:17:47,152 - ERROR - AI(4720)   [AI RUN] Vector queue is [FULL], clear it, may lose data.

@@ -166,11 +166,11 @@ class MqttWorker(ProcWorker):
                 AdaptorTracingUtility.inject_span_ctx(self.tracer_, span, data)
 
         try:
-            _ret = self._mqtt_client_obj.publish(self._mqtt_pub_topic, json.dumps(data), 1)
-            if _ret == mqtt_client.MQTT_ERR_SUCCESS:
-                self.log(f"[MQTT] 上报数据到MQTT服务器成功. -->", level=log.LOG_LVL_INFO)
+            _ret_obj = self._mqtt_client_obj.publish(self._mqtt_pub_topic, json.dumps(data), 1)
+            if _ret_obj is not None and _ret_obj.rc == mqtt_client.MQTT_ERR_SUCCESS:
+                self.log(f"[MQTT] 上报数据到MQTT服务器成功. --> {_ret_obj}", level=log.LOG_LVL_DBG)
             else:
-                self.log(f"[MQTT] 上报数据到MQTT服务器失败. -->", level=log.LOG_LVL_ERRO)
+                self.log(f"[MQTT] 上报数据到MQTT服务器失败. --> {_ret_obj}", level=log.LOG_LVL_ERRO)
         except ValueError:
             self.log(f"[MQTT] 上报数据到MQTT服务器失败. --> ValueError.", level=log.LOG_LVL_ERRO)
         return False
@@ -179,4 +179,3 @@ class MqttWorker(ProcWorker):
         self._mqtt_client_obj.loop_stop()
         self._mqtt_client_obj.disconnect()
         self._mqtt_client_obj = None
-        pass

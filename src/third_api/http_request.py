@@ -24,7 +24,7 @@ class HttpRequest:
                 self._resp = requests.get(_url, verify=False, headers=_headers,
                                           timeout=(self._connect_time_out, self._read_time_out))
             else:
-                self._resp = requests.post(_url, verify=False, headers=_headers, data=_data, files=_file,
+                self._resp = requests.post(_url, verify=False, data=_data, files=_file,
                                            timeout=(self._connect_time_out, self._read_time_out))
         except requests.exceptions.Timeout as e:
             # 超时
@@ -35,7 +35,9 @@ class HttpRequest:
             self._resp = None
         else:
             if self._resp.status_code != 200:
+                print('[HTTP] Return Code: ', self._resp.status_code)
                 self._resp = None
+
         if self._resp is not None:
             return self._resp.content
         else:

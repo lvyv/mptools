@@ -74,7 +74,7 @@ class TaskInfo:
 
     @property
     def time(self):
-        return self._name
+        return self._time
 
     @property
     def tpid(self):
@@ -155,7 +155,6 @@ class TaskManage:
     def assign_task(self, source, assigned=None) -> dict:
         """
         根据子进程的请求，返回一个含url的任务配置信息。如果发现没有可分配的任务，则返回[]。
-
         Parameters
         ----------
         source:  子进程名称，可唯一标识子进程。
@@ -173,30 +172,50 @@ class TaskManage:
         _v2v_cfg_dict = ConfigSet.get_v2v_cfg_obj()
         _v2v_cfg_dict = copy.deepcopy(_v2v_cfg_dict)
         _new_task_cfg_dict = None
-        # 遍历所有通道
+        _assigned_rtsp_url = None
+
+        # 解析子进程已经分配的任务信息
+        if assigned is None or len(assigned) < 1:
+            _assigned_rtsp_url = None
+        else:
+            _assigned_rtsp_url = assigned.get("rtsp_url", None)
+
+        # 遍历所有通道，查找已经分配的RTSP地址，目的是为了获取最新的配置信息
         for channel in _v2v_cfg_dict['rtsp_urls']:
             if not channel:
                 continue
-            _rtsp_url = channel['rtsp_url']
-            # 如果_task_dict中有这个值，说明有人先注册处理这个任务，再找下个待分配任务。
-            if _rtsp_url in self._task_dict.keys():
-                continue
-            # 以前没分配过任务，或者分配过，但新的配置中没有那个任务了，均可以分配新的url
-            _new_task_cfg_dict = self.get_pre_assigned_cfg(source)
-            if _new_task_cfg_dict is None:
+            _rtsp_url_in_cfg = channel['rtsp_url']
+            if _assigned_rtsp_url is not None and _rtsp_url_in_cfg == _assigned_rtsp_url:
                 _new_task_cfg_dict = channel
-                # 创建任务信息对象
-                _task_info = TaskInfo(_rtsp_url)
-                _task_info.name = source
-                _task_info.did = channel['device_id']
-                _task_info.cid = channel['channel_id']
-                self._task_dict.update({_rtsp_url: _task_info})
-                self.log(f'Assign new task --> :{_rtsp_url}: {source}', level=log.LOG_LVL_INFO)
                 break
-        if _new_task_cfg_dict:
+
+        # 遍历所有通道，获取一个还没有被分配的RTSP地址
+        if _new_task_cfg_dict is None:
+            for channel in _v2v_cfg_dict['rtsp_urls']:
+                if not channel:
+                    continue
+                _rtsp_url_in_cfg = channel['rtsp_url']
+                # 如果_task_dict中有这个值，说明有人先注册处理这个任务
+                if _rtsp_url_in_cfg in self._task_dict.keys():
+                    continue
+                else:
+                    _new_task_cfg_dict = channel
+                    break
+
+        if _new_task_cfg_dict is not None:
+            # 创建任务信息对象
+            _rtsp_url = _new_task_cfg_dict["rtsp_url"]
+            _task_info = TaskInfo(_rtsp_url)
+            _task_info.name = source
+            _task_info.did = _new_task_cfg_dict['device_id']
+            _task_info.cid = _new_task_cfg_dict['channel_id']
             _v2v_cfg_dict['rtsp_urls'] = [_new_task_cfg_dict]
+            self._task_dict.update({_rtsp_url: _task_info})
+
+            self.log(f'Assign task --> :{_rtsp_url} :{source}', level=log.LOG_LVL_INFO)
         else:
             _v2v_cfg_dict['rtsp_urls'] = []
+
         return _v2v_cfg_dict
 
     def query_task_number(self) -> ():
