@@ -343,22 +343,24 @@ class RestWorker(ProcWorker):
                             os.remove(file)
 
                     _url = spdd.get_rtsp_url(deviceid, channelid, _spdd_url)
-                    _self_obj.log("[PRESET API] 1.Get channel rtsp url from SPDD. --> ", _url)
+                    _self_obj.log(f"[PRESET API] 1.Get channel rtsp url from SPDD. --> {_url}", levels=log.LOG_LVL_INFO)
                     _preset_list = None
                     if _url:
                         # 从spdd取预置位
                         _preset_list = spdd.get_presets(deviceid, channelid, _spdd_url)
-                        _self_obj.log("[PRESET API] 2.Get presets list from SPDD. --> ", _preset_list)
+                        _self_obj.log(f"[PRESET API] 2.Get presets list from SPDD. --> {_preset_list}",
+                                      levels=log.LOG_LVL_INFO)
                     if _url and _preset_list:
                         # 通知主调度，暂停pipeline流水线对本摄像头的识别操作，直到重新发送resume指令。
                         pipeline_cmd = {'cmd': 'pause', 'deviceid': deviceid, 'channelid': channelid}
                         _rpc_ret = _self_obj.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)
                         if not _rpc_ret['reply']:
                             _self_obj.log("[PRESET API] 3.Pause RTSP process pull stream failed. --> ",
-                                          level=log.LOG_LVL_ERRO)
+                                          level=log.LOG_LVL_WARN)
                             raise RuntimeError(f'Pause RTSP process pull stream failed: {deviceid}, {channelid}.')
                         else:
-                            _self_obj.log("[PRESET API] 3.Pause RTSP process pull stream success. --> ")
+                            _self_obj.log("[PRESET API] 3.Pause RTSP process pull stream success. --> ",
+                                          levels=log.LOG_LVL_INFO)
                         # FIXME:此处需要等待一定时间，让rtsp进程取流的动作停下来，等多长时间，是个问题。
                         time.sleep(5)
 
@@ -372,9 +374,10 @@ class RestWorker(ProcWorker):
                             if opened:
                                 _self_obj.cached_cvobjs_[_url] = cvobj
                             else:
-                                _self_obj.log("[PRESET API] 4.Get rtsp stream cv obj failed. --> ")
+                                _self_obj.log("[PRESET API] 4.Get rtsp stream cv obj failed. --> ",
+                                              levels=log.LOG_LVL_WARN)
                                 raise cv2.error(f'Failed to open {_url}.')
-                        _self_obj.log("[PRESET API] 4.Get rtsp stream cv obj success. --> ")
+                        _self_obj.log("[PRESET API] 4.Get rtsp stream cv obj success. --> ", levels=log.LOG_LVL_INFO)
                         # 产生系列预置点图片
                         item['rtsp_url'] = _url  # 前端需要了解是否有合法url，才方便下发配置的时候填入正确的配置值
                         # 开始遍历预置位，进行截图
@@ -384,9 +387,11 @@ class RestWorker(ProcWorker):
                                                                  _spdd_url,
                                                                  _cfg_dict['ipc_ptz_delay'])
                             if _preset_ret is False:
-                                _self_obj.log(f"[PRESET API] 5.Run to presets {prs['presetid']} failed. --> ")
+                                _self_obj.log(f"[PRESET API] 5.Run to presets {prs['presetid']} failed. --> ",
+                                              levels=log.LOG_LVL_WARN)
                                 continue
-                            _self_obj.log(f"[PRESET API] 5.Run to presets {prs['presetid']} success. --> ")
+                            _self_obj.log(f"[PRESET API] 5.Run to presets {prs['presetid']} success. --> ",
+                                          levels=log.LOG_LVL_INFO)
 
                             # FIXME:旋转预置位后，由于摄像头的物理动作比较慢，因此需要延时等待，待多长时间，是个问题.
                             time.sleep(6)
@@ -395,15 +400,18 @@ class RestWorker(ProcWorker):
                             if _video_frame_data is None:
                                 cvobj.stop_stream()
                                 _self_obj.cached_cvobjs_.pop(_url, None)  # 如果没有读出数据，清空缓存
-                                _self_obj.log(f"[PRESET API] 6.Get presets {prs['presetid']} image failed. -->")
+                                _self_obj.log(f"[PRESET API] 6.Get presets {prs['presetid']} image failed. -->",
+                                              levels=log.LOG_LVL_WARN)
                                 raise cv2.error(f'Got empty frame from cv2.')
-                            _self_obj.log(f"[PRESET API] 6.Get presets {prs['presetid']} image success. -->")
+                            _self_obj.log(f"[PRESET API] 6.Get presets {prs['presetid']} image success. -->",
+                                          levels=log.LOG_LVL_INFO)
 
                             # 保存原始图像
                             filename = f'{_preset_image_path}{prs["presetid"]}.png'
                             os.makedirs(os.path.dirname(filename), exist_ok=True)
                             cv2.imwrite(filename, _video_frame_data)
-                            _self_obj.log(f"[PRESET API] 7.Save preset {prs['presetid']} image to png {filename}. -->")
+                            _self_obj.log(f"[PRESET API] 7.Save preset {prs['presetid']} image to png {filename}. -->",
+                                          levels=log.LOG_LVL_INFO)
 
                             # 保存缩略图，1920x1080的长宽缩小20倍
                             _video_frame_data = imutils.resize(_video_frame_data, width=96, height=54)
@@ -414,7 +422,8 @@ class RestWorker(ProcWorker):
                             outfile = open(f'{_preset_image_path}{prs["presetid"]}', 'wb')
                             outfile.write(image_data)
                             outfile.close()
-                            _self_obj.log(f"[PRESET API] 8.Save preset {prs['presetid']} image to base64 file. -->")
+                            _self_obj.log(f"[PRESET API] 8.Save preset {prs['presetid']} image to base64 file. -->",
+                                          levels=log.LOG_LVL_INFO)
                     else:
                         # 不是合法的设备号
                         errmsg = f'查询RTSP地址或获取预置点失败，摄像头信息:{deviceid}-{channelid}.'
@@ -432,11 +441,11 @@ class RestWorker(ProcWorker):
                     item['presets'] = onlyfiles
                     pngfile = f'{_preset_image_path}{pngfiles[0]}'
                     item['width'], item['height'] = wpr.get_picture_size(pngfile)
-                    _self_obj.log(f"[PRESET API] API work success. -->")
+                    _self_obj.log(f"[PRESET API] API work success. -->", levels=log.LOG_LVL_INFO)
                 else:
                     item['reply'] = False
                     item['desc'] = '没有生成可标注的图片.'
-                    _self_obj.log(f"[PRESET API] API work failed. -->")
+                    _self_obj.log(f"[PRESET API] API work failed. -->", levels=log.LOG_LVL_WARN)
             except FileNotFoundError as err:
                 _self_obj.log(f'Web api get_presets: {err}', level=log.LOG_LVL_ERRO)
                 item['reply'] = False
@@ -452,8 +461,8 @@ class RestWorker(ProcWorker):
             finally:
                 pipeline_cmd = {'cmd': 'resume', 'deviceid': deviceid, 'channelid': channelid}
                 _rpc_ret = _self_obj.call_rpc(bus.CB_PAUSE_RESUME_PIPE, pipeline_cmd)
-                _self_obj.log("[PRESET API] Finally Resume RTSP process to pull stream. --> ", _rpc_ret)
-
+                _self_obj.log(f"[PRESET API] Finally Resume RTSP process to pull stream. --> {_rpc_ret}",
+                              levels=log.LOG_LVL_INFO)
                 return item
 
         class Directory(BaseModel):
