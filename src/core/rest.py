@@ -335,11 +335,12 @@ class RestWorker(ProcWorker):
                 if refresh:
                     # 重新获取预置位截图前，需要删除该设备之前的截图文件
                     # FIXME: 子目录没有分类到通道ID一级，如果一个设备包含多个通道，则删除所有通道的截图，会影响其它通道的配置？
-                    _preset_files = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}'
-                                     for f in listdir(_preset_image_path) if
-                                     isfile(join(_preset_image_path, f)) and ('.png' not in f)]
-                    for file in _preset_files:
-                        os.remove(file)
+                    if os.path.exists(_preset_image_path) is True:
+                        _preset_files = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}'
+                                         for f in listdir(_preset_image_path) if
+                                         isfile(join(_preset_image_path, f)) and ('.png' not in f)]
+                        for file in _preset_files:
+                            os.remove(file)
 
                     _url = spdd.get_rtsp_url(deviceid, channelid, _spdd_url)
                     _self_obj.log("[PRESET API] 1.Get channel rtsp url from SPDD. --> ", _url)
