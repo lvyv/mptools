@@ -232,8 +232,12 @@ class RtspWorker(ProcWorker):
             # skip = self.fps_ / sar
             # 遍历预置位 ["preset1": [], "preset2": []]
             for _preset in _preset_list:
-                _preset_id = list(_preset.keys())[0]  # 目前配置文件格式规定：每个vp对象只有1个presetX的主键，value是一个json对象
-                _api_ret = spdd.run_to_viewpoints(_device_id, _channel_id, _preset_id, self._spdd_url, self._ptz_delay)
+                _preset_id = _api_preset_id = list(_preset.keys())[0]  # 目前配置文件格式规定：每个vp对象只有1个presetX的主键，value是一个json对象
+                # 如果前端发送的预置位ID包含preset值，则删除preset
+                if 'preset' in _api_preset_id:
+                    _api_preset_id = _api_preset_id.replace("preset", "")
+                _api_ret = spdd.run_to_viewpoints(_device_id, _channel_id, _api_preset_id, self._spdd_url,
+                                                  self._ptz_delay)
                 self.log(f"[RTSP RUN] 1.旋转云台到预置位: {_preset_id}. --> {_api_ret}", level=log.LOG_LVL_INFO)
 
                 # 云台的物理旋转动作较慢，延时等待，时间由配置文件指定
