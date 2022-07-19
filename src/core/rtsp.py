@@ -248,29 +248,29 @@ class RtspWorker(ProcWorker):
                 st, delta = time(), 0
                 current_frame_pos = -1
                 while duration > delta:
-                    _video_frame_data = self._stream_obj.read_frame(0.1)
-                    if _video_frame_data is None:
-                        self.log(f"[RTSP RUN] 取预置位: {_preset_id} 的视频帧失败. -->", level=log.LOG_LVL_ERRO)
-                        continue
-                    # 请求用时间戳，便于后续Ai识别后还能够知道是哪一个时间点的视频帧
-                    requestid = int(time() * 1000)
-                    current_frame_pos = self._stream_obj.get_stream_frame_pos()
+                    _video_frame_data = self._stream_obj.read_frame(0.5)
+                    if _video_frame_data is not None:
+                        # 请求用时间戳，便于后续Ai识别后还能够知道是哪一个时间点的视频帧
+                        requestid = int(time() * 1000)
+                        current_frame_pos = self._stream_obj.get_stream_frame_pos()
 
-                    # 为实现ai效率最大化，把图片中不同ai仪表识别任务分包，一个vp，不同类ai标注类型给不同的ai进程去处理
-                    # 这样会导致同一图片重复放到工作队列中（只是aoi不同）
-                    aitasks = _preset[_preset_id]
-                    # 遍历每一个presetX下的对象
-                    for _aoi_dict in aitasks:
-                        if _aoi_dict['ai_service'] == '':
-                            continue
-                        # 把图像数据和任务信息通过队列传给后续进程，fid和fps可以用来计算流开始以来的时间
-                        _recognition_obj = {'requestid': requestid,
-                                            'task': _aoi_dict, 'fid': current_frame_pos,
-                                            'fps': self._stream_fps,
-                                            'frame': _video_frame_data}
-                        self.log(f'[RTSP RUN] The size of picture queue between rtsp & ai is: {self.out_q_.qsize()}.',
-                                 level=log.LOG_LVL_DBG)
-                        self.out_q_.put_nowait(_recognition_obj)
+                        # 为实现ai效率最大化，把图片中不同ai仪表识别任务分包，一个vp，不同类ai标注类型给不同的ai进程去处理
+                        # 这样会导致同一图片重复放到工作队列中（只是aoi不同）
+                        aitasks = _preset[_preset_id]
+                        # 遍历每一个presetX下的对象
+                        for _aoi_dict in aitasks:
+                            if _aoi_dict['ai_service'] == '':
+                                continue
+                            # 把图像数据和任务信息通过队列传给后续进程，fid和fps可以用来计算流开始以来的时间
+                            _recognition_obj = {'requestid': requestid,
+                                                'task': _aoi_dict, 'fid': current_frame_pos,
+                                                'fps': self._stream_fps,
+                                                'frame': _video_frame_data}
+                            self.log(f'[RTSP RUN] The size of picture queue between rtsp & ai is: {self.out_q_.qsize()}.',
+                                     level=log.LOG_LVL_DBG)
+                            self.out_q_.put_nowait(_recognition_obj)
+                    else:
+                        self.log(f"[RTSP RUN] 取预置位: {_preset_id} 的视频帧失败. -->", level=log.LOG_LVL_ERRO)
                     # self.log(f"云台截图休眠时间: {inteval - time() % inteval}")
                     self._sleep_wrapper(inteval - time() % inteval)
                     # 计算是否到设定的时间了
