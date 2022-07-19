@@ -225,7 +225,7 @@ class RtspWorker(ProcWorker):
             _device_id = self._process_task_dict['device_id']
             _channel_id = self._process_task_dict['channel_id']
             _preset_list = self._process_task_dict['view_ports']
-            _sample_rate = self._process_task_dict['sample_rate']
+            _sample_rate = self._process_task_dict.get('sample_rate', 1)
             # 采样的周期（秒），比如采样率1Hz，则睡1秒工作一次
             interval = 1 / _sample_rate
             # 计算需要丢弃的帧数
