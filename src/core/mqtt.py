@@ -56,7 +56,7 @@ class MqttWorker(ProcWorker):
         super().__init__(name, bus.EBUS_TOPIC_BROADCAST, args_dict, **kwargs)
         self.in_q_ = in_q
         self.out_q_ = out_q
-        self.mqtt_cid_ = None   # 这个名字无所谓，在网关处会重新mapping key-value到正确的设备号
+        self.mqtt_cid_ = None  # 这个名字无所谓，在网关处会重新mapping key-value到正确的设备号
         self.mqtt_usr_ = None
         self.mqtt_pwd_ = None
         self.mqtt_host_ = None
@@ -118,7 +118,7 @@ class MqttWorker(ProcWorker):
             if self.node_name_ != self.jaeger_['node_name']:
                 # 缓存tracer便于后面使用
                 self.tracer_ = self.reset_jaeger(self.jaeger_['agent_ip'], self.jaeger_['agent_port'], self.node_name_)
-                self.jaeger_['node_name'] = self.node_name_     # FIXME 更新下发node name（是否需要写配置文件？）
+                self.jaeger_['node_name'] = self.node_name_  # FIXME 更新下发node name（是否需要写配置文件？）
                 # 在主进程中操作配置文件
                 _ret = self.call_rpc(bus.CB_SAVE_CFG, {'cmd': 'save_basecfg', 'source': self.name})
             self._mqtt_client_obj = mqtt_client.Client(self.mqtt_cid_)
@@ -128,7 +128,8 @@ class MqttWorker(ProcWorker):
             # 进入主循环
             self._mqtt_client_obj.loop_start()
         except (socket.gaierror, TimeoutError, UnicodeError, ConnectionRefusedError) as err:
-            self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+            self.log(f'[MQTT] 连接MQTT服务失败: {self.mqtt_host_}:{self.mqtt_port_} {self.mqtt_cid_}/{self.mqtt_pwd_}',
+                     level=log.LOG_LVL_ERRO)
             msg = f'[MQTT] 连接MQTT服务失败: {self.mqtt_host_}:{self.mqtt_port_} {self.mqtt_cid_}/{self.mqtt_pwd_}'
             raise V2VErr.V2VTaskConnectError(msg)
         except (KeyError, ValueError, Exception) as err:
@@ -154,11 +155,11 @@ class MqttWorker(ProcWorker):
 
         # FIXME: why?
         # 从类方法或属性中查找'tracer_'
-        if 'tracer_' in dir(self):    # 如果配置项有jaeger，将记录
+        if 'tracer_' in dir(self):  # 如果配置项有jaeger，将记录
             # inject和extract配合使用，先extract去取出数据包中的metadata的traceid的span上下文，
             # 然后再对上下文进行操作，并把它注入到下一个环节，因为mqtt这个进程是本模块的起点，因此只有inject。
             nodename = self.node_name_
-            with self.tracer_.start_active_span(f'v2v_mqtt_{nodename}_send_msg') as scope: # 带内数据插入trace id
+            with self.tracer_.start_active_span(f'v2v_mqtt_{nodename}_send_msg') as scope:  # 带内数据插入trace id
                 scope.span.set_tag('originalMsg', vec.decode('utf-8'))
                 scope.span.set_tag('link.localHost', socket.gethostname())
                 scope.span.set_tag('link.remoteHost', self.mqtt_host_)
