@@ -212,19 +212,18 @@ class AiWorker(ProcWorker):
             # 构造AI请求地址
             _ai_http_api_url = f'{_ai_http_api_url}/?req_id={_requestid}'
             _ai_resp = _http_obj.http_timeout_post(_ai_http_api_url, file=files, data=payload)
-            # _ai_resp = requests.post(_ai_http_api_url, files=files, data=payload, verify=False)
             if _ai_resp is not None:
-                # self.log(f'The size of vector queue between ai & mqtt is: {self.out_q_.qsize()}.')
                 self.log(f'[AI RUN] 调用AI服务接口成功. --> {_ai_http_api_url}.', level=log.LOG_LVL_DBG)
                 # 将识别结果放入队列，供MQTT进程消费
                 self.out_q_.put_nowait(_ai_resp)
-                # 后处理
-                self.image_post_process(_frame_data, _requestid, _ai_resp)
+                # 后处理，暂时不启用该功能
+                # self.image_post_process(_frame_data, _requestid, _ai_resp)
+                _ai_resp = None
             else:
                 self.log(f'[AI RUN] 调用AI服务接口失败. --> {_ai_http_api_url}', level=log.LOG_LVL_WARN)
                 time.sleep(1)
         except queue.Full:
-            self.log(f"[AI RUN] Vector queue is [FULL] size:{self.out_q_.qsize()}, clear it!", level=log.LOG_LVL_ERRO)
+            self.log(f"[AI RUN] Vector queue [FULL] size:{self.out_q_.qsize()}, clear it!", level=log.LOG_LVL_ERRO)
             self.out_q_.queue.clear()
         except Exception as err:
             self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)

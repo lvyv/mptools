@@ -227,7 +227,7 @@ class RtspWorker(ProcWorker):
             _preset_list = self._process_task_dict['view_ports']
             _sample_rate = self._process_task_dict['sample_rate']
             # 采样的周期（秒），比如采样率1Hz，则睡1秒工作一次
-            inteval = 1 / _sample_rate
+            interval = 1 / _sample_rate
             # 计算需要丢弃的帧数
             # skip = self.fps_ / sar
             # 遍历预置位 ["preset1": [], "preset2": []]
@@ -244,10 +244,11 @@ class RtspWorker(ProcWorker):
                 self._sleep_wrapper(self._ptz_delay)
 
                 # 读取停留时间，云台旋转到位后，在此画面停留时间
-                duration = _preset[_preset_id][0]['seconds']  # 对某个具体的预置点vp，子分类aoi停留时间都是一样的，随便取一个即可。
-                st, delta = time(), 0
+                _preset_stay_time = _preset[_preset_id][0]['seconds']
+                st, _screenshot_use_time = time(), 0
                 current_frame_pos = -1
-                while duration > delta:
+                # 从预置位点截图逻辑，使用循环，一个预置位可能取多张图片
+                while _preset_stay_time > _screenshot_use_time:
                     _video_frame_data = self._stream_obj.read_frame(0.5)
                     if _video_frame_data is not None:
                         # 请求用时间戳，便于后续Ai识别后还能够知道是哪一个时间点的视频帧
@@ -266,17 +267,19 @@ class RtspWorker(ProcWorker):
                                                 'task': _aoi_dict, 'fid': current_frame_pos,
                                                 'fps': self._stream_fps,
                                                 'frame': _video_frame_data}
-                            self.log(f'[RTSP RUN] The size of picture queue between rtsp & ai is: {self.out_q_.qsize()}.',
-                                     level=log.LOG_LVL_DBG)
+                            self.log(
+                                f'[RTSP RUN] The size of picture queue between rtsp & ai is: {self.out_q_.qsize()}.',
+                                level=log.LOG_LVL_DBG)
                             self.out_q_.put_nowait(_recognition_obj)
                     else:
-                        self.log(f"[RTSP RUN] 取预置位: {_preset_id} 的视频帧失败. -->", level=log.LOG_LVL_ERRO)
+                        self.log(f"[RTSP RUN] 取预置位:{_preset_id} 的视频帧失败. -->", level=log.LOG_LVL_ERRO)
                     # self.log(f"云台截图休眠时间: {inteval - time() % inteval}")
-                    self._sleep_wrapper(inteval - time() % inteval)
+                    self._sleep_wrapper(interval - time() % interval)
                     # 计算是否到设定的时间了
-                    delta = time() - st  # 消耗的时间（秒）
+                    _screenshot_use_time = time() - st  # 消耗的时间（秒）
                     _video_frame_data = None
-                self.log(f'[RTSP RUN] preset: "{_preset_id}" spend time: {delta} and frame pos: {current_frame_pos}')
+                self.log(
+                    f'[RTSP RUN] preset:"{_preset_id}", use time:{_screenshot_use_time}, frame pos:{current_frame_pos}')
             return _ret
         except (cv2.error, AttributeError, UnboundLocalError) as err:
             self.log(f'[RTSP RUN] cv2.error:({err}){self._process_task_dict}', level=log.LOG_LVL_ERRO)
