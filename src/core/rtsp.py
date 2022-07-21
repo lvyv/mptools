@@ -17,14 +17,6 @@
 # ==============================================================================
 # pylint: disable=invalid-name
 # pylint: disable=missing-docstring
-
-"""
-=========================
-rtsp module
-=========================
-
-Pull av stream from nvr and decode pictures from the streams.
-"""
 import queue
 from time import time, sleep
 
@@ -43,7 +35,6 @@ class RtspWorker(ProcWorker):
         self.out_q_ = out_q
         self._stream_obj = None
         self._stream_fps = None
-        self.args_ = None
         # 代表任务的配置文件，里面包含一个通道的信息
         self._process_task_dict = {}
         # 视频调度管理软件的地址
@@ -146,7 +137,6 @@ class RtspWorker(ProcWorker):
 
         # 2.访问对应的rtsp流
         # 如果此前已经分配过任务，但因为下发配置事件、配置不合法、网络断流等导致重新初始化。
-        # 则有新分配任务，按新任务执行，没有新任务，按老任务执行。
         if self._process_task_dict:
             _rtsp_url = self._process_task_dict['rtsp_url']
         if _rtsp_list:

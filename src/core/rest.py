@@ -17,15 +17,6 @@
 # ==============================================================================
 # pylint: disable=invalid-name
 # pylint: disable=missing-docstring
-
-"""
-=========================
-rest module
-=========================
-
-Provide web api access points.
-"""
-
 import base64
 import io
 import logging
@@ -57,9 +48,6 @@ from simplegallery.gallery_build import gallery_build
 from simplegallery.gallery_init import gallery_create
 from third_api import spdd
 from utils import bus, log, GrabFrame, wrapper as wpr
-
-# 取RTSP流的超时时间
-OPEN_RTSP_TIMEOFF = 30
 
 # 猴子补丁：在退出本进程的时候，ctrl+c会等待较长时间关闭socket
 original_handler = Server.handle_exit
@@ -144,14 +132,14 @@ class RestWorker(ProcWorker):
 
     # 创建Web服务器
     def create_app(self) -> FastAPI:
-        app_ = FastAPI(
+        _app = FastAPI(
             title="视频图像智能分析软件",
             description="视频图像智能分析软件对外发布的RESTful API接口",
             version="2.2.0", )
 
         # 支持跨域
         origins = ['*']
-        app_.add_middleware(
+        _app.add_middleware(
             CORSMiddleware,
             allow_origins=origins,
             allow_credentials=True,
@@ -165,22 +153,22 @@ class RestWorker(ProcWorker):
         # 从主进程获取配置参数
         _v2v_cfg_dict = self.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': self.name})
         _nvr_samples_path = _v2v_cfg_dict['nvr_samples']
-        ui_config_tpl_ = f'{_v2v_cfg_dict["ui_config_dir"]}ui.xml'
-        ai_url_config_file_ = f'{_v2v_cfg_dict["ui_config_dir"]}diagrameditor.xml'
+        _ui_config_tpl = f'{_v2v_cfg_dict["ui_config_dir"]}ui.xml'
+        _ui_config_file_ = f'{_v2v_cfg_dict["ui_config_dir"]}diagrameditor.xml'
 
         # EIF3:REST V2V C&M 外部接口-提供UI前端配置V2V需要的截图
         # 本路由为前端ui的路径，该路径相对于当前文件
         _pwd_path = Path(Path(__file__).parent)
-        app_.mount('/ui', StaticFiles(directory=str(_pwd_path.joinpath("../ui"))), name='ui')
-        app_.mount('/static', StaticFiles(directory=str(_pwd_path.joinpath("../swagger_ui_dep/static"))), name='static')
+        _app.mount('/ui', StaticFiles(directory=str(_pwd_path.joinpath("../ui"))), name='ui')
+        _app.mount('/static', StaticFiles(directory=str(_pwd_path.joinpath("../swagger_ui_dep/static"))), name='static')
 
         # 本路由为thumbnail预览图片保存位置，该位置下按nvr的deviceid建立文件夹，放置所有base64的采样图片
-        app_.mount(baseurl_of_nvr_samples_, StaticFiles(directory=_nvr_samples_path), name='nvr')
+        _app.mount(baseurl_of_nvr_samples_, StaticFiles(directory=_nvr_samples_path), name='nvr')
 
         class Switch(BaseModel):
             cmd: str = 'start'
 
-        @app_.post("/api/v1/v2v/pipeline/")
+        @_app.post("/api/v1/v2v/pipeline/")
         async def pipeline(item: Switch):
             """统一关闭或启动rtsp，ai，mqtt子进程"""
             cmds = ['start', 'stop']
@@ -201,7 +189,7 @@ class RestWorker(ProcWorker):
             sample_rate: int = 1
             view_ports: str = ''
 
-        @app_.post("/api/v1/v2v/setup_single_channel")
+        @_app.post("/api/v1/v2v/setup_single_channel")
         async def setup_single_channel(cfg: ViewPorts):
             """C&M之C：设置配置文件，收到该配置文件后，v2v将更新单通道的配置文件"""
             """当前功能是接受一个单通道视频设置给到ai"""
@@ -221,7 +209,7 @@ class RestWorker(ProcWorker):
             media_service: str = ''
             ipc_ptz_delay: int = 3
 
-        @app_.post("/api/v1/v2v/setup_all_channels")
+        @_app.post("/api/v1/v2v/setup_all_channels")
         async def setup_all_channels(cfg: Channels):
             """设置配置文件，收到该配置文件后，v2v将更新整个v2v的配置文件"""
             _reply = {'version': '1.0.0', 'reply': 'pending.'}
@@ -239,12 +227,12 @@ class RestWorker(ProcWorker):
             switch: str = 'https://127.0.0.1:7180/api/v1/ai/panel'
             indicator: str = 'https://127.0.0.1:7180/api/v1/ai/panel'
 
-        @app_.post("/api/v1/v2v/setup_ai_url")
+        @_app.post("/api/v1/v2v/setup_ai_url")
         async def setup_ai_url(cfg: AiURL):
             """C&M之C：设置ai微服务模型的url"""
             """当前功能是修改配置文件"""
             item = {'version': '1.0.0', 'reply': 'pending.'}
-            tree = xmlET.parse(ui_config_tpl_)
+            tree = xmlET.parse(_ui_config_tpl)
             root = tree.getroot()
 
             person = root.findall('./Array/add/person')
@@ -275,21 +263,20 @@ class RestWorker(ProcWorker):
             if len(indicator) == 1:
                 indicator[0].attrib['href'] = cfg.indicator
 
-            tree.write(ai_url_config_file_)
+            tree.write(_ui_config_file_)
             item['reply'] = True
             return item
 
-        @app_.get("/api/v1/v2v/metrics")
+        @_app.get("/api/v1/v2v/metrics")
         async def provide_metrics(deviceid: str, channelid: str):
             """C&M之M：接受监控端比如promethus的调用，反馈自己是否在线和反馈各种运行时信息"""
             item = {'version': '1.0.0'}
             _self_obj.log(deviceid)
             _self_obj.log(channelid)
-
             return item
 
         # EIF5:REST PTZ CNTL 代理视频调度管理软件，返回当前所有摄像头的描述
-        @app_.get("/api/v1/ptz/streaminfo")
+        @_app.get("/api/v1/ptz/streaminfo")
         async def stream_info():
             """获取所有的视频通道列表"""
             item = {'version': '1.0.0', 'reply': 'pending.'}
@@ -299,7 +286,7 @@ class RestWorker(ProcWorker):
             item['reply'] = True
             return item
 
-        @app_.get("/api/v1/v2v/action/{deviceid}/{channelid}")
+        @_app.get("/api/v1/v2v/action/{deviceid}/{channelid}")
         async def set_process_action(deviceid: str, channelid: str, action: str = 'pause'):
             """对单个通道进行开始和关闭操作"""
             item = {'version': '1.0.0', 'deviceid': deviceid, 'channelid': channelid, 'reply': 'SUCCEED'}
@@ -311,7 +298,6 @@ class RestWorker(ProcWorker):
             if not _self_obj._check_did_cid_valid(deviceid, channelid):
                 item['reply'] = 'Invalid deviceid and channelid.'
                 return item
-            # FIXME: 还应该校验该ID是否已经被分配到任务进程
             # 广播消息
             process_cmd = {'cmd': action, 'deviceid': deviceid, 'channelid': channelid}
             _self_obj.log(f"[API] {action} RTSP process pull stream. --> ")
@@ -321,7 +307,7 @@ class RestWorker(ProcWorker):
             # 返回结果
             return item
 
-        @app_.get("/api/v1/v2v/presets/{deviceid}/{channelid}")
+        @_app.get("/api/v1/v2v/presets/{deviceid}/{channelid}")
         async def get_presets(deviceid: str, channelid: str, refresh: bool = False):
             """获取该视频通道所有预置点，然后逐个预置点取图，保存为base64，加入流断处理，加入流缓存以及互斥锁保护全局缓存流"""
             item = {'version': '1.0.0', 'reply': 'pending.', 'rtsp_url': None}
@@ -331,7 +317,7 @@ class RestWorker(ProcWorker):
                 # 不支持nvrsamples的热更新，因为启动程序需要mount本地目录
                 _preset_image_path = f'{_nvr_samples_path}{deviceid}/'
 
-                # 是否需要重新从预置位点获取截图
+                # 是否需要重新从预置位获取截图
                 if refresh:
                     # 重新获取预置位截图前，需要删除该设备之前的截图文件
                     # FIXME: 子目录没有分类到通道ID一级，如果一个设备包含多个通道，则删除所有通道的截图，会影响其它通道的配置？
@@ -467,7 +453,7 @@ class RestWorker(ProcWorker):
         class Directory(BaseModel):
             datedir: str = '2022-02-11'
 
-        @app_.post("/api/v1/v2v/pixgallery")
+        @_app.post("/api/v1/v2v/pixgallery")
         async def pixgallery(item: Directory):
             """把参数指定日期得视频识别结果打包为可访问的web服务，返回url地址"""
             ret = {'version': '1.0.0', 'reply': False}
@@ -480,45 +466,12 @@ class RestWorker(ProcWorker):
                     ret = {'version': '1.0.0', 'reply': res, 'url': visit_url}
             return ret
 
-        @app_.on_event("shutdown")
+        @_app.on_event("shutdown")
         def shutdown():
             """关闭事件"""
             pass
 
-        return app_
-
-    def calculate_delay_time(self, cfgobj, url):
-        """
-        根据配置信息，计算某设备号，通道号对应视频要等多少时间。
-        返回的等待时间有两个值，一个是rest，一个是rtsp。
-        1.设想rest发广播消息，rtsp因为会在mainloop中过预置点，这个时间段A一直无法收到消息，需要rest等待。
-        2.rest等待A时间后，获取摄像头控制权。
-        3.rtsp在0~A时间段都可能收到广播，收到后等待rest操作广播的时间，重新运行。
-        如果rtsp不存在，则rest_sleep_time = 0
-        如果rtsp存在，
-            则按照配置信息中：（seconds x 预置点个数）计时为需要停留的A时间。
-            则按照配置信息中：（ipc_ptz_delay*预置点个数）计时为停留的B时间。
-        """
-        rest_sleep_time = 0
-        rtsp_sleep_time = 0
-        try:
-            ret = self.call_rpc(bus.CB_GET_METRICS, {'cmd': 'get_metrics', 'desc': 'rest api is called.'})
-            tasks_urls = ret['result_tasks']
-            ipc_ptz_delay = cfgobj['ipc_ptz_delay']
-            for url in tasks_urls:
-                for urlchannel in cfgobj['rtsp_urls']:
-                    if urlchannel['rtsp_url'] == url:
-                        presets_size = len(urlchannel['view_ports'])
-                        # 多个viewports中第1个预置点的第1个aoi的
-                        seconds = list(urlchannel['view_ports'][0].items())[0][1][0]['seconds']
-                        rest_sleep_time = seconds * presets_size  # A时间
-                        # 如果rtsp刚好rest发送就收到广播，它还是要等一个A时间
-                        rtsp_sleep_time = ipc_ptz_delay * presets_size + rest_sleep_time
-                        break
-        except (KeyError, Exception) as err:
-            self.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
-        finally:
-            return rest_sleep_time, rtsp_sleep_time
+        return _app
 
     def up_time(self) -> Callable[[Info], None]:
         metric = Gauge(

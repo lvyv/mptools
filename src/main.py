@@ -20,7 +20,6 @@ def _main_entry():
     # 设置配置文件路径
     ConfigSet.set_v2vcfg_file_path(const.V2V_CFG_PATH)
     ConfigSet.set_basecfg_file_path(const.BASE_CFG_PATH)
-    # FIXME: 校验配置文件的合法性
     # 初始化日志记录器配置文件
     log.init_logger(const.LOG_CFG_PATH)
 

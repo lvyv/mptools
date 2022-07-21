@@ -17,15 +17,6 @@
 # ==============================================================================
 # pylint: disable=invalid-name
 # pylint: disable=missing-docstring
-
-"""
-=========================
-main module
-=========================
-
-Entry point of the project.
-"""
-
 import functools
 import math
 import multiprocessing
@@ -138,8 +129,8 @@ class MainContext(bus.IEventBusMixin):
     完成对所有运行子进程的下发配置和查询状态（主要是事件总线和图片及向量队列）.
     """
     NUMBER_OF_PROCESSES = 12  # 进程池默认数量
-    PIC_QUEUE_SIZE = 20  # 允许RTSP存多少帧图像给AI，避免AI算不过来，RTSP把内存给撑死
-    VEC_QUEUE_SIZE = 50  # 允许AI识别放多少结果到MQTT，避免MQTT死了，AI撑死内存
+    PIC_QUEUE_SIZE = 20  # 允许RTSP存多少帧图像给AI
+    VEC_QUEUE_SIZE = 50  # 允许AI识别放多少结果到MQTT
 
     def __init__(self):
         # 日志输出偏函数
@@ -169,11 +160,11 @@ class MainContext(bus.IEventBusMixin):
         self._queue_frame = multiprocessing.Manager().Queue(self.PIC_QUEUE_SIZE)
         self._queue_vector = multiprocessing.Manager().Queue(self.VEC_QUEUE_SIZE)
         # 保存所有进程（rest,rtsp,ai,mqtt）的所有监测指标数据：运行时间.rest基本能代表main自己.
-        self.metrics_ = {}
+        self._metrics = {}
         # 实例化工厂类
-        self.factory_ = ProcSimpleFactory(self.NUMBER_OF_PROCESSES)
+        self._factory = ProcSimpleFactory(self.NUMBER_OF_PROCESSES)
         # 初始化进程状态管理类
-        self.status_ = FSM()
+        self._status = FSM()
 
     def __enter__(self):
         self.log('********************  CASICLOUD V2V AI Dispatching Center  ********************')
@@ -187,7 +178,7 @@ class MainContext(bus.IEventBusMixin):
 
     def callback_start_pipeline(self, params):
         self.log(params, level=log.LOG_LVL_DBG)
-        if self.status_.test_status(FSM.STATUS_INITIAL):
+        if self._status.test_status(FSM.STATUS_INITIAL):
             # 为了兼容旧接口，保留该函数
             self.start_v2v_pipeline_task()
             return {'reply': True}
@@ -195,10 +186,9 @@ class MainContext(bus.IEventBusMixin):
             return {'reply': False}
 
     def callback_stop_pipeline(self, params):
-        self.log(params, level=log.LOG_LVL_DBG)
-        if self.status_.test_status(FSM.STATUS_FULL_SPEED):
+        if self._status.test_status(FSM.STATUS_FULL_SPEED):
             self.stop_v2v_pipeline_task()
-            self.status_.set_status(FSM.STATUS_INITIAL)
+            self._status.set_status(FSM.STATUS_INITIAL)
             return {'reply': True}
         else:
             return {'reply': False}
@@ -260,7 +250,6 @@ class MainContext(bus.IEventBusMixin):
             _rtsp_list = _new_v2v_cfg_dict.get("rtsp_urls", None)
             _new_rtsp_num = 0 if _rtsp_list is None else len(_rtsp_list)
             self.fork_work_process(_new_rtsp_num, _rtsp_num, _ai_num, _mqtt_num)
-
             return {'reply': True, 'desc': '已广播通知配置更新.'}
         else:
             return {'reply': False, 'desc': '不能识别的配置格式.'}
@@ -284,7 +273,7 @@ class MainContext(bus.IEventBusMixin):
         RuntimeError
             待定.
         """
-        cmd = params['cmd']
+        cmd = params.get('cmd', None)
         if cmd == 'get_cfg':  # 取v2v.cfg
             _cfg_dict = ConfigSet.get_v2v_cfg_obj()
             return _cfg_dict
@@ -297,8 +286,8 @@ class MainContext(bus.IEventBusMixin):
 
     def callback_save_cfg(self, params):
         ret = False
-        self.log(f"Save cfg cb: {params}", level=log.LOG_LVL_DBG)
-        cmd = params['cmd']
+        self.log(f"[MAIN] callback_save_cfg: {params}", level=log.LOG_LVL_DBG)
+        cmd = params.get('cmd', None)
         if cmd == 'save_cfg':  # 取v2v.cfg
             ret = ConfigSet.save_v2v_cfg()
         elif cmd == 'save_basecfg':  # 取baseconfig.cfg
@@ -341,12 +330,12 @@ class MainContext(bus.IEventBusMixin):
         # 向下兼容
         pname = params['application']
         params.pop('application', None)
-        if pname in self.metrics_.keys():
-            proc = self.metrics_[pname]
+        if pname in self._metrics.keys():
+            proc = self._metrics[pname]
             proc.update(params)
-            self.metrics_[pname] = proc
+            self._metrics[pname] = proc
         else:
-            self.metrics_[pname] = params
+            self._metrics[pname] = params
 
         return {'reply': True}
 
@@ -361,11 +350,10 @@ class MainContext(bus.IEventBusMixin):
                                        'result_tasks': {'rtsp://127.0.0.1/live': 'RTSP(0)-18368'}
                                                   }
         """
-        # self.log(f'callback_get_metrics: {params}')
         if {} == params:
-            ret = self.metrics_
+            ret = self._metrics
         else:
-            ret = self.metrics_
+            ret = self._metrics
         return {'reply': True, 'result_metrics': ret, 'result_tasks': self._task_manage.dump_rtsp_list()}
 
     def callback_update_process_state(self, params):
@@ -408,7 +396,7 @@ class MainContext(bus.IEventBusMixin):
         RuntimeError
             待定.
         """
-        res = self.factory_.create_daemon(RestWorker, 'REST', **kwargs)
+        res = self._factory.create_daemon(RestWorker, 'REST', **kwargs)
         return res
 
     def fork_work_process(self, expect_rtsp_num, now_rtsp_num, now_ai_num, now_mqtt_num) -> bool:
@@ -461,7 +449,6 @@ class MainContext(bus.IEventBusMixin):
         _cpu_core_num = os.cpu_count()
         _work_process_num = expect_rtsp_num + _need_ai_num + now_ai_num + _need_mqtt_num + now_mqtt_num
         self.log(f"[MAIN] CPU核数量:{_cpu_core_num}, 已创建进程数量:{_work_process_num}", level=log.LOG_LVL_INFO)
-
         return True
 
     def __switch_on_process(self, name, **kwargs):
@@ -486,18 +473,18 @@ class MainContext(bus.IEventBusMixin):
             待定.
         """
         if 'RTSP' == name:
-            res = self.factory_.create(RtspWorker, name, None, self._queue_frame, **kwargs)
+            res = self._factory.create(RtspWorker, name, None, self._queue_frame, **kwargs)
         elif 'AI' == name:
-            res = self.factory_.create(AiWorker, name, self._queue_frame, self._queue_vector, **kwargs)
+            res = self._factory.create(AiWorker, name, self._queue_frame, self._queue_vector, **kwargs)
         elif 'MQTT' == name:
-            res = self.factory_.create(MqttWorker, name, self._queue_vector, None, **kwargs)
+            res = self._factory.create(MqttWorker, name, self._queue_vector, None, **kwargs)
         else:
             res = (None, None)
         return res
 
     def start_v2v_pipeline_task(self):
         # 标记工作状态
-        self.status_.set_status(FSM.STATUS_FULL_SPEED)
+        self._status.set_status(FSM.STATUS_FULL_SPEED)
 
         _v2v_cfg_dict = ConfigSet.get_v2v_cfg_obj()
         # 读取当前的进程数量
@@ -537,27 +524,19 @@ class MainContext(bus.IEventBusMixin):
             time.sleep(interval)
 
     def run(self):
-        """
-        主进程入口 —— 读取配置，启动rest后台服务进程，数据采集线程，进入子进程之间通信机制的主事件循环.
-        :return: 无.
-        """
         try:
             # 读取配置文件内容
             _v2v_cfg_dict = ConfigSet.get_v2v_cfg_obj()
-
             # 读取本地微服务的参数，也就是http服务
             _ms_cfg_dict = _v2v_cfg_dict['micro_service']
             (_ms_port, _ms_key, _ms_cer) = \
                 (_ms_cfg_dict['http_port'], _ms_cfg_dict['ssl_keyfile'], _ms_cfg_dict['ssl_certfile'])
-
             # 创建工作进程
             self.start_v2v_pipeline_task()
-
             # 启动1个Restful进程，提供微服务调用
             self.fork_restful_process(port=_ms_port, ssl_keyfile=_ms_key, ssl_certfile=_ms_cer)
-
             # 进入主循环，阻塞处理子进程之间的消息.
-            self.log("Enter main event loop.", level=log.LOG_LVL_DBG)
+            self.log("[MAIN] Enter main event loop.", level=log.LOG_LVL_DBG)
             _main_start_time, _process_pool_time = time.time(), time.time()
             _log_interval = 15
             while True:
@@ -566,28 +545,26 @@ class MainContext(bus.IEventBusMixin):
                     MainContext.rpc_service()
                 except zmq.Again as e:
                     time.sleep(0.01)
-                # 每隔10秒输出程序运行状态
+                # 间隔输出程序运行状态
                 if (time.time() - _main_start_time) >= _log_interval:
-                    self.log(f"[MAIN] 视频截图队列:{self._queue_frame.qsize()}, "
+                    self.log(f"[MAIN DUMP] 视频截图队列:{self._queue_frame.qsize()}, "
                              f"识别结果队列:{self._queue_vector.qsize()}", level=log.LOG_LVL_INFO)
                     # 输出主进程管理的任务列表
                     _task_list = self._task_manage.dump_task_info()
-                    self.log(f"[MAIN] 任务数量: {len(_task_list)}")
+                    self.log(f"[MAIN DUMP] 任务数量: {len(_task_list)}")
                     for _tk in _task_list:
                         self.log(f'     --> {_tk}', level=log.LOG_LVL_INFO)
-
                     # 各进程的详细数量
                     _rtsp, _ai, _mqtt = self._task_manage.query_task_number()
-                    self.log(f"[MAIN] RTSP进程数量: {_rtsp}, AI进程数量: {_ai}, MQTT进程数量: {_mqtt}", level=log.LOG_LVL_INFO)
-                    _main_start_time = time.time()
-
+                    self.log(f"[MAIN DUMP] RTSP进程数量: {_rtsp}, AI进程数量: {_ai}, MQTT进程数量: {_mqtt}", level=log.LOG_LVL_INFO)
                     # 当没有任务时，加大日志输出间隔
                     _log_interval = 15 if len(_task_list) > 0 else 30
+                    _main_start_time = time.time()
         except KeyboardInterrupt as err:
-            self.log(f'Main process get ctrl+c', level=log.LOG_LVL_ERRO)
-            self.factory_.teminate_rest()
-            self.factory_.terminate()
+            self.log(f'[MAIN] Main process get ctrl+c', level=log.LOG_LVL_ERRO)
+            self._factory.teminate_rest()
+            self._factory.terminate()
         finally:
-            self.log(f'Main process exit.')
-            self.factory_.close()
-            self.factory_.join()
+            self.log(f'[MAIN] Main process exit.')
+            self._factory.close()
+            self._factory.join()
