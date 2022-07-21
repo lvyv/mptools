@@ -27,6 +27,7 @@ Entry point of the project.
 """
 
 import functools
+import math
 import multiprocessing
 import os
 import signal
@@ -38,7 +39,7 @@ from core.ai import AiWorker
 from core.mqtt import MqttWorker
 from core.rest import RestWorker
 from core.rtsp import RtspWorker
-from core.tasks import TaskManage, TaskInfo
+from core.tasks import TaskManage
 from utils import bus, log, comn
 from utils.config import ConfigSet
 from utils.wrapper import proc_worker_wrapper, daemon_wrapper
@@ -62,23 +63,20 @@ class ProcSimpleFactory:
     def __init__(self, nop):
         self.log = functools.partial(log.logger, f'ProcSimpleFactory')
         self._pool_size = nop
+        if self._process_pool_handle is None:
+            self._process_pool_handle = multiprocessing.Pool(processes=self._pool_size, initializer=init_worker)
 
     # 创建进程，每个进程的名称：NAME(PID)
     def create(self, worker_class, name, in_q=None, out_q=None, **kwargs):
-        if self._process_pool_handle is None:
-            self._process_pool_handle = multiprocessing.Pool(processes=self._pool_size, initializer=init_worker)
-        # 默认启用进程的数量
-        default_cnt = 1
-        for key, value in kwargs.items():
-            if key == 'cnt':
-                default_cnt = value
-                break
+        # 启用进程的数量
+        _process_cnt = kwargs.get("cnt", 1)
         res = self._process_pool_handle.starmap_async(proc_worker_wrapper,
                                                       [(worker_class,
-                                                        f'{name}',
-                                                        in_q, out_q,
+                                                        name,
+                                                        in_q,
+                                                        out_q,
                                                         kwargs)
-                                                       for idx in range(default_cnt)])
+                                                       for _ in range(_process_cnt)])
         return res
 
     @classmethod
@@ -172,8 +170,6 @@ class MainContext(bus.IEventBusMixin):
         self._queue_vector = multiprocessing.Manager().Queue(self.VEC_QUEUE_SIZE)
         # 保存所有进程（rest,rtsp,ai,mqtt）的所有监测指标数据：运行时间.rest基本能代表main自己.
         self.metrics_ = {}
-        # TODO: 统筹计算CPU核数，以及对应的进程数量
-
         # 实例化工厂类
         self.factory_ = ProcSimpleFactory(self.NUMBER_OF_PROCESSES)
         # 初始化进程状态管理类
@@ -192,9 +188,8 @@ class MainContext(bus.IEventBusMixin):
     def callback_start_pipeline(self, params):
         self.log(params, level=log.LOG_LVL_DBG)
         if self.status_.test_status(FSM.STATUS_INITIAL):
-            _v2v_cfg_dict = ConfigSet.get_v2v_cfg_obj()
-            self.start_v2v_pipeline_task(_v2v_cfg_dict)
-            self.status_.set_status(FSM.STATUS_FULL_SPEED)
+            # 为了兼容旧接口，保留该函数
+            self.start_v2v_pipeline_task()
             return {'reply': True}
         else:
             return {'reply': False}
@@ -252,12 +247,20 @@ class MainContext(bus.IEventBusMixin):
         """
         _new_v2v_cfg_dict = ConfigSet.update_cfg(params)
         if _new_v2v_cfg_dict:
+            # 暂存当前的进程数量
+            _rtsp_num, _ai_num, _mqtt_num = self._task_manage.query_task_number()
             # 配置更新事件发生，需要对任务列表初始化，便于重新分配任务.
             if self._task_manage:
                 self._task_manage.clear_task()
-            # 广播到流水线进程，所有流水线上的所有进程将重启.
+            # 广播到流水线进程，流水线上的所有进程将重启.
             msg = bus.EBUS_SPECIAL_MSG_CFG
-            self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)  # 广播配置信息给所有子进程
+            self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)
+
+            # 检查配置文件中的RTSP通道数量
+            _rtsp_list = _new_v2v_cfg_dict.get("rtsp_urls", None)
+            _new_rtsp_num = 0 if _rtsp_list is None else len(_rtsp_list)
+            self.fork_work_process(_new_rtsp_num, _rtsp_num, _ai_num, _mqtt_num)
+
             return {'reply': True, 'desc': '已广播通知配置更新.'}
         else:
             return {'reply': False, 'desc': '不能识别的配置格式.'}
@@ -408,7 +411,60 @@ class MainContext(bus.IEventBusMixin):
         res = self.factory_.create_daemon(RestWorker, 'REST', **kwargs)
         return res
 
-    def switch_on_process(self, name, **kwargs):
+    def fork_work_process(self, expect_rtsp_num, now_rtsp_num, now_ai_num, now_mqtt_num) -> bool:
+        """
+        动态创建工作进程数量.
+        expect_rtsp_num：配置文件中的RTSP通道数量
+        now_rtsp_num：当前已经实例化的RTSP进程数量
+        now_ai_num：当前已经实例化的AI进程数量
+        now_mqtt_num：当前已经实例化的MQTT进程数量
+        分配比例：
+        rtsp:ai:mqtt = 1:0.5:0.1
+
+        return true 创建成功，false 创建失败
+        """
+        _ret = False
+
+        if expect_rtsp_num < 1:
+            self.log(f"[MAIN] 需要创建的进程数量为0:{expect_rtsp_num}", level=log.LOG_LVL_WARN)
+            return _ret
+        # 读取配置文件
+        _v2v_cfg_dict = ConfigSet.get_v2v_cfg_obj()
+        # 读取当前的进程数量
+        _rtsp_num, _ai_num, _mqtt_num = self._task_manage.query_task_number()
+        # 根据策略，生成需要创建的工作进程数量
+        _need_rtsp_num = expect_rtsp_num - now_rtsp_num
+        _need_ai_num = math.ceil(expect_rtsp_num / 2) - now_ai_num
+        _need_mqtt_num = math.ceil(expect_rtsp_num / 10) - now_mqtt_num
+        # 校验
+        if _need_rtsp_num < 0 or _need_ai_num < 0 or _need_mqtt_num < 0:
+            self.log(f"[MAIN] 需要创建的进程数量值异常:{_need_rtsp_num},{_need_ai_num},{_need_mqtt_num}",
+                     level=log.LOG_LVL_ERRO)
+            return _ret
+
+        # 创建工作进程
+        for _ in range(_need_rtsp_num):
+            self.__switch_on_process('RTSP')
+        for _ in range(_need_ai_num):
+            self.__switch_on_process('AI')
+
+        mqtt = _v2v_cfg_dict['mqtt_svrs'][0]
+        for _ in range(_need_mqtt_num):
+            self.__switch_on_process('MQTT', mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'],
+                                     mqtt_cid=mqtt['mqtt_cid'], mqtt_usr=mqtt['mqtt_usr'], mqtt_pwd=mqtt['mqtt_pwd'],
+                                     mqtt_topic=mqtt['mqtt_tp'], node_name=mqtt['node_name'])
+        self.log(
+            f'[MAIN] 创建RTSP进程数量: {_need_rtsp_num}, '
+            f'创建AI进程数量: {_need_ai_num}, '
+            f'创建MQTT进程数量: {_need_mqtt_num}')
+        # 比对创建的进程数量和CPU核数量
+        _cpu_core_num = os.cpu_count()
+        _work_process_num = expect_rtsp_num + _need_ai_num + now_ai_num + _need_mqtt_num + now_mqtt_num
+        self.log(f"[MAIN] CPU核数量:{_cpu_core_num}, 已创建进程数量:{_work_process_num}", level=log.LOG_LVL_INFO)
+
+        return True
+
+    def __switch_on_process(self, name, **kwargs):
         """
         本函数调用工厂类在主进程上下文环境启动所有子进程.
         创建包含指定数量进程的进程池，运行所有进程，并把所有进程执行结果合并为列表，返回.
@@ -439,30 +495,31 @@ class MainContext(bus.IEventBusMixin):
             res = (None, None)
         return res
 
-    def start_v2v_pipeline_task(self, cfg):
-        try:
-            # TODO: 此处要考虑如何分配进程比例，1路视频流对应1个子进程，多少路视频流对应AI和MQTT进程？
-            # 根据通道列表启动每个通道的rtsp->ai->mqtt处理进程
-            for channel in cfg['rtsp_urls']:
-                # 不提供cnt=x参数，缺省1个通道启1个取RTSP流进程
-                self.switch_on_process('RTSP', rtsp_params=channel)
-                # 当前模式，一个通道一个进程
-                self.switch_on_process('AI', cnt=1)
-            mqtt = cfg['mqtt_svrs'][0]
-            self.switch_on_process('MQTT', cnt=1, mqtt_host=mqtt['mqtt_svr'], mqtt_port=mqtt['mqtt_port'],
-                                   mqtt_cid=mqtt['mqtt_cid'], mqtt_usr=mqtt['mqtt_usr'], mqtt_pwd=mqtt['mqtt_pwd'],
-                                   mqtt_topic=mqtt['mqtt_tp'], node_name=mqtt['node_name'])
+    def start_v2v_pipeline_task(self):
+        # 标记工作状态
+        self.status_.set_status(FSM.STATUS_FULL_SPEED)
 
-            self.log(f"Start v2v pipeline, total channel: {len(cfg['rtsp_urls'])}", level=log.LOG_LVL_DBG)
-        except KeyError as err:
-            self.log(f'start_v2v_pipeline_task failed: {err}', level=log.LOG_LVL_ERRO)
+        _v2v_cfg_dict = ConfigSet.get_v2v_cfg_obj()
+        # 读取当前的进程数量
+        _rtsp_num, _ai_num, _mqtt_num = self._task_manage.query_task_number()
+        # 获取配置文件中的RTSP通道数量
+        _rtsp_list = _v2v_cfg_dict.get("rtsp_urls", None)
+        _expect_rtsp_num = 0 if _rtsp_list is None else len(_rtsp_list)
+
+        _ret = self.fork_work_process(_expect_rtsp_num, _rtsp_num, _ai_num, _mqtt_num)
+        if _ret is True:
+            self.log(f"[MAIN] start_v2v_pipeline_task success, expect rtsp: {_expect_rtsp_num}, now rtsp: {_rtsp_num}"
+                     f" now ai: {_ai_num}, now mqtt: {_mqtt_num}",
+                     level=log.LOG_LVL_DBG)
+        else:
+            self.log(f'[MAIN] start_v2v_pipeline_task failed', level=log.LOG_LVL_ERRO)
 
     def stop_v2v_pipeline_task(self):
         # 停止流水线子进程，需要对任务列表初始化，便于重新分配任务.
         if self._task_manage:
             self._task_manage.clear_task()
         # 微服务进程与主进程同时存在，不会停
-        self.log("Broadcast event: --> EBUS_SPECIAL_MSG_STOP")
+        self.log("[MAIN] stop_v2v_pipeline_task()")
         msg = bus.EBUS_SPECIAL_MSG_STOP
         self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)
         return True
@@ -493,12 +550,16 @@ class MainContext(bus.IEventBusMixin):
             (_ms_port, _ms_key, _ms_cer) = \
                 (_ms_cfg_dict['http_port'], _ms_cfg_dict['ssl_keyfile'], _ms_cfg_dict['ssl_certfile'])
 
+            # 创建工作进程
+            self.start_v2v_pipeline_task()
+
             # 启动1个Restful进程，提供微服务调用
             self.fork_restful_process(port=_ms_port, ssl_keyfile=_ms_key, ssl_certfile=_ms_cer)
 
             # 进入主循环，阻塞处理子进程之间的消息.
             self.log("Enter main event loop.", level=log.LOG_LVL_DBG)
             _main_start_time, _process_pool_time = time.time(), time.time()
+            _log_interval = 15
             while True:
                 # rpc远程调用服务启动，非阻塞等待外部事件出发状态改变
                 try:
@@ -506,19 +567,22 @@ class MainContext(bus.IEventBusMixin):
                 except zmq.Again as e:
                     time.sleep(0.01)
                 # 每隔10秒输出程序运行状态
-                if (time.time() - _main_start_time) >= 10:
-                    self.log(f"视频截图 queue size: {self._queue_frame.qsize()}", level=log.LOG_LVL_INFO)
-                    self.log(f"识别结果 queue size: {self._queue_vector.qsize()}", level=log.LOG_LVL_INFO)
+                if (time.time() - _main_start_time) >= _log_interval:
+                    self.log(f"[MAIN] 视频截图队列:{self._queue_frame.qsize()}, "
+                             f"识别结果队列:{self._queue_vector.qsize()}", level=log.LOG_LVL_INFO)
                     # 输出主进程管理的任务列表
                     _task_list = self._task_manage.dump_task_info()
-                    self.log(f"任务数量: {len(_task_list)}")
+                    self.log(f"[MAIN] 任务数量: {len(_task_list)}")
                     for _tk in _task_list:
-                        self.log(f'{_tk}', level=log.LOG_LVL_INFO)
+                        self.log(f'     --> {_tk}', level=log.LOG_LVL_INFO)
 
                     # 各进程的详细数量
                     _rtsp, _ai, _mqtt = self._task_manage.query_task_number()
-                    self.log(f"RTSP进程数量: {_rtsp}, AI进程数量: {_ai}, MQTT进程数量: {_mqtt}", level=log.LOG_LVL_INFO)
+                    self.log(f"[MAIN] RTSP进程数量: {_rtsp}, AI进程数量: {_ai}, MQTT进程数量: {_mqtt}", level=log.LOG_LVL_INFO)
                     _main_start_time = time.time()
+
+                    # 当没有任务时，加大日志输出间隔
+                    _log_interval = 15 if len(_task_list) > 0 else 30
         except KeyboardInterrupt as err:
             self.log(f'Main process get ctrl+c', level=log.LOG_LVL_ERRO)
             self.factory_.teminate_rest()

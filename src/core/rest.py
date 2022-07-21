@@ -223,12 +223,12 @@ class RestWorker(ProcWorker):
 
         @app_.post("/api/v1/v2v/setup_all_channels")
         async def setup_all_channels(cfg: Channels):
-            """C&M之C：设置配置文件，收到该配置文件后，v2v将更新整个v2v的配置文件"""
-            """当前功能是接受整个配置设置给到ai"""
-            item = {'version': '1.0.0', 'reply': 'pending.'}
-            _self_obj.call_rpc(bus.CB_SET_CFG, cfg.__dict__)  # noqa 调用主进程函数，传配置给它。
-            item['reply'] = True
-            return item
+            """设置配置文件，收到该配置文件后，v2v将更新整个v2v的配置文件"""
+            _reply = {'version': '1.0.0', 'reply': 'pending.'}
+            _cfg_from_web_dict = cfg.__dict__
+            _self_obj.call_rpc(bus.CB_SET_CFG, _cfg_from_web_dict)  # noqa 调用主进程函数，传配置给它。
+            _reply['reply'] = True
+            return _reply
 
         class AiURL(BaseModel):
             person: str = 'https://127.0.0.1:7180/api/v1/ai/person'

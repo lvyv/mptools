@@ -115,10 +115,10 @@ def get_urls(base_url, deviceid=None) -> list or None:
     # 请求API接口
     _url_data_list = _get_channel_info(base_url, deviceid)
     if _url_data_list is None:
-        print("从SPDD通道接口返回的数据为空.")
+        print("[SPDD] 从SPDD通道接口返回的数据为空.")
         return _url_list
 
-    print("从SPDD通道接口获取的通道数量：", len(_url_data_list))
+    print("[SPDD] 从SPDD通道接口获取的通道数量：", len(_url_data_list))
     for _obj in _url_data_list:
         # 取值
         _did = _obj.get("deviceId", None)
@@ -130,16 +130,17 @@ def get_urls(base_url, deviceid=None) -> list or None:
         _online = _obj.get("status", 0)
         # 校验值
         if _did is None or _cid is None:
-            print("设置ID或通道ID错误.")
+            print("[SPDD] 设置ID或通道ID错误.")
             continue
         if _ip is None or len(_ip) < 4:
-            print("摄像头IP地址错误.")
+            print(f"[SPDD] {_did} {_cid} 摄像头IP地址错误.")
             continue
         if _name is None or _pwd is None or len(_name) < 1 or len(_pwd) < 1:
-            print("未配置用户名和密码.")
+            print(f"[SPDD] {_did} {_cid} 未配置用户名和密码.")
             continue
         # 如果通道不在线，则忽略
         if _online == 0:
+            print(f"[SPDD] {_did} {_cid} 通道不在线.")
             continue
         # 优先使用别名，然后是name
         if _desc is None or len(_desc) < 1:
@@ -152,7 +153,7 @@ def get_urls(base_url, deviceid=None) -> list or None:
         # rtsp构造：rtsp://username:pwd@ip/cam/realmonitor?channel=1&subtype=0
         _rtsp_url = f'rtsp://{_name}:{_pwd}@{_ip}/cam/realmonitor?channel=1&subtype=0'
         _url_list.append({"deviceid": _did, "channelid": _cid, "desc": _desc, "url": _rtsp_url})
-    print("V2V解析后，生成的通道数量：", 0 if _url_list is None else len(_url_list))
+    print("[SPDD] V2V解析后，生成的通道数量：", 0 if _url_list is None else len(_url_list))
     return _url_list
 
 
@@ -267,20 +268,20 @@ def run_to_viewpoints(deviceid, channelid, presetid, base_url, ptz_delay=30) -> 
 
 if __name__ == "__main__":
     # 获取指定设备和通道的RTSP地址
-    _r = get_rtsp_url("34020000001320000001", "34020000001310000001", "http://192.168.101.79:58068")
+    _r = get_rtsp_url("34020000001320000001", "34020000001310000001", "https://192.168.101.79:58068")
     print(_r)
 
     # 获取所有通道地址列表
-    # _r = get_urls("http://192.168.101.79:58068")
-    _r = get_urls("http://192.168.101.79:58068", "34020000001320000001")
+    _r = get_urls("https://192.168.101.79:58068")
+    # _r = get_urls("https://192.168.101.79:58068", "34020000001320000001")
     print(_r)
 
     # 获取所有预置位列表
-    _r = get_presets("34020000001320000001", "34020000001310000001", "http://192.168.101.79:58068")
+    _r = get_presets("34020000001320000001", "34020000001310000001", "https://192.168.101.79:58068")
     print(_r)
     if _r is not None:
         _preset = _r[0]["presetid"]
 
     # 调用预置位列表
-    # _r = run_to_viewpoints("34020000001320000001", "34020000001310000001", _preset, "http://192.168.101.79:58068")
+    # _r = run_to_viewpoints("34020000001320000001", "34020000001310000001", _preset, "https://192.168.101.79:58068")
     # print(_r)

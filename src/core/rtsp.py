@@ -44,29 +44,12 @@ class RtspWorker(ProcWorker):
         self._stream_obj = None
         self._stream_fps = None
         self.args_ = None
-        # self.sample_rate_ = None
-        for key, value in channel_cfg.items():
-            if key == 'rtsp_params':
-                self.args_ = value
-                break
         # 代表任务的配置文件，里面包含一个通道的信息
         self._process_task_dict = {}
         # 视频调度管理软件的地址
         self._spdd_url = None
         # 旋转云台后的等待时间，默认30秒
         self._ptz_delay = 30
-
-    def handle_cfg_update(self, channel):
-        """
-        本函数为配置发生变化，热更新配置。
-        热更新的含义：不需要重启整个程序。
-        1）如果没有改deviceid，也就是没有改rtsp_url，则改变的只是aoi，sample_rate，不需要重新建立nvr流。
-        2）如果rtsp_url都变了，则要重新建立nvr流，并且刷新fps。
-        :param channel:
-        :return:
-        """
-        self.args_ = channel
-        pass
 
     def _sleep_wrapper(self, timeout) -> int:
         """
