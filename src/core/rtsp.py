@@ -128,18 +128,15 @@ class RtspWorker(ProcWorker):
                                                       'source': self.name,
                                                       'assigned': self._process_task_dict})
         self._spdd_url = _process_task_dict_from_main.get('media_service', None)
-        self._ptz_delay = _process_task_dict_from_main.get('ipc_ptz_delay', None)
-        _rtsp_list = _process_task_dict_from_main.get('rtsp_urls', None)
-        if self._spdd_url is None or _rtsp_list is None or len(_rtsp_list) < 1:
-            self.log(f'[RTSP STARTUP] 0.读取配置文件失败，无法执行RTSP进程的余下任务.{_process_task_dict_from_main}',
-                     level=log.LOG_LVL_ERRO)
-            raise V2VErr.V2VConfigurationIllegalError("[RTSP STARTUP] 0.读取配置文件失败")
+        self._ptz_delay = _process_task_dict_from_main.get('ipc_ptz_delay', 10)
 
         # 2.访问对应的rtsp流
-        # 如果此前已经分配过任务，但因为下发配置事件、配置不合法、网络断流等导致重新初始化。
-        if self._process_task_dict:
+        # 首先从缓存的dict中取RTSP地址
+        if self._process_task_dict and len(self._process_task_dict) > 0:
             _rtsp_url = self._process_task_dict['rtsp_url']
-        if _rtsp_list:
+        # 如果最新分配的任务中有RTSP，则以此为准
+        _rtsp_list = _process_task_dict_from_main.get('rtsp_urls', None)
+        if _rtsp_list and len(_rtsp_list) > 0:
             _channel_cfg_dict = _rtsp_list[0]
             _rtsp_url = _channel_cfg_dict.get('rtsp_url', None)  # 分配给自己的任务
         if _rtsp_url is None:
@@ -199,6 +196,11 @@ class RtspWorker(ProcWorker):
             _channel_id = self._process_task_dict['channel_id']
             _preset_list = self._process_task_dict['view_ports']
             _sample_rate = self._process_task_dict.get('sample_rate', 1)
+            # 此处增加对数字的校验
+            if isinstance(_sample_rate, str):
+                self.log(f"[RTSP RUN] 下发的采样率不是数字类型，使用默认值. --> {_sample_rate}", level=log.LOG_LVL_WARN)
+                _sample_rate = 1
+
             # 采样的周期（秒），比如采样率1Hz，则睡1秒工作一次
             interval = 1 / _sample_rate
             # 计算需要丢弃的帧数
