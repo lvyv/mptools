@@ -59,6 +59,7 @@ class AiWorker(ProcWorker):
         # 加载字体文件
         _font_path_obj = Path(Path(__file__).parent).joinpath("../fonts/cf.ttf")
         self.font_ = ImageFont.truetype(str(_font_path_obj), size=24)
+        self._http_obj = HttpRequest()
 
     def draw_text(self, img, pos, text):
         # write Chinese.
@@ -186,7 +187,7 @@ class AiWorker(ProcWorker):
             time.sleep(0.01)
             return False
 
-        _http_obj = HttpRequest()
+        # _http_obj = HttpRequest()
         try:
             _fid = pic['fid']
             _fps = pic['fps']
@@ -211,7 +212,7 @@ class AiWorker(ProcWorker):
 
             # 构造AI请求地址
             _ai_http_api_url = f'{_ai_http_api_url}/?req_id={_requestid}'
-            _ai_resp = _http_obj.http_timeout_post(_ai_http_api_url, file=files, data=payload)
+            _ai_resp = self._http_obj.http_timeout_post(_ai_http_api_url, file=files, data=payload)
             if _ai_resp is not None:
                 self.log(f'[AI RUN] 调用AI服务接口成功. --> {_ai_http_api_url}.', level=log.LOG_LVL_DBG)
                 # 将识别结果放入队列，供MQTT进程消费
