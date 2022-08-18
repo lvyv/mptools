@@ -315,7 +315,7 @@ class RestWorker(ProcWorker):
                 _cfg_dict = _self_obj.call_rpc(bus.CB_GET_CFG, {'cmd': 'get_cfg', 'source': _self_obj.name})
                 _spdd_url = _cfg_dict['media_service']
                 # 不支持nvrsamples的热更新，因为启动程序需要mount本地目录
-                _preset_image_path = f'{_nvr_samples_path}{deviceid}/'
+                _preset_image_path = f'{_nvr_samples_path}{deviceid}/{channelid}/'
 
                 # 是否需要重新从预置位获取截图
                 if refresh:
@@ -414,7 +414,7 @@ class RestWorker(ProcWorker):
                         errmsg = f'查询RTSP地址或获取预置点失败，摄像头信息:{deviceid}-{channelid}.'
                         item['reply'] = errmsg
                         raise ValueError(errmsg)
-                onlyfiles = [f'{baseurl_of_nvr_samples_}/{deviceid}/{f}'
+                onlyfiles = [f'{baseurl_of_nvr_samples_}/{deviceid}/{channelid}/{f}'
                              for f in listdir(_preset_image_path) if
                              isfile(join(_preset_image_path, f)) and ('.png' not in f)]
                 # 返回视频的原始分辨率，便于在前端界面了解和载入
@@ -522,8 +522,8 @@ class RestWorker(ProcWorker):
         uvicorn.run(_web_app_obj,  # noqa 标准用法
                     host="0.0.0.0",
                     port=self.port_,
-                    ssl_keyfile=self.ssl_keyfile_,
-                    ssl_certfile=self.ssl_certfile_,
+                    # ssl_keyfile=self.ssl_keyfile_,
+                    # ssl_certfile=self.ssl_certfile_,
                     log_level=logging.INFO,
                     log_config=log_config
                     )

@@ -20,6 +20,7 @@ class HttpRequest:
 
     def _do_http_request(self, _type, _url, _data=None, _file=None):
         _headers = {'Content-Type': 'application/json'}
+        # AttributeError: 'Session' object has no attribute 'exceptions'
         try:
             if _type == 'GET':
                 self._resp = self.requests.get(_url, verify=False, headers=_headers, stream=False,
@@ -27,12 +28,14 @@ class HttpRequest:
             else:
                 self._resp = self.requests.post(_url, verify=False, data=_data, files=_file, stream=False,
                                            timeout=(self._connect_time_out, self._read_time_out))
-        except self.requests.exceptions.Timeout as e:
+        except requests.exceptions.Timeout as e:
             # 超时
             self._resp = None
-        except self.requests.exceptions.TooManyRedirects as e:
+        except requests.exceptions.TooManyRedirects as e:
             self._resp = None
-        except self.requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException as e:
+            self._resp = None
+        except Exception as e:
             self._resp = None
         else:
             if self._resp.status_code != 200:
