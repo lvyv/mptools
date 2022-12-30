@@ -532,7 +532,7 @@ class MainContext(bus.IEventBusMixin):
             (_ms_port, _ms_key, _ms_cer) = \
                 (_ms_cfg_dict['http_port'], _ms_cfg_dict['ssl_keyfile'], _ms_cfg_dict['ssl_certfile'])
             # 创建工作进程
-            self.start_v2v_pipeline_task()
+            # self.start_v2v_pipeline_task()
             # 启动1个Restful进程，提供微服务调用
             self.fork_restful_process(port=_ms_port, ssl_keyfile=_ms_key, ssl_certfile=_ms_cer)
             # 进入主循环，阻塞处理子进程之间的消息.
