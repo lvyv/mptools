@@ -58,6 +58,7 @@ CB_SET_METRICS = 'set_metrics'
 CB_GET_METRICS = 'get_metrics'
 CB_PAUSE_RESUME_PIPE = 'pause_resume_pipe'  # 暂停/启用进程
 CB_UPDATE_PROCESS_STATE = 'update_process_state'
+CB_MAPF_SOLVE = 'mapf_solve'            # 求解MAPF问题
 
 
 class IEventBusMixin:

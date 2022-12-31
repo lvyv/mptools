@@ -21,9 +21,10 @@ import functools
 import math
 import multiprocessing
 import os
+import subprocess
 import signal
 import time
-
+import json
 import zmq
 
 from core.ai import AiWorker
@@ -152,6 +153,7 @@ class MainContext(bus.IEventBusMixin):
         MainContext.register(bus.CB_GET_METRICS, self.callback_get_metrics)
         MainContext.register(bus.CB_PAUSE_RESUME_PIPE, self.callback_pause_resume_pipe)
         MainContext.register(bus.CB_UPDATE_PROCESS_STATE, self.callback_update_process_state)
+        MainContext.register(bus.CB_MAPF_SOLVE, self.callback_mapf_solve)
 
         # 管理分配的任务：数据结构：{rtsp地址: 进程名称}，任务的粒度为一个通道
         # 数据示例: {'rtsp://127.0.0.1:7554/live/main': 'RTSP(23792)'}
@@ -186,6 +188,8 @@ class MainContext(bus.IEventBusMixin):
             return {'reply': False}
 
     def callback_stop_pipeline(self, params):
+        if params:
+            pass
         if self._status.test_status(FSM.STATUS_FULL_SPEED):
             self.stop_v2v_pipeline_task()
             self._status.set_status(FSM.STATUS_INITIAL)
@@ -203,6 +207,7 @@ class MainContext(bus.IEventBusMixin):
           "name": "",
           "sample_rate": 1,
           "view_ports": ""
+          }
         """
         _new_v2v_cfg_dict = ConfigSet.update_cfg(params)
         if _new_v2v_cfg_dict:
@@ -319,7 +324,7 @@ class MainContext(bus.IEventBusMixin):
         本函数响应子进程对所有监测指标的设置.
         把子进程上报的自己持续运行的时间等指标记录到一个数据结构中等备查.
         维护metrics的结构如下：
-        :param params: dict, {'application': 'RTSP(16380)','up': 39.5527503490448, ...}
+        :param : dict, {'application': 'RTSP(16380)','up': 39.5527503490448, ...}
         :return: dict, {'reply': True}
         """
         # 新的统计方案
@@ -365,6 +370,24 @@ class MainContext(bus.IEventBusMixin):
         self.log(f"callback_update_process_state: {params}", level=log.LOG_LVL_DBG)
         self._task_manage.update_process_info(params)
         return {'reply': _ret}
+
+    def callback_mapf_solve(self, params):
+        """
+        调用外部MAPF算法库，求解最优路径。
+
+        :param params: {'map_name': map_name,
+                'tasks': '[{"s1":[1,1],"e1":[2,2]},{"s2":[10,10],"e2":[20,20]}]',
+                'alg_name': alg_name }
+        :return: {'reply': True, 'result': jsonobjects}
+        """
+        self.log(f"callback_mapf_solve: {params}", level=log.LOG_LVL_DBG)
+        # 从操作系统层面调用MAPF算法，执行结果以json返回。
+        tasks = params['tasks']
+        task_list = json.loads(tasks)
+        map_name = params['map_name']
+        alg_name = params['alg_name']
+        res = self.exec_cbs(alg_name, map_name, task_list)
+        return {'reply': True, 'result': res}
 
     def callback_pause_resume_pipe(self, params):
         """
@@ -523,6 +546,44 @@ class MainContext(bus.IEventBusMixin):
             self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)  # 通知子进程
             time.sleep(interval)
 
+    def exec_cbs(self, alg_name, map_name, tasks):
+        """
+        本函数调用操作系统函数subprocess，运行外部程序，并得到输出结果。
+
+        :param alg_name: 算法程序的文件名称（操作系统层面）
+        :param map_name: 地图文件名
+        :param tasks: 任务的起点终点信息
+        :return:
+        """
+        res = {}
+        try:
+            seed = time.time()
+            cfgobj = ConfigSet.get_v2v_cfg_obj()
+            map_dir = cfgobj['map_directory']
+            command_dir = cfgobj['cmd_directory']
+            tasksfile = f'{os.path.join(command_dir, "tasks", map_name)}.{seed}.scen'
+            # 从tasks数据中，构造tasksfile
+            os.makedirs(os.path.dirname(tasksfile), exist_ok=True)
+            with open(tasksfile, 'w') as fi:
+                fi.write(f'{len(tasks)}\r\n')
+                for item in tasks:
+                    fi.write(f'{item["s"][1]},{item["s"][0]},{item["e"][1]},{item["e"][0]},\r\n')
+
+            shell_cmd = f'{command_dir}{alg_name} ' \
+                        f'-m {map_dir}{map_name} ' \
+                        f'-a {tasksfile} ' \
+                        f'-o {command_dir}test-{seed}.csv ' \
+                        f'--outputPaths={command_dir}paths-{seed}.json ' \
+                        f'-k 5 -t 60'
+            data = subprocess.check_output(shell_cmd)
+            result = data.decode('utf-8').split('\r\n')
+            if len(result) == 2:
+                res = json.loads(result[1])
+        except TypeError as err:
+            self.log(err, level=log.LOG_LVL_ERRO)
+        finally:
+            return res
+
     def run(self):
         try:
             # 读取配置文件内容
@@ -543,7 +604,7 @@ class MainContext(bus.IEventBusMixin):
                 # rpc远程调用服务启动，非阻塞等待外部事件出发状态改变
                 try:
                     MainContext.rpc_service()
-                except zmq.Again as e:
+                except zmq.Again:
                     time.sleep(0.01)
                 # 间隔输出程序运行状态
                 if (time.time() - _main_start_time) >= _log_interval:
@@ -560,7 +621,7 @@ class MainContext(bus.IEventBusMixin):
                     # 当没有任务时，加大日志输出间隔
                     _log_interval = 15 if len(_task_list) > 0 else 30
                     _main_start_time = time.time()
-        except KeyboardInterrupt as err:
+        except KeyboardInterrupt:
             self.log(f'[MAIN] Main process get ctrl+c', level=log.LOG_LVL_ERRO)
             self._factory.teminate_rest()
             self._factory.terminate()
