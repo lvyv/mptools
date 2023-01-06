@@ -1,0 +1,164 @@
+{"frames": {
+
+"flame1.png":
+{
+	"frame": {"x":1545,"y":168,"w":34,"h":44},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":7,"y":3,"w":34,"h":44},
+	"sourceSize": {"w":44,"h":64}
+},
+"flame1@2x.png":
+{
+	"frame": {"x":1435,"y":168,"w":64,"h":84},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":16,"y":8,"w":64,"h":84},
+	"sourceSize": {"w":88,"h":128}
+},
+"flame2.png":
+{
+	"frame": {"x":1501,"y":168,"w":42,"h":60},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":1,"y":3,"w":42,"h":60},
+	"sourceSize": {"w":44,"h":64}
+},
+"flame2@2x.png":
+{
+	"frame": {"x":1797,"y":121,"w":80,"h":116},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":4,"y":8,"w":80,"h":116},
+	"sourceSize": {"w":88,"h":128}
+},
+"rocketmouse_dead01.png":
+{
+	"frame": {"x":1783,"y":1,"w":116,"h":118},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":6,"w":116,"h":118},
+	"sourceSize": {"w":134,"h":126}
+},
+"rocketmouse_dead01@2x.png":
+{
+	"frame": {"x":848,"y":1,"w":230,"h":233},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":14,"w":230,"h":233},
+	"sourceSize": {"w":268,"h":252}
+},
+"rocketmouse_dead02.png":
+{
+	"frame": {"x":1300,"y":168,"w":133,"h":84},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":41,"w":133,"h":84},
+	"sourceSize": {"w":134,"h":126}
+},
+"rocketmouse_dead02@2x.png":
+{
+	"frame": {"x":1300,"y":1,"w":264,"h":165},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":1,"y":83,"w":264,"h":165},
+	"sourceSize": {"w":268,"h":252}
+},
+"rocketmouse_fall01.png":
+{
+	"frame": {"x":1901,"y":1,"w":110,"h":107},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":2,"y":2,"w":110,"h":107},
+	"sourceSize": {"w":134,"h":126}
+},
+"rocketmouse_fall01@2x.png":
+{
+	"frame": {"x":1080,"y":1,"w":218,"h":211},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":5,"y":5,"w":218,"h":211},
+	"sourceSize": {"w":268,"h":252}
+},
+"rocketmouse_fly01.png":
+{
+	"frame": {"x":1879,"y":121,"w":121,"h":115},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":6,"y":5,"w":121,"h":115},
+	"sourceSize": {"w":134,"h":126}
+},
+"rocketmouse_run01.png":
+{
+	"frame": {"x":1674,"y":1,"w":107,"h":122},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":2,"y":2,"w":107,"h":122},
+	"sourceSize": {"w":134,"h":126}
+},
+"rocketmouse_run01@2x.png":
+{
+	"frame": {"x":423,"y":1,"w":212,"h":240},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":5,"y":6,"w":212,"h":240},
+	"sourceSize": {"w":268,"h":252}
+},
+"rocketmouse_run02.png":
+{
+	"frame": {"x":1566,"y":1,"w":106,"h":124},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":2,"y":1,"w":106,"h":124},
+	"sourceSize": {"w":134,"h":126}
+},
+"rocketmouse_run02@2x.png":
+{
+	"frame": {"x":1,"y":1,"w":209,"h":246},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":5,"y":3,"w":209,"h":246},
+	"sourceSize": {"w":268,"h":252}
+},
+"rocketmouse_run03.png":
+{
+	"frame": {"x":1689,"y":125,"w":106,"h":121},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":1,"y":2,"w":106,"h":121},
+	"sourceSize": {"w":134,"h":126}
+},
+"rocketmouse_run03@2x.png":
+{
+	"frame": {"x":637,"y":1,"w":209,"h":240},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":4,"y":5,"w":209,"h":240},
+	"sourceSize": {"w":268,"h":252}
+},
+"rocketmouse_run04.png":
+{
+	"frame": {"x":1581,"y":127,"w":106,"h":123},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":2,"y":1,"w":106,"h":123},
+	"sourceSize": {"w":134,"h":126}
+},
+"rocketmouse_run04@2x.png":
+{
+	"frame": {"x":212,"y":1,"w":209,"h":243},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":5,"y":3,"w":209,"h":243},
+	"sourceSize": {"w":268,"h":252}
+}},
+"meta": {
+	"app": "https://www.codeandweb.com/texturepacker",
+	"version": "1.0",
+	"image": "mouse.png",
+	"format": "RGBA8888",
+	"size": {"w":2012,"h":253},
+	"scale": "1",
+	"smartupdate": "$TexturePacker:SmartUpdate:863f2b52ea38388a6c019a062460976d:c7ffd573d28d0feaf34de8d1f10f9a73:cce20e9c955816a05cd8e3dc11a0bf85$"
+}
+}
