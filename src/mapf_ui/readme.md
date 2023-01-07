@@ -1,39 +1,38 @@
-# Infinite Runner Template
-> Example code from Infinite Runner in Phaser 3 with TypeScript book
+# MAPF前端工程
 
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-## Overview
+## 概览
 
-This is the source code for an infinite runner starting point in Phaser 3 as created in the free book: Infinite Runner in Phaser 3 with TypeScript.
+参考了Infinite Runner in Phaser 3 with TypeScript工程，Phaser3官方的Scene相关工程，前端实现一个多窗口动画交互框架。
 
-This project uses the [phaser3-typescript-parcel-template](https://github.com/ourcade/phaser3-typescript-parcel-template).
+## 快速开始
 
-## Getting Started
-
-Clone this repository with `git-lfs` and run:
 
 ```bash
 npm install
 npm run start
 ```
 
-If you don't have `git-lfs` installed then get it here: https://git-lfs.github.com
+浏览器访问 http://localhost:8083/
 
-All the image and audio files in this repository is stored with `git-lfs`.
+![Alt text](../../docs/images/fui.png "a title")
 
-Alternatively, you can [download a zip from the latest release](https://github.com/ourcade/infinite-runner-template-phaser3/releases/tag/latest).
+## 致谢
 
-### Rocket Mouse Fly Animation
-
-The Rocket Mouse art from Game Art Guppy is missing a fly animation image but [you can download one we made here](https://github.com/ourcade/infinite-runner-template-phaser3/issues/1). You will come across this in Chapter 3 of the Infinite Runner in Phaser 3 with TypeScript book.
-
-## Credits
+[界面素材](https://www.freepik.com/search?format=search&page=2&query=hud+interface&selection=1) freepik网站
 
 [House Background art](https://www.gameartguppy.com/shop/house-1-repeatable-background/) from Game Art Guppy
 
 [Rocket Mouse art](https://www.gameartguppy.com/shop/rocket-mouse-game-art-character/) from Game Art Guppy
 
-## License
+[参考代码1](https://github.com/ourcade/infinite-runner-template-phaser3) 《Infinite Runner in Phaser 3 with TypeScript》
+
+[参考代码2](https://github.com/photonstorm/phaser3-examples/tree/master/public/src/scenes/tutorial) 官方场景控制
+
+[参考代码3](https://github.com/photonstorm/phaser3-examples/tree/master/public/src/scenes/multi%20demo) 官方多窗口项目
+
+
+## 许可协议
 
 [MIT License](https://github.com/ourcade/infinite-runner-template-phaser3/blob/master/LICENSE)
