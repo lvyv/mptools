@@ -1,10 +1,12 @@
 import Phaser from 'phaser'
-import { SceneBusKeys } from '~/consts/SceneKeys';
-import { Player } from '../objects/player';
-import { Enemy } from '../objects/enemy';
+import { SceneBusKeys } from '~/consts/SceneKeys'
+import { RestUri } from '~/consts/UiLabels'
+import { Player } from '../objects/player'
+import { Enemy } from '../objects/enemy'
 import { Agv } from '../objects/agv'
-import { Obstacle } from '../objects/obstacles/obstacle';
-import { FBDInputHandler } from '../interfaces/FBDInputHandler';
+import { Obstacle } from '../objects/obstacles/obstacle'
+import { FBDInputHandler } from '../interfaces/FBDInputHandler'
+import axios from 'axios'
 
 /* keyboard input mapping */
 const INPUT_KEYS_MAPPING = {
@@ -89,10 +91,10 @@ export default class Mapf extends Phaser.Scene {
     let cam = this.cameras.main;
     // cam.setBounds(0, 0, this.zxkmap.widthInPixels, this.zxkmap.heightInPixels);
     cam.setBounds(0, 0, this.zxkmap.widthInPixels, this.zxkmap.heightInPixels);
-    let ratio = this.zxkmap.widthInPixels / this.zxkmap.heightInPixels
-    cam.setViewport(this.parent.x, this.parent.y, Mapf.HEIGHT * ratio + 40, Mapf.HEIGHT);
-    cam.zoomTo(0.22, 500);
+    // let ratio = this.zxkmap.widthInPixels / this.zxkmap.heightInPixels
+    // cam.setViewport(this.parent.x, this.parent.y, Mapf.HEIGHT * ratio + 40, Mapf.HEIGHT);
     this.physics.world.setBounds(0, 0, this.zxkmap.widthInPixels, this.zxkmap.heightInPixels);
+    cam.zoomTo(0.22, 500);
   }
 
   update(time, delta) {
@@ -116,10 +118,6 @@ export default class Mapf extends Phaser.Scene {
       let cam = this.cameras.main;
       cam.zoomTo(0.22, 500);
     }
-    if (this.inputHandler.isJustDown('exitToMenu')) {
-      // backToMenu
-      this.scene.start('MenuScene');
-    }
   }
 
   refresh() {
@@ -131,10 +129,10 @@ export default class Mapf extends Phaser.Scene {
     switch (key) {
       case SceneBusKeys.TopicMAPFCall:
         // call rest api to get mapf solution
-        console.log(data)
+        // console.log(data)
         // draw path
         this.gfx = this.add.graphics();
-        this.pathManager(this.cache, this.physics, this.agvs, this.gfx);
+        this.pathManager(RestUri.Mapf_Uri, data, this.physics, this.agvs, this.gfx);
       default:
         break
 
@@ -194,10 +192,13 @@ export default class Mapf extends Phaser.Scene {
     });
   }
 
-  pathManager(jsoncache: any, physics: Phaser.Physics.Arcade.ArcadePhysics, agvs: Phaser.GameObjects.Group, graphics: Phaser.GameObjects.Graphics) {
+  async pathManager(rest: string, tasks: string, physics: Phaser.Physics.Arcade.ArcadePhysics, agvs: Phaser.GameObjects.Group, graphics: Phaser.GameObjects.Graphics) {
     // jsoncache保存的载入json是后台生成路径，直接生成path路径到dist文件
     // 此处解析文件，得到所有求出的路径
-    let mapfs = jsoncache.json.get('pathData');
+    // let mapfs = jsoncache.json.get('pathData');
+    // let mapfs = await axios.get(`${rest}?map_name=zxk-640x440.map&`)
+    let res = await axios.get(rest, { params: { map_name: 'zxk-640x440.map', tasks: tasks, alg_name: 'cbs' } })
+    let mapfs = res.data.reply.result
     let keys = Object.keys(mapfs);
     keys.forEach((val, idx, karr) => {
       let pts = mapfs[val];
@@ -234,8 +235,5 @@ export default class Mapf extends Phaser.Scene {
       }
   
     }, 0);
-  
-    // return path;
-    // return new Phaser.Curves.Path(obj.x, obj.y).circleTo(200);
   }
 }

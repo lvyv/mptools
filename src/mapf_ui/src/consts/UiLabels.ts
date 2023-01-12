@@ -15,4 +15,9 @@ enum UiLayout
 	Controller_panelY = 795
 }
 
-export { UiLabels, UiLayout }
+enum RestUri
+{
+	Mapf_Uri = 'http://127.0.0.1:7080/api/v1/mapf/mapf_solve'
+}
+
+export { UiLabels, UiLayout, RestUri }
