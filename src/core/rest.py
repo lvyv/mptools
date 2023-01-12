@@ -199,7 +199,7 @@ class RestWorker(ProcWorker):
         # EIF2:REST MAPF 外部接口-提供MAPF算法接口，求解路径
         @_app.get("/api/v1/mapf/mapf_solve", tags=["路径规划"])
         async def mapf_solve(map_name: str = 'zxk-640x440.map',
-                             tasks: str = '[{"s1":[1,1],"e1":[2,2]},{"s2":[10,10],"e2":[20,20]}]',
+                             tasks: str = '[{"s": [480, 228], "e": [87, 253]}, {"s": [490, 271], "e": [160, 300]}]',
                              alg_name: str = 'cbs'):
             """对MAPF底层算法求解器的封装"""
             item = {'version': '1.0.0', 'reply': 'pending.'}

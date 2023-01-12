@@ -1,9 +1,9 @@
 import Phaser from 'phaser'
 import TextureKeys from '~/consts/TextureKeys';
 
-export default class Stars extends Phaser.Scene {
-    public static WIDTH = 501
-    public static HEIGHT = 680
+export default class StoreDetail extends Phaser.Scene {
+    public static WIDTH = 402
+    public static HEIGHT = 418
     constructor (handle, parent)
     {
         super(handle);
@@ -26,7 +26,7 @@ export default class Stars extends Phaser.Scene {
 
     create ()
     {
-        this.cameras.main.setViewport(this.parent.x, this.parent.y, Stars.WIDTH, Stars.HEIGHT)
+        this.cameras.main.setViewport(this.parent.x, this.parent.y, StoreDetail.WIDTH, StoreDetail.HEIGHT)
         // this.cameras.main.setBackgroundColor(0x0000ff)
 
         this.blitter = this.add.blitter(0, 0, TextureKeys.Star)
@@ -44,12 +44,8 @@ export default class Stars extends Phaser.Scene {
             this.blitter.create(x, y)
         }
         // this.add.image(0,0, TextureKeys.GreenPanel).setAlpha(0.5)
-        var bg = this.add.image(0, 0, TextureKeys.StarsWindow).setOrigin(0).setScale(0.73)
+        var bg = this.add.image(0, 0, TextureKeys.StoreDetailWindow).setOrigin(0).setScale(0.9)
 
-    }
-    updateData(parent, key, data) 
-    {
-        console.log('Stars scene:', key, data)
     }
 
     update (time, delta)

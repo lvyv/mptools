@@ -2,6 +2,8 @@ import TextureKeys from '~/consts/TextureKeys'
 import {UiLabels, UiLayout} from '../consts/UiLabels'
 import Stars from './Stars'
 import Mapf from './Mapf'
+import StoreDetail from './StroeDetail'
+import Tasks from './Tasks'
 
 export default class Controller extends Phaser.Scene {
 
@@ -29,6 +31,8 @@ export default class Controller extends Phaser.Scene {
     private logo!: Phaser.GameObjects.Image
     private showTip = false
     private count = 0
+
+    private mainwindow?: any
 
     constructor ()
     {
@@ -94,13 +98,13 @@ export default class Controller extends Phaser.Scene {
         // this.scene.launch('SceneE')
         // this.scene.launch('SceneF')
         // this.currentScene = this.scene.get('SceneA')
-        this.createWindow(Mapf)
+        this.mainwindow = this.createWindow(Mapf, 380, 10)
     }
 
-    createWindow (func)
+    createWindow (func, x?: number, y?:number)
     {
-        var x = Phaser.Math.Between(400, 600);
-        var y = Phaser.Math.Between(64, 128);
+        if(x === undefined) x = Phaser.Math.Between(0, 200);
+        if(y === undefined) y = Phaser.Math.Between(64, 128);
 
         var handle = 'window' + this.count++;
 
@@ -126,6 +130,7 @@ export default class Controller extends Phaser.Scene {
         }, this)
 
         this.scene.add(handle, demo, true);
+        return demo
     }
 
     createVisibleToggle (x: number, y: number)
@@ -142,13 +147,14 @@ export default class Controller extends Phaser.Scene {
             {
                 toggle.setFrame('toggle-off')
                 toggle.setData('on', false)
-                this.scene.setVisible(false, this.currentScene)
+                // this.scene.setVisible(false, this.currentScene)
             }
             else
             {
                 toggle.setFrame('toggle-on')
                 toggle.setData('on', true)
-                this.scene.setVisible(true, this.currentScene)
+                // this.scene.setVisible(true, this.currentScene)
+                // this.mainwindow.bg.setInteractive()
             }
 
         }, this)
@@ -227,10 +233,16 @@ export default class Controller extends Phaser.Scene {
             let type = btn.getData('name')
             switch (type) {
                 case UiLabels.Tasks:
-                    this.createWindow(Mapf)
+                    this.createWindow(Mapf, 380, 10)
                     break
                 case UiLabels.PHM:
                     this.createWindow(Stars)
+                    break
+                case UiLabels.IoT:
+                    this.createWindow(StoreDetail)
+                    break
+                case UiLabels.Equipment:
+                    this.createWindow(Tasks, 1535, 10)
                     break
                 default:
                     break

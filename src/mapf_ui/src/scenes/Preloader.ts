@@ -1,7 +1,7 @@
 import Phaser from 'phaser'
 
 import TextureKeys from '../consts/TextureKeys'
-import SceneKeys from '../consts/SceneKeys'
+import {SceneKeys} from '../consts/SceneKeys'
 import AnimationKeys from '../consts/AnimationKeys'
 
 export default class Preloader extends Phaser.Scene
@@ -34,8 +34,16 @@ export default class Preloader extends Phaser.Scene
 		this.load.image(TextureKeys.StarsWindow, 'assets/stars-window.png')
 		this.load.image(TextureKeys.Star, 'assets/star2.png')
 
+		this.load.image(TextureKeys.StoreDetailWindow, 'assets/store-detail-window.png')
+
 		this.load.image(TextureKeys.ZxkWindow, 'assets/zxk-window.png')
-		this.load.image(TextureKeys.GreenPanel, 'assets/green-panel.png')
+		// this.load.image(TextureKeys.GreenPanel, 'assets/green-panel.png')
+
+	    this.load.tilemapTiledJSON('zxkmap2', './assets/tilemaps/zxk.json')
+        this.load.image('path-tile-set','./assets/tilesets/path-tile-set.png')
+        this.load.image('cad', './assets/cad.png')
+
+        this.load.json('pathData', './assets/path/paths.json');
 
 	}
 

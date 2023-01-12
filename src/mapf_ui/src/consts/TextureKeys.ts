@@ -21,6 +21,8 @@ enum TextureKeys
 	StarsWindow = 'startswindow',
 	Star = 'star',
 
+	StoreDetailWindow = 'storedetailwindow',
+
 	ZxkWindow = 'zxkwindow',
 	GreenPanel = 'greenpanel'
 	

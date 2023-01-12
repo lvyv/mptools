@@ -25,6 +25,7 @@
 		"typescript": "^3.8.3"
 	},
 	"dependencies": {
+		"axios": "^1.2.2",
 		"phaser": "^3.55.2"
 	},
 	"parcelCleanPaths": [

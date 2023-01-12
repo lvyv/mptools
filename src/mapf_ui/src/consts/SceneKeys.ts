@@ -6,4 +6,13 @@ enum SceneKeys
 	GameOver = 'game-over'
 }
 
-export default SceneKeys
+enum SceneBusKeys
+{
+	BusDataChange = 'changedata',
+
+	TopicTaskSet = 'topictaskset',		//Mapf Scene --> Tasks Scene
+	TopicMAPFCall = 'topicmapfcall'		//Tasks Scene --> Mapf Scene()
+
+}
+
+export {SceneKeys, SceneBusKeys}
