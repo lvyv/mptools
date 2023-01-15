@@ -6,7 +6,7 @@ import GameOver from './scenes/GameOver'
 import Controller from './scenes/Controller'
 import './styles.css';
 
-const config: Phaser.Types.Core.GameConfig = {
+const config = {
 	type: Phaser.AUTO,
 	width: 1920,
 	height: 930,
@@ -21,9 +21,13 @@ const config: Phaser.Types.Core.GameConfig = {
 	fps: {
 		target: 20,
 	},
-	scene: [Preloader, Controller] //, Game, GameOver]
+	scene: [Preloader, Controller], //, Game, GameOver]
 	// scene: [Preloader, Game, GameOver]
-
+	agvRunning: false,
+	runPhase: 0
 }
+var game = new Phaser.Game(config)
+game.config.agvRunning = false;
+game.config.runPhase = 0;
 
-export default new Phaser.Game(config)
+export default game

@@ -1,33 +1,79 @@
-import { Bullet } from './bullet';
+// import { Bullet } from './bullet';
 import { IFollowerConstructor } from '../interfaces/follower.interface';
 
+class AssignedTask {
+  private id: string
+  private paths: Object[]
+  private currentPos: number
+  constructor() {
+    this.id=''
+    this.paths = []
+    this.currentPos = -1
+  }
+  public setTaskID(id:string){
+    this.id = id
+  }
+  public getTaskID(): string {
+    return this.id
+  }
+  public appendPath(path: Object) {
+    this.paths.push(path)
+  }
+  public getPaths() {
+    return this.paths
+  }
+  public step(phase) {
+    // phase is a global variable, set by controller scene
+    // When Mapf scene regulaly update AGV, step is called 
+    let res = null
+    if(phase == 1) {
+      if(this.paths.length > 1) {
+        this.currentPos++
+        res = this.paths[phase][this.currentPos]
+      }
+    }else if(phase == 0){
+      if(this.paths.length > 0) {
+        this.currentPos++
+        res = this.paths[phase][this.currentPos]
+      }
+    }
+    return res
+  }
+}
 export class Agv extends Phaser.GameObjects.PathFollower {
-  body: Phaser.Physics.Arcade.Body;
+  body!: Phaser.Physics.Arcade.Body;
 
   // variables
-  private health: number;
-  private lastShoot: number;
+  private health!: number;
+  // private lastShoot: number;
   private speed: number;
 
   // children
   // private barrel: Phaser.GameObjects.Image;
-  private lifeBar: Phaser.GameObjects.Graphics;
-
-  // game objects
-  private bullets: Phaser.GameObjects.Group;
-
-  // public getBarrel(): Phaser.GameObjects.Image {
-  //   return this.barrel;
-  // }
-
-  public getBullets(): Phaser.GameObjects.Group {
-    return this.bullets;
+  private lifeBar!: Phaser.GameObjects.Graphics;
+  private assignedTask !: AssignedTask;
+  
+  public assignTaskID(id: string): void {
+    this.assignedTask.setTaskID(id)
+  }
+  public checkTaskID(id: string) {
+    return id === this.assignedTask.getTaskID()
+  }
+  public appendTaskPath(path: any): void {
+    this.assignedTask.appendPath(path)
+  }
+  public getAgvTaskID() {
+    return this.assignedTask.getTaskID()
+  }
+  public getAgvTaskPaths() {
+    return this.assignedTask.getPaths()
   }
 
   constructor(aParams: IFollowerConstructor) {
     super(aParams.scene, aParams.path, aParams.x, aParams.y, aParams.texture, aParams.frame);
     if (typeof aParams.speed !== 'undefined') this.speed = aParams.speed;
     else this.speed = 5;
+    this.assignedTask = new AssignedTask()
     this.initContainer();
     this.scene.add.existing(this);
     //duration很重要，需要根据路径和速度进行计算
@@ -49,76 +95,29 @@ export class Agv extends Phaser.GameObjects.PathFollower {
   private initContainer() {
     // variables
     this.health = 1;
-    this.lastShoot = 0;
-    // this.speed = 100;
-
     // image
     this.setDepth(10);
-
-    // this.barrel = this.scene.add.image(0, 0, 'barrelRed');
-    // this.barrel.setOrigin(0.5, 1);
-    // this.barrel.setDepth(1);
-
     this.lifeBar = this.scene.add.graphics();
     this.redrawLifebar();
-
-    // game objects
-    this.bullets = this.scene.add.group({
-      /*classType: Bullet,*/
-      active: true,
-      maxSize: 10,
-      runChildUpdate: true
-    });
-
-    // tweens
-    // this.scene.tweens.add({
-    //   targets: this,
-    //   props: { y: this.y - 200 },
-    //   delay: 0,
-    //   duration: 2000,
-    //   ease: 'Linear',
-    //   easeParams: null,
-    //   hold: 0,
-    //   repeat: -1,
-    //   repeatDelay: 0,
-    //   yoyo: true
-    // });
-
     // physics
     this.scene.physics.world.enable(this);
   }
 
-  update(): void {
+  update(scene): void {
+    let runPhase = scene.game.config.runPhase
+    let newpos = this.assignedTask.step(runPhase)
+    if(newpos) {
+      this.x = newpos[0]
+      this.y = newpos[1]
+    }
     if (this.active) {
-      // this.barrel.x = this.x;
-      // this.barrel.y = this.y;
       this.lifeBar.x = this.x;
       this.lifeBar.y = this.y;
-      // this.handleShooting(); // not allowed shooting for debug reason.
     } else {
       this.destroy();
-      // this.barrel.destroy();
       this.lifeBar.destroy();
     }
   }
-
-  // private handleShooting(): void {
-  //   if (this.scene.time.now > this.lastShoot) {
-  //     if (this.bullets.getLength() < 10) {
-  //       this.bullets.add(
-  //         new Bullet({
-  //           scene: this.scene,
-  //           rotation: this.barrel.rotation,
-  //           x: this.barrel.x,
-  //           y: this.barrel.y,
-  //           texture: 'bulletRed'
-  //         })
-  //       );
-
-  //       this.lastShoot = this.scene.time.now + 400;
-  //     }
-  //   }
-  // }
 
   private redrawLifebar(): void {
     this.lifeBar.clear();

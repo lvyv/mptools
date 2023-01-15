@@ -50,11 +50,11 @@ export default class Controller extends Phaser.Scene {
 
     create ()
     {
-        this.textures.addSpriteSheetFromAtlas('mine', { atlas: 'space', frame: 'mine', frameWidth: 64 })
-        this.textures.addSpriteSheetFromAtlas('asteroid', { atlas: 'space', frame: 'asteroid', frameWidth: 96 })
+        // this.textures.addSpriteSheetFromAtlas('mine', { atlas: 'space', frame: 'mine', frameWidth: 64 })
+        // this.textures.addSpriteSheetFromAtlas('asteroid', { atlas: 'space', frame: 'asteroid', frameWidth: 96 })
 
-        this.anims.create({ key: 'asteroid', frames: this.anims.generateFrameNumbers('asteroid', { start: 0, end: 24 }), frameRate: 12, repeat: -1 })
-        this.anims.create({ key: 'mine', frames: this.anims.generateFrameNumbers('mine', { start: 0, end: 15 }), frameRate: 20, repeat: -1 })
+        // this.anims.create({ key: 'asteroid', frames: this.anims.generateFrameNumbers('asteroid', { start: 0, end: 24 }), frameRate: 12, repeat: -1 })
+        // this.anims.create({ key: 'mine', frames: this.anims.generateFrameNumbers('mine', { start: 0, end: 15 }), frameRate: 20, repeat: -1 })
 
         this.bg = this.add.tileSprite(0, 0, 1920, 930, TextureKeys.Universe).setOrigin(0)
         this.logo = this.add.image(1750, 20, TextureKeys.Logo).setOrigin(0).setScale(0.4).setAlpha(0.2)
@@ -147,12 +147,14 @@ export default class Controller extends Phaser.Scene {
             {
                 toggle.setFrame('toggle-off')
                 toggle.setData('on', false)
+                this.game.config.runPhase = 0
                 // this.scene.setVisible(false, this.currentScene)
             }
             else
             {
                 toggle.setFrame('toggle-on')
                 toggle.setData('on', true)
+                this.game.config.runPhase = 1
                 // this.scene.setVisible(true, this.currentScene)
                 // this.mainwindow.bg.setInteractive()
             }

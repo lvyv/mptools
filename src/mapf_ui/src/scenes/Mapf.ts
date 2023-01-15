@@ -100,8 +100,8 @@ export default class Mapf extends Phaser.Scene {
   update(time, delta) {
     this.player.update();
     // agvs redraw
-    this.agvs.children.each((agv: Enemy) => {
-      agv.update();
+    this.agvs.children.each((agv: Agv) => {
+      agv.update(this);
     }, this);
 
     // player as a detector
@@ -192,48 +192,100 @@ export default class Mapf extends Phaser.Scene {
     });
   }
 
+  /*
+   目前的规划逻辑是用于演示任务，在实际的工程应用中，还需要实现滚动规划，就是规划路径是基于前一个执行规划中添加新规划任务
+   对于用户点选的起点和终点，实际执行了两次路径规划，第一次规划是从任务起点到终点同时开始动作，但为了达到这个效果，还需要调度库区车辆从不同位置来到各自任务的起点
+   所以需要规划各个AGV从驻车点出发，到达出发位置等待，一起按第一次规划路径行动
+  */ 
   async pathManager(rest: string, tasks: string, physics: Phaser.Physics.Arcade.ArcadePhysics, agvs: Phaser.GameObjects.Group, graphics: Phaser.GameObjects.Graphics) {
-    // jsoncache保存的载入json是后台生成路径，直接生成path路径到dist文件
-    // 此处解析文件，得到所有求出的路径
-    // let mapfs = jsoncache.json.get('pathData');
-    // let mapfs = await axios.get(`${rest}?map_name=zxk-640x440.map&`)
+    // 1.此处调用后端REST接口，求得所有任务的第一次规划路径
     let res = await axios.get(rest, { params: { map_name: 'zxk-640x440.map', tasks: tasks, alg_name: 'cbs' } })
     let mapfs = res.data.reply.result
     let keys = Object.keys(mapfs);
-    keys.forEach((val, idx, karr) => {
+    // 设置一个数组保存召集AGV车任务的起始点
+    let callAgvTasks: string[]=[]
+    // 循环为每条路径分配AGV
+    let targets = agvs.getChildren()
+    keys.forEach((val) => {
       let pts = mapfs[val];
-      // find the nearest agv to the start point of the path
-      let closest = physics.closest({ x: pts[0][0], y: pts[0][1] }, agvs.getChildren()) as Phaser.Physics.Arcade.Body;
-      let path = new Phaser.Curves.Path(closest.x, closest.y);
-      for (let iii = 1; iii < pts.length; iii++) {
-        // let ind = getRand(0, pts.length);
-        let cpt = pts[iii];
-        path.lineTo(cpt[0], cpt[1]);
+      // 寻找最靠近的AGV
+      let closest = physics.closest({ x: pts[0][0], y: pts[0][1] }, targets) as Agv
+      // 为该车分配任务号，比如pts0，并添加任务包含的路径
+      closest.assignTaskID(val)
+      closest.appendTaskPath(pts)
+      // 找到最靠近的AGV，当一台AGV被占用后，将其移除，在新任务起点与移除车最近的情况下，让其它车被新分配
+      targets = targets.filter(obj => obj !== closest)
+      // '[{"s": [475, 168],"e": [509, 255]},   {"s": [359, 242],"e": [229, 328]}]'
+      let agvX = closest.x, agvY = closest.y
+      let callAgv = `{"s": [${Math.round(agvX/8)}, ${Math.round(agvY/8)}], "e": [${Math.round(pts[0][0]/8)}, ${Math.round(pts[0][1]/8)}]}`
+      callAgvTasks.push(callAgv)
+    }, this)
+    
+    // 2.此处调用后端REST接口，求得驻车点到任务起点的第二次规划路径
+    let sCallAgvTasks = '[' + callAgvTasks.join(',') + ']'
+    let res2 = await axios.get(rest, { params: { map_name: 'zxk-640x440.map', tasks: sCallAgvTasks, alg_name: 'cbs' } })
+    let mapfs2 = res2.data.reply.result
+    keys = Object.keys(mapfs2)  //mapfs和mapfs2应该是由统一的pts0,pts1标识
+    // 第二次规划路径要添加到原来的分配一次规划路径对应的AGV上
+    let agvitems = agvs.getChildren()
+    keys.forEach((val) => {
+      agvitems.forEach(item=>{
+          let agvForNewPath = item as Agv
+          if (agvForNewPath.checkTaskID(val)) {
+            agvForNewPath.appendTaskPath(mapfs2[val])
+          }
+      })
+    }, this)
+
+    // 3.生成路径规划
+    agvitems.forEach(item=>{  //每个AGV车
+      let aitem = item as Agv
+      if(aitem.getAgvTaskID() != '') {
+        let paths = aitem.getAgvTaskPaths()
+        let path
+        paths.forEach((pitem,ind)=>{  //车辆分配任务的每段路径
+          path = new Phaser.Curves.Path(pitem[0][0], pitem[0][1]);
+          for(let iii = 1; iii < pitem.length; iii++) {
+            path.lineTo(pitem[iii][0], pitem[iii][1])
+          }
+          if (graphics) {
+            let color = [0x0000ff, 0xff0000]
+            graphics.lineStyle(6, color[ind % 2], 0.5);
+            path.draw(graphics, 2);
+          } 
+        })
       }
+    })
+    // console.log(sCallAgvTasks)
+
+      // let path = new Phaser.Curves.Path(agvX, agvY);
+      // for (let iii = 0; iii < pts.length; iii++) {
+      //   // x,y
+      //   let cpt = pts[iii];
+      //   path.lineTo(cpt[0], cpt[1]);
+      // }
+      // // draw path line
+      // if (graphics) {
+      //   graphics.lineStyle(6, 0x0000ff, 0.8);
+      //   path.draw(graphics, 2);
+      // }
   
-      //对每条路径，计算总长度
-      let arr = path.getCurveLengths();
-      let sLen = 0;
-      arr.forEach(function (val, idx, arr) { sLen += val; }, 0);
+      // //对每条路径，计算总长度，让AGV沿路径运动
+      // let arr = path.getCurveLengths();
+      // let sLen = 0;
+      // arr.forEach(function (val, idx, arr) { sLen += val; }, 0);
   
-      let agv = closest as unknown as Agv;
-      agv.setPath(path);
-      path.getCurveLengths();
-      agv.startFollow({
-        positionOnPath: true,
-        duration: sLen / agv.getSpeed(),
-        yoyo: false,
-        // repeat: 1,
-        rotateToPath: true,
-        // verticalAdjust: true
-      });
-  
-      // draw path line
-      if (graphics) {
-        graphics.lineStyle(6, 0x0000ff, 1);
-        path.draw(graphics, 64);
-      }
-  
-    }, 0);
+      // let agv = closest as unknown as Agv;
+      // agv.setPath(path);
+      // path.getCurveLengths();
+      // agv.startFollow({
+      //   positionOnPath: true,
+      //   duration: sLen / agv.getSpeed(),
+      //   yoyo: false,
+      //   // repeat: 1,
+      //   rotateToPath: true,
+      //   // verticalAdjust: true
+      // }); 
+    // }, 0);
   }
 }
