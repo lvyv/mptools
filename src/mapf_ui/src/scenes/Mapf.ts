@@ -223,7 +223,7 @@ export default class Mapf extends Phaser.Scene {
         positionOnPath: true,
         duration: sLen / agv.getSpeed(),
         yoyo: false,
-        repeat: -1,
+        // repeat: 1,
         rotateToPath: true,
         // verticalAdjust: true
       });

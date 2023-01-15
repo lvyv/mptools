@@ -25,8 +25,9 @@ export default class Preloader extends Phaser.Scene
 		// this.load.atlas(TextureKeys.RocketMouse, 'characters/mouse.png', 'characters/mouse.json')
 
 		this.load.image(TextureKeys.Universe, 'universe/bg.jpg')
-        this.load.atlas(TextureKeys.Space, 'universe/space.png', 'universe/space.json')
-        this.load.atlas(TextureKeys.Ui, 'universe/ui.png', 'universe/ui.json')
+        // this.load.atlas(TextureKeys.Space, 'universe/space.png', 'universe/space.json')
+        this.load.atlas("atlas","./assets/atlas/agv.png" , "./assets/atlas/agv.json");
+		this.load.atlas(TextureKeys.Ui, 'universe/ui.png', 'universe/ui.json')
         this.load.bitmapFont(TextureKeys.Digital, 'universe/digital.png', 'universe/digital.xml')
 
 		this.load.image(TextureKeys.Logo, 'universe/white.logo.png')

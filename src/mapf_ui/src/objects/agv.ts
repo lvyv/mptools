@@ -39,7 +39,7 @@ export class Agv extends Phaser.GameObjects.PathFollower {
         positionOnPath: true,
         duration: sLen / this.speed,
         yoyo: false,
-        repeat: -1,
+        repeat: 1,
         rotateToPath: true,
         // verticalAdjust: true
       });
