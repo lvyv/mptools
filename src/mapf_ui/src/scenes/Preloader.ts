@@ -23,7 +23,6 @@ export default class Preloader extends Phaser.Scene
 		// this.load.image(TextureKeys.LaserMiddle, 'house/object_laser.png')
 		// this.load.image(TextureKeys.Coin, 'house/object_coin.png')
 		// this.load.atlas(TextureKeys.RocketMouse, 'characters/mouse.png', 'characters/mouse.json')
-
 		this.load.image(TextureKeys.Universe, 'universe/bg.jpg')
         // this.load.atlas(TextureKeys.Space, 'universe/space.png', 'universe/space.json')
         this.load.atlas("atlas","./assets/atlas/agv.png" , "./assets/atlas/agv.json");
@@ -34,8 +33,10 @@ export default class Preloader extends Phaser.Scene
 
 		this.load.image(TextureKeys.StarsWindow, 'assets/stars-window.png')
 		this.load.image(TextureKeys.Star, 'assets/star2.png')
-
 		this.load.image(TextureKeys.StoreDetailWindow, 'assets/store-detail-window.png')
+		this.load.image(TextureKeys.RightTopWindow, 'assets/right-top-window.png')
+		this.load.image(TextureKeys.RightMiddleWindow, 'assets/right-middle-window.png')
+
 
 		this.load.image(TextureKeys.ZxkWindow, 'assets/zxk-window.png')
 		// this.load.image(TextureKeys.GreenPanel, 'assets/green-panel.png')

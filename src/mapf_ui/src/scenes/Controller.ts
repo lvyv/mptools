@@ -4,6 +4,9 @@ import Stars from './Stars'
 import Mapf from './Mapf'
 import StoreDetail from './StroeDetail'
 import Tasks from './Tasks'
+import RightTop from './RightTop'
+import { SceneBusKeys } from '~/consts/SceneKeys'
+import RightMiddle from './RightMiddle'
 
 export default class Controller extends Phaser.Scene {
 
@@ -142,7 +145,6 @@ export default class Controller extends Phaser.Scene {
         toggle.setData('on', true)
 
         toggle.on('pointerup',  () => {
-
             if (toggle.getData('on'))
             {
                 toggle.setFrame('toggle-off')
@@ -235,16 +237,23 @@ export default class Controller extends Phaser.Scene {
             let type = btn.getData('name')
             switch (type) {
                 case UiLabels.Tasks:
-                    this.createWindow(Mapf, 380, 10)
+                    this.createWindow(Mapf, 380, 5)
                     break
                 case UiLabels.PHM:
-                    this.createWindow(Stars)
+                    this.createWindow(Stars,1545, 5)
                     break
                 case UiLabels.IoT:
-                    this.createWindow(StoreDetail)
+                    this.createWindow(StoreDetail, 5, 5)
                     break
                 case UiLabels.Equipment:
-                    this.createWindow(Tasks, 1535, 10)
+                    this.createWindow(Tasks, 1545, 520)
+                    break
+                case UiLabels.DT:
+                    this.registry.set(SceneBusKeys.SetPhase, this.game.config.runPhase) //通知Mapf.ts，更新Agv的不同路段的起点
+                    break
+                case UiLabels.Log:
+                    this.createWindow(RightTop,5,405)
+                    this.createWindow(RightMiddle, 5, 795)
                     break
                 default:
                     break

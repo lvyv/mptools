@@ -16,11 +16,24 @@ const INPUT_KEYS_MAPPING = {
   'zoomOut': [
     Phaser.Input.Keyboard.KeyCodes.X,
   ],
+  'zoomOne' : [
+    Phaser.Input.Keyboard.KeyCodes.ONE, // move camera to p1
+  ],
+  'zoomTwo' : [
+    Phaser.Input.Keyboard.KeyCodes.TWO, // move camera to p2
+  ],
+  'zoomThree' : [
+    Phaser.Input.Keyboard.KeyCodes.THREE,// move camera to p3
+  ],
+  'zoomZero' : [
+    Phaser.Input.Keyboard.KeyCodes.ZERO,// camera start follow player
+  ],
   'exitToMenu': [
     Phaser.Input.Keyboard.KeyCodes.ESC,
   ],
 }
 
+const SPEEDFACTOR = 5
 
 export default class Mapf extends Phaser.Scene {
   private layer: Phaser.Tilemaps.TilemapLayer;
@@ -96,27 +109,43 @@ export default class Mapf extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, this.zxkmap.widthInPixels, this.zxkmap.heightInPixels);
     cam.zoomTo(0.22, 500);
   }
-
+  
+  private speedController = 0
   update(time, delta) {
-    this.player.update();
-    // agvs redraw
-    this.agvs.children.each((agv: Agv) => {
-      agv.update(this);
-    }, this);
-
+    this.player.update()
+    this.speedController ++
+    // 设置速度
+    if(this.speedController % SPEEDFACTOR == 0) {
+      this.agvs.children.each((agv: Agv) => {
+        agv.update(this);
+      }, this);
+    }
     // player as a detector
-    let closest = this.physics.closest(this.player) as Phaser.Physics.Arcade.Body;
-
+    // let closest = this.physics.closest(this.player) as Phaser.Physics.Arcade.Body;
+    let cam = this.cameras.main;
     // map zoom
     if (this.inputHandler.isJustDown('zoomIn')) {
       // zoomIn
-      let cam = this.cameras.main;
       cam.zoomTo(1, 500);
     }
     if (this.inputHandler.isJustDown('zoomOut')) {
       // zoomOut
-      let cam = this.cameras.main;
       cam.zoomTo(0.22, 500);
+    }
+    if (this.inputHandler.isJustDown('zoomOne')) {
+      cam.stopFollow()
+      cam.pan(1890,1740, 1000)
+    }
+    if (this.inputHandler.isJustDown('zoomTwo')) {
+      cam.stopFollow()
+      cam.pan(4430,1460, 1000)
+    }
+    if (this.inputHandler.isJustDown('zoomThree')) {
+      cam.stopFollow()
+      cam.pan(4400, 2250, 1000)
+    }
+    if (this.inputHandler.isJustDown('zoomZero')) {
+      cam.startFollow(this.player)
     }
   }
 
@@ -133,6 +162,14 @@ export default class Mapf extends Phaser.Scene {
         // draw path
         this.gfx = this.add.graphics();
         this.pathManager(RestUri.Mapf_Uri, data, this.physics, this.agvs, this.gfx);
+        break
+      case SceneBusKeys.SetPhase:
+        let agvs = this.agvs.getChildren()
+        agvs.forEach(val=>{
+          let agv = val as Agv
+          agv.setToPhaseStartPos()
+        })
+        break
       default:
         break
 
@@ -204,8 +241,12 @@ export default class Mapf extends Phaser.Scene {
     let keys = Object.keys(mapfs);
     // 设置一个数组保存召集AGV车任务的起始点
     let callAgvTasks: string[]=[]
-    // 循环为每条路径分配AGV
+    // 循环为每条路径分配AGV，分配之前要把所有AGV车路径和任务清空
     let targets = agvs.getChildren()
+    targets.forEach((val) => {  // 任务清空
+      let aitem = val as Agv
+      aitem.clearTask()
+    })
     keys.forEach((val) => {
       let pts = mapfs[val];
       // 寻找最靠近的AGV

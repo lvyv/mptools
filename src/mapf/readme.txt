@@ -1,1 +1,0 @@
-cbs.exe程序支持位图块为8x8的像素地图。在输出savePaths，logPaths函数中实现把块的座标变为像素座标。

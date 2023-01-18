@@ -39,6 +39,9 @@ class AssignedTask {
     }
     return res
   }
+  public resetPos() {
+    this.currentPos = -1
+  }
 }
 export class Agv extends Phaser.GameObjects.PathFollower {
   body!: Phaser.Physics.Arcade.Body;
@@ -68,7 +71,12 @@ export class Agv extends Phaser.GameObjects.PathFollower {
   public getAgvTaskPaths() {
     return this.assignedTask.getPaths()
   }
-
+  public clearTask() {
+    this.assignedTask = new AssignedTask()  // 原来的任务不要，构造一个新任务
+  }
+  public setToPhaseStartPos() {
+    this.assignedTask.resetPos()
+  }
   constructor(aParams: IFollowerConstructor) {
     super(aParams.scene, aParams.path, aParams.x, aParams.y, aParams.texture, aParams.frame);
     if (typeof aParams.speed !== 'undefined') this.speed = aParams.speed;
@@ -104,7 +112,7 @@ export class Agv extends Phaser.GameObjects.PathFollower {
   }
 
   update(scene): void {
-    let runPhase = scene.game.config.runPhase
+    let runPhase = scene.game.config.runPhase    
     let newpos = this.assignedTask.step(runPhase)
     if(newpos) {
       this.x = newpos[0]

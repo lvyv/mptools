@@ -1,11 +1,11 @@
-import { Bullet } from './bullet';
+// import { Bullet } from './bullet';
 import { IImageConstructor } from '../interfaces/image.interface';
 
 export class Player extends Phaser.GameObjects.Image {
   body: Phaser.Physics.Arcade.Body;
   // variables
   private health: number;
-  private lastShoot: number;
+  // private lastShoot: number;
   private speed: number;
 
   // children
@@ -34,7 +34,7 @@ export class Player extends Phaser.GameObjects.Image {
   private initImage() {
     // variables
     this.health = 1;
-    this.lastShoot = 0;
+    // this.lastShoot = 0;
     this.speed = 300;
 
     // image
@@ -216,17 +216,17 @@ export class Player extends Phaser.GameObjects.Image {
   // }
 
   private redrawLifebar(): void {
-    this.lifeBar.clear();
-    this.lifeBar.fillStyle(0x0cad00, 1);
-    this.lifeBar.fillRect(
-      -this.width / 2,
-      this.height / 2,
-      this.width * this.health,
-      15
-    );
-    this.lifeBar.lineStyle(2, 0xffffff);
-    this.lifeBar.strokeRect(-this.width / 2, this.height / 2, this.width, 15);
-    this.lifeBar.setDepth(11);
+    // this.lifeBar.clear();
+    // this.lifeBar.fillStyle(0x0cad00, 1);
+    // this.lifeBar.fillRect(
+    //   -this.width / 2,
+    //   this.height / 2,
+    //   this.width * this.health,
+    //   15
+    // );
+    // this.lifeBar.lineStyle(2, 0xffffff);
+    // this.lifeBar.strokeRect(-this.width / 2, this.height / 2, this.width, 15);
+    // this.lifeBar.setDepth(11);
   }
 
   public updateHealth(): void {

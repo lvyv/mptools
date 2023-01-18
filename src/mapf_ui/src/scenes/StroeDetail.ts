@@ -44,7 +44,7 @@ export default class StoreDetail extends Phaser.Scene {
             this.blitter.create(x, y)
         }
         // this.add.image(0,0, TextureKeys.GreenPanel).setAlpha(0.5)
-        var bg = this.add.image(0, 0, TextureKeys.StoreDetailWindow).setOrigin(0).setScale(0.9)
+        var bg = this.add.image(0, 0, TextureKeys.StoreDetailWindow).setOrigin(0).setScale(0.94)
 
     }
 

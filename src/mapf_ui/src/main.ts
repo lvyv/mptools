@@ -15,11 +15,11 @@ const config = {
 		default: 'arcade',
 		arcade: {
 			gravity: { y: 0 },
-			debug: true
+			debug: false
 		}
 	},
 	fps: {
-		target: 20,
+		target: 10,
 	},
 	scene: [Preloader, Controller], //, Game, GameOver]
 	// scene: [Preloader, Game, GameOver]

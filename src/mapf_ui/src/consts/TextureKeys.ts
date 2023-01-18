@@ -22,9 +22,11 @@ enum TextureKeys
 	Star = 'star',
 
 	StoreDetailWindow = 'storedetailwindow',
+	RightTopWindow = 'righttopwindow',
+	RightMiddleWindow = 'rightmiddlewindow',
 
 	ZxkWindow = 'zxkwindow',
-	GreenPanel = 'greenpanel'
+	GreenPanel = 'greenpanel',
 	
 }
 
