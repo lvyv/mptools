@@ -53,15 +53,9 @@ export default class Controller extends Phaser.Scene {
 
     create ()
     {
-        // this.textures.addSpriteSheetFromAtlas('mine', { atlas: 'space', frame: 'mine', frameWidth: 64 })
-        // this.textures.addSpriteSheetFromAtlas('asteroid', { atlas: 'space', frame: 'asteroid', frameWidth: 96 })
-
-        // this.anims.create({ key: 'asteroid', frames: this.anims.generateFrameNumbers('asteroid', { start: 0, end: 24 }), frameRate: 12, repeat: -1 })
-        // this.anims.create({ key: 'mine', frames: this.anims.generateFrameNumbers('mine', { start: 0, end: 15 }), frameRate: 20, repeat: -1 })
-
         this.bg = this.add.tileSprite(0, 0, 1920, 930, TextureKeys.Universe).setOrigin(0)
         this.logo = this.add.image(1750, 20, TextureKeys.Logo).setOrigin(0).setScale(0.4).setAlpha(0.2)
-        
+
         // panel container background
         let panel_bg = this.add.image(UiLayout.Controller_panelX, UiLayout.Controller_panelY, 'ui', 'panel').setOrigin(0)
         panel_bg.setAlpha(0.5)
@@ -94,13 +88,6 @@ export default class Controller extends Phaser.Scene {
         this.panel_container.add([this.text1, this.text2])
         this.panel_container.add(this.dpad)
 
-        // this.scene.launch('SceneA')
-        // this.scene.launch('SceneB')
-        // this.scene.launch('SceneC')
-        // this.scene.launch('SceneD')
-        // this.scene.launch('SceneE')
-        // this.scene.launch('SceneF')
-        // this.currentScene = this.scene.get('SceneA')
         this.mainwindow = this.createWindow(Mapf, 380, 10)
     }
 
@@ -205,7 +192,7 @@ export default class Controller extends Phaser.Scene {
         btn.setData('scene', scene)
         btn.setData('name', name)
         btn.setData('active', false)
-        
+
         btn.on('pointerover',  () => {
 
             if (!btn.getData('active'))
@@ -258,7 +245,7 @@ export default class Controller extends Phaser.Scene {
                 default:
                     break
             }
-            
+
 
         }, this)
 
@@ -325,7 +312,7 @@ export default class Controller extends Phaser.Scene {
             }
             else if (this.padLeft.contains(px, py))
             {
-                let idx = this.scene.getIndex(this.currentScene)                
+                let idx = this.scene.getIndex(this.currentScene)
 
                 if (idx > 1)
                 {

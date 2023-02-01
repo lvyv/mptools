@@ -21,8 +21,7 @@ const config = {
 	fps: {
 		target: 10,
 	},
-	scene: [Preloader, Controller], //, Game, GameOver]
-	// scene: [Preloader, Game, GameOver]
+	scene: [Preloader, Controller],
 	agvRunning: false,
 	runPhase: 0
 }
