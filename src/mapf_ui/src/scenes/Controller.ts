@@ -57,7 +57,7 @@ export default class Controller extends Phaser.Scene {
         this.logo = this.add.image(1750, 20, TextureKeys.Logo).setOrigin(0).setScale(0.4).setAlpha(0.2)
 
         // panel container background
-        let panel_bg = this.add.image(UiLayout.Controller_panelX, UiLayout.Controller_panelY, 'ui', 'panel').setOrigin(0)
+        let panel_bg = this.add.image(UiLayout.Controller_panelX, UiLayout.Controller_panelY, TextureKeys.Ui, 'panel').setOrigin(0)
         panel_bg.setAlpha(0.5)
         // panel container
         this.panel_container = this.add.container(UiLayout.Controller_panelX, UiLayout.Controller_panelY, [])
@@ -73,7 +73,7 @@ export default class Controller extends Phaser.Scene {
         this.button1.setData('active', true)
         this.active = this.button1
         // Button Labels
-        this.add.image(UiLayout.Controller_panelX, UiLayout.Controller_panelY, 'ui', 'scene-labels').setOrigin(0)
+        this.add.image(UiLayout.Controller_panelX, UiLayout.Controller_panelY, TextureKeys.Ui, 'scene-labels').setOrigin(0)
         // Toggles
         this.toggle1 = this.createVisibleToggle(902, 35)
         this.toggle2 = this.createActiveToggle(902, 75)
@@ -125,7 +125,7 @@ export default class Controller extends Phaser.Scene {
 
     createVisibleToggle (x: number, y: number)
     {
-        let toggle = this.add.image(x, y, 'ui', 'toggle-on').setOrigin(0)
+        let toggle = this.add.image(x, y, TextureKeys.Ui, 'toggle-on').setOrigin(0)
 
         toggle.setInteractive()
 
@@ -155,7 +155,7 @@ export default class Controller extends Phaser.Scene {
 
     createActiveToggle (x: number, y: number)
     {
-        let toggle = this.add.image(x, y, 'ui', 'toggle-on').setOrigin(0)
+        let toggle = this.add.image(x, y, TextureKeys.Ui, 'toggle-on').setOrigin(0)
 
         toggle.setInteractive()
 
@@ -184,7 +184,7 @@ export default class Controller extends Phaser.Scene {
 
     createButton (id: string | number, scene: string, name: string, x: number, y: number)
     {
-        let btn = this.add.image(x, y, 'ui', 'button-out').setOrigin(0)
+        let btn = this.add.image(x, y, TextureKeys.Ui, 'button-out').setOrigin(0)
 
         btn.setInteractive()
 

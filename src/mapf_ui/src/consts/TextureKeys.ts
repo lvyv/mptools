@@ -10,6 +10,10 @@ enum TextureKeys
 	RightTopWindow = 'righttopwindow',
 	RightMiddleWindow = 'rightmiddlewindow',
 	ZxkWindow = 'zxkwindow',
+	Atlas = 'atlas',
+    ZxkMap = 'zxkmap2',
+	PathTileSet = 'path-tile-set',
+	Cad = 'cad'
 }
 
 export default TextureKeys
