@@ -1,8 +1,6 @@
 import Phaser from 'phaser'
 
 import Preloader from './scenes/Preloader'
-import Game from './scenes/Game'
-import GameOver from './scenes/GameOver'
 import Controller from './scenes/Controller'
 import './styles.css';
 
