@@ -7,54 +7,25 @@ export default class RightMiddle extends Phaser.Scene {
     constructor (handle, parent)
     {
         super(handle);
-
         this.parent = parent;
-
-        this.blitter;
-
-        this.width = 320;
-        this.height = 220;
-        this.depth = 1700;
-        this.distance = 200;
-        this.speed = 6;
-
-        this.max = 300;
-        this.xx = [];
-        this.yy = [];
-        this.zz = [];
     }
 
     create ()
     {
         this.cameras.main.setViewport(this.parent.x, this.parent.y, RightMiddle.WIDTH, RightMiddle.HEIGHT)
-        // this.cameras.main.setBackgroundColor(0x0000ff)
 
-        var bg = this.add.image(0, 0, TextureKeys.RightMiddleWindow).setOrigin(0).setScale(0.9)
+        this.add.image(0, 0, TextureKeys.RightMiddleWindow).setOrigin(0).setScale(0.9)
 
     }
 
     update (time, delta)
     {
 
-        for (var i = 0; i < this.max; i++)
-        {
-            var perspective = this.distance / (this.distance - this.zz[i]);
-
-            this.zz[i] += this.speed;
-
-            if (this.zz[i] > this.distance )
-            {
-                this.zz[i] -= (this.distance * 2);
-            }
-
-
-        }
     }
 
     refresh ()
     {
         this.cameras.main.setPosition(this.parent.x, this.parent.y);
-
         this.scene.bringToTop();
     }
 

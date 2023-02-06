@@ -13,7 +13,7 @@ export default class Preloader extends Phaser.Scene
 	preload()
 	{
 		this.load.image(TextureKeys.Universe, 'universe/bg.jpg')
-        this.load.atlas("atlas","./assets/atlas/agv.png" , "./assets/atlas/agv.json");
+        this.load.atlas(TextureKeys.Atlas,"./assets/atlas/agv.png" , "./assets/atlas/agv.json");
 		this.load.atlas(TextureKeys.Ui, 'universe/ui.png', 'universe/ui.json')
         this.load.bitmapFont(TextureKeys.Digital, 'universe/digital.png', 'universe/digital.xml')
 		this.load.image(TextureKeys.Logo, 'universe/white.logo.png')
@@ -23,9 +23,9 @@ export default class Preloader extends Phaser.Scene
 		this.load.image(TextureKeys.RightTopWindow, 'assets/right-top-window.png')
 		this.load.image(TextureKeys.RightMiddleWindow, 'assets/right-middle-window.png')
 		this.load.image(TextureKeys.ZxkWindow, 'assets/zxk-window.png')
-	    this.load.tilemapTiledJSON('zxkmap2', './assets/tilemaps/zxk.json')
-        this.load.image('path-tile-set','./assets/tilesets/path-tile-set.png')
-        this.load.image('cad', './assets/cad.png')
+	    this.load.tilemapTiledJSON(TextureKeys.ZxkMap, './assets/tilemaps/zxk.json')
+        this.load.image(TextureKeys.PathTileSet,'./assets/tilesets/path-tile-set.png')
+        this.load.image(TextureKeys.Cad, './assets/cad.png')
 	}
 
 	create()

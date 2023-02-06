@@ -6,6 +6,7 @@ import { Enemy } from '../objects/enemy'
 import { Agv } from '../objects/agv'
 import { Obstacle } from '../objects/obstacles/obstacle'
 import { FBDInputHandler } from '../interfaces/FBDInputHandler'
+import TextureKeys from '~/consts/TextureKeys'
 import axios from 'axios'
 
 /* keyboard input mapping */
@@ -58,9 +59,9 @@ export default class Mapf extends Phaser.Scene {
   }
 
   create() {
-    this.bg = this.add.image(0, 0, 'cad').setOrigin(0).setAlpha(0.8)
+    this.bg = this.add.image(0, 0, TextureKeys.Cad).setOrigin(0).setAlpha(0.8)
 
-    this.zxkmap = this.make.tilemap({ key: 'zxkmap2' });
+    this.zxkmap = this.make.tilemap({ key: TextureKeys.ZxkMap});
     // let ts1 = this.zxkmap.addTilesetImage('roads', 'roads');
     let ts2 = this.zxkmap.addTilesetImage('path-tile-set', 'path-tile-set');
 
@@ -109,7 +110,7 @@ export default class Mapf extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, this.zxkmap.widthInPixels, this.zxkmap.heightInPixels);
     cam.zoomTo(0.22, 500);
   }
-  
+
   private speedController = 0
   update(time, delta) {
     this.player.update()
@@ -233,7 +234,7 @@ export default class Mapf extends Phaser.Scene {
    目前的规划逻辑是用于演示任务，在实际的工程应用中，还需要实现滚动规划，就是规划路径是基于前一个执行规划中添加新规划任务
    对于用户点选的起点和终点，实际执行了两次路径规划，第一次规划是从任务起点到终点同时开始动作，但为了达到这个效果，还需要调度库区车辆从不同位置来到各自任务的起点
    所以需要规划各个AGV从驻车点出发，到达出发位置等待，一起按第一次规划路径行动
-  */ 
+  */
   async pathManager(rest: string, tasks: string, physics: Phaser.Physics.Arcade.ArcadePhysics, agvs: Phaser.GameObjects.Group, graphics: Phaser.GameObjects.Graphics) {
     // 1.此处调用后端REST接口，求得所有任务的第一次规划路径
     let res = await axios.get(rest, { params: { map_name: 'zxk-640x440.map', tasks: tasks, alg_name: 'cbs' } })
@@ -261,7 +262,7 @@ export default class Mapf extends Phaser.Scene {
       let callAgv = `{"s": [${Math.round(agvX/8)}, ${Math.round(agvY/8)}], "e": [${Math.round(pts[0][0]/8)}, ${Math.round(pts[0][1]/8)}]}`
       callAgvTasks.push(callAgv)
     }, this)
-    
+
     // 2.此处调用后端REST接口，求得驻车点到任务起点的第二次规划路径
     let sCallAgvTasks = '[' + callAgvTasks.join(',') + ']'
     let res2 = await axios.get(rest, { params: { map_name: 'zxk-640x440.map', tasks: sCallAgvTasks, alg_name: 'cbs' } })
@@ -293,7 +294,7 @@ export default class Mapf extends Phaser.Scene {
             let color = [0x0000ff, 0xff0000]
             graphics.lineStyle(6, color[ind % 2], 0.5);
             path.draw(graphics, 2);
-          } 
+          }
         })
       }
     })
@@ -310,12 +311,12 @@ export default class Mapf extends Phaser.Scene {
       //   graphics.lineStyle(6, 0x0000ff, 0.8);
       //   path.draw(graphics, 2);
       // }
-  
+
       // //对每条路径，计算总长度，让AGV沿路径运动
       // let arr = path.getCurveLengths();
       // let sLen = 0;
       // arr.forEach(function (val, idx, arr) { sLen += val; }, 0);
-  
+
       // let agv = closest as unknown as Agv;
       // agv.setPath(path);
       // path.getCurveLengths();
@@ -326,7 +327,7 @@ export default class Mapf extends Phaser.Scene {
       //   // repeat: 1,
       //   rotateToPath: true,
       //   // verticalAdjust: true
-      // }); 
+      // });
     // }, 0);
   }
 }
