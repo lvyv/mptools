@@ -37,16 +37,16 @@ const INPUT_KEYS_MAPPING = {
 const SPEEDFACTOR = 5
 
 export default class Mapf extends Phaser.Scene {
-  private layer: Phaser.Tilemaps.TilemapLayer;
+  private layer!: Phaser.Tilemaps.TilemapLayer
 
-  private player: Player;
-  private enemies: Phaser.GameObjects.Group;
-  private agvs: Phaser.GameObjects.Group;
-  private obstacles: Phaser.GameObjects.Group;
-  private zxkmap: Phaser.Tilemaps.Tilemap;
-  private gfx: Phaser.GameObjects.Graphics;
+  private player!: Player
+  private enemies!: Phaser.GameObjects.Group
+  private agvs!: Phaser.GameObjects.Group
+  private obstacles!: Phaser.GameObjects.Group
+  private zxkmap!: Phaser.Tilemaps.Tilemap
+  private gfx!: Phaser.GameObjects.Graphics
   private parent!: Phaser.GameObjects.Zone;
-  private inputHandler: FBDInputHandler;
+  private inputHandler!: FBDInputHandler
   private speed:number;
   public static WIDTH = 1048
   public static HEIGHT = 775

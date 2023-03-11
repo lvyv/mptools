@@ -1,0 +1,47 @@
+环境VS2019+CMake3.20.0+boost-1.80.0+yaml-cpp-0.7.0+libMultiRobotPlanning
+
+VS_2019_enterprise版本，注册码：BF8Y8-GN2QH-T84XB-QVY3B-RC4DF
+注意：在使用CMake为Visual Studio生成工程项目时，可能会遇到报如下错误：
+could not find any instance of Visual Studio
+1、首先检查VS是否正确安装，打开Visual Studio Installer确认已安装中有VS产品（我出现过已
+安装VS2019，但在Installer已安装列表没有产品，重装解决）
+2、通过修改选项，检查工作负荷中是否选择：使用C++的桌面开发组件、通用Windows平台开
+发组件、Visual Studio扩展开发组件，并在单个组件中搜索cmake，确保C++ CMake工具都安
+装了，然后确认修改安装
+
+CMake3.20.0
+使用cmake-gui图形界面更方便，单独建build目录编译。
+设置好目录，点击Configure，跳出弹窗选择Visual Studio 16 2019，其他默认，点击finish，显
+示配置情况，根据具体情况修改后再点Configure，点击Generate，在build文件夹中有生成解决
+方案文件*.sln。（yaml-cpp和libMultiRobotPlanning都无需修改配置，可直接生成）
+
+boost-1.80.0
+打开 x64 Native Tools Command Prompt for VS 2019 命令行窗口，在此环境中运行
+boost_1_80_0\ 目录下的 bootstrap.bat，在此目录下生成 b2.exe，直接运行 b2.exe（无需参数），
+将在此目录下生成boost的库文件，路径 boost_1_80_0\stage\lib，头文件在boost_1_80_0\boost
+下。后续需注意将库文件和头文件路径（头文件路径使用 boost_1_80_0\）加到VS中或CMake配置
+文件中。（编译路径要注意，我在 boost_1_80_0\tools\build 目录下编译无法通过，显示
+ 'bison' not found）
+
+yaml-cpp-0.7.0
+解压到根目录下，用cmake-gui生成供VS2019使用的sln，用VS2019打开新解决方案，然后编译。
+（生成exe文件会出错，不用管，我们只需要编译出的 yaml-cppd.lib和头文件，注意后续的引用）
+
+libMultiRobotPlanning
+解压到根目录下，用cmake-gui生成供VS2019使用的sln，用VS2019打开新解决方案。由于
+libMultiRobotPlanning 中需要依赖 boost 和 yaml-cpp，所以需要将此两个项目的头文件和静态库
+文件加入工程，可在cmake中添加，例如路径添加如下（链接静态库同理添加）：
+SET(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "D:/boost_1_80_0;D:/yaml-cpp-yaml-cpp-0.7.0/include")
+SET(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "D:/boost_1_80_0/stage/lib;D:/yaml-cpp-yaml-cpp-0.7.0/build/Debug")
+也可在VS工程的调试属性页，针对添加相关路径和库名，例如在链接器的输入页中加入yaml-cpp和
+boost的依赖库，在附加依赖项增加：
+D:/libMultiRobotPlanning/thirdparty/yaml-cppd.lib;
+D:\boost_1_80_0\stage\lib\libboost_program_options-vc142-mt-gd-x64-1_80.lib;
+D:\boost_1_80_0\stage\lib\libboost_system-vc142-mt-gd-x64-1_80.lib;
+D:\boost_1_80_0\stage\lib\libboost_filesystem-vc142-mt-gd-x64-1_80.lib；
+（如果无法找到正确的头文件，编译生成库文件会出错，如果无法找到正确的库文件，链接生成exe
+文件会出错，可将依赖项统一拷贝到当前工程里，减少路径描述）
+现在可以开始编译调试了，可分别将各项目设为启动项目，单独编译，不必ALL_BUILD。
+
+
+
