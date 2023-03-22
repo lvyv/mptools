@@ -179,7 +179,7 @@ class RestWorker(ProcWorker):
             contents = upfile.file.read()
             with open(pfname, 'wb') as fi:
                 fi.write(contents)
-            ret = {'version': '1.0.0', 'reply': True}
+            ret = {'version': '1.0.0', 'response': True}
             return ret
 
         @_app.get("/api/v1/mapf/maps", tags=["基础配置"])
@@ -193,24 +193,27 @@ class RestWorker(ProcWorker):
                 # check if current path is a file
                 if os.path.isfile(os.path.join(dir_path, path)):
                     res.append(path)
-            ret = {'version': '1.0.0', 'reply': res}
+            ret = {'version': '1.0.0', 'response': res}
             return ret
 
         # EIF2:REST MAPF 外部接口-提供MAPF算法接口，求解路径
         @_app.get("/api/v1/mapf/mapf_solve", tags=["路径规划"])
-        async def mapf_solve(map_name: str = 'zxk-640x440.map',
-                             tasks: str = '[{"s": [480, 228], "e": [87, 253]}, {"s": [490, 271], "e": [160, 300]}]',
-                             alg_name: str = 'cbs'):
+        async def mapf_solve(map_name: str = 'zxk-32x32.map',
+                             tasks: str = '[{"s": [1, 1], "e": [29, 29]}, {"s": [29, 29], "e": [1, 1]},'
+                                          ' {"s":[12, 28], "e":[2, 2]}]',
+                             alg_name: str = 'cbs',
+                             planned_paths: str = '[{"pts0":[[1,1],[1,2]]},{"pts1":[[3,3],[3,2]]}]'):
             """对MAPF底层算法求解器的封装"""
-            item = {'version': '1.0.0', 'reply': 'pending.'}
+            item = {'version': '1.0.0', 'response': 'pending.'}
             cfg = {
                 'map_name': map_name,  # zxk-640x440.map
                 'tasks': tasks,        # [{"s": [480, 228], "e": [87, 253]}, {"s": [490, 271], "e": [160, 300]}]
-                'alg_name': alg_name   # cbs
+                'alg_name': alg_name,  # cbs
+                'planned_paths': planned_paths  # [{"pts0":[[1,1],[1,2]]},{"pts1":[[3,3],[3,2]]}]
             }
             # 实现操作系统层的调用，并反馈结果。
             res = _self_obj.call_rpc(bus.CB_MAPF_SOLVE, cfg)  # noqa 调用主进程函数，传配置给它。
-            item['reply'] = res
+            item['response'] = res
             return item
         #
         # class Channels(BaseModel):

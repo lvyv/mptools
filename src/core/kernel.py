@@ -386,7 +386,8 @@ class MainContext(bus.IEventBusMixin):
         task_list = json.loads(tasks)
         map_name = params['map_name']
         alg_name = params['alg_name']
-        res = self.exec_cbs(alg_name, map_name, task_list)
+        planned_paths = json.loads(params['planned_paths'])
+        res = self.exec_cbs(alg_name, map_name, task_list, planned_paths)
         return {'reply': True, 'result': res}
 
     def callback_pause_resume_pipe(self, params):
@@ -546,13 +547,14 @@ class MainContext(bus.IEventBusMixin):
             self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)  # 通知子进程
             time.sleep(interval)
 
-    def exec_cbs(self, alg_name, map_name, tasks):
+    def exec_cbs(self, alg_name, map_name, tasks, plannedpaths):
         """
         本函数调用操作系统函数subprocess，运行外部程序，并得到输出结果。
 
         :param alg_name: 算法程序的文件名称（操作系统层面）
         :param map_name: 地图文件名
         :param tasks: 任务的起点终点信息
+        :param plannedpaths: 以前规划的需要规避的路径
         :return:
         """
         res = {}
@@ -562,19 +564,29 @@ class MainContext(bus.IEventBusMixin):
             map_dir = cfgobj['map_directory']
             command_dir = cfgobj['cmd_directory']
             tasksfile = f'{os.path.join(command_dir, "tasks", map_name)}.{seed}.scen'
-            # 从tasks数据中，构造tasksfile
+            plannedfile = f'{os.path.join(command_dir, "planned", map_name)}.{seed}.paths'
+            # 从tasks数据中，构造tasksfile, plannedfile
             os.makedirs(os.path.dirname(tasksfile), exist_ok=True)
+            os.makedirs(os.path.dirname(plannedfile), exist_ok=True)
+
+            agent_num = len(tasks)
             with open(tasksfile, 'w') as fi:
-                fi.write(f'{len(tasks)}\r\n')
+                fi.write(f'{agent_num}\r\n')
                 for item in tasks:
                     fi.write(f'{item["s"][1]},{item["s"][0]},{item["e"][1]},{item["e"][0]},\r\n')
+
+            with open(plannedfile, 'w') as fi:
+                for item in plannedpaths:
+                    stritem = json.dumps(item);
+                    fi.write(f'{stritem[1:len(stritem)-1]}\r\n')    # 去掉大括号
 
             shell_cmd = f'{command_dir}{alg_name} ' \
                         f'-m {map_dir}{map_name} ' \
                         f'-a {tasksfile} ' \
+                        f'-p {plannedfile} ' \
                         f'-o {command_dir}test-{seed}.csv ' \
                         f'--outputPaths={command_dir}paths-{seed}.json ' \
-                        f'-k 5 -t 60'
+                        f'-k {agent_num}'      # '-t 60'
             data = subprocess.check_output(shell_cmd)
             result = data.decode('utf-8').split('\r\n')
             if len(result) == 2:
