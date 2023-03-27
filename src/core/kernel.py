@@ -26,6 +26,7 @@ import signal
 import time
 import json
 import zmq
+import platform
 
 from core.ai import AiWorker
 from core.mqtt import MqttWorker
@@ -574,11 +575,13 @@ class MainContext(bus.IEventBusMixin):
                 fi.write(f'{agent_num}\r\n')
                 for item in tasks:
                     fi.write(f'{item["s"][1]},{item["s"][0]},{item["e"][1]},{item["e"][0]},\r\n')
+                    fi.flush()
 
             with open(plannedfile, 'w') as fi:
                 for item in plannedpaths:
                     stritem = json.dumps(item);
                     fi.write(f'{stritem[1:len(stritem)-1]}\r\n')    # 去掉大括号
+                    fi.flush()
 
             shell_cmd = f'{command_dir}{alg_name} ' \
                         f'-m {map_dir}{map_name} ' \
@@ -587,11 +590,20 @@ class MainContext(bus.IEventBusMixin):
                         f'-o {command_dir}test-{seed}.csv ' \
                         f'--outputPaths={command_dir}paths-{seed}.json ' \
                         f'-k {agent_num}'      # '-t 60'
-            data = subprocess.check_output(shell_cmd)
-            result = data.decode('utf-8').split('\r\n')
+            data = None
+            result = []
+            if platform.system().lower() == 'windows':
+                data = subprocess.check_output(shell_cmd)
+                result = data.decode('utf-8').split('\r\n')             # Windows
+            elif platform.system().lower() == 'linux':
+                data = subprocess.check_output(shell_cmd, shell=True)          # shell = True is important at linux env.
+                result = data.decode('utf-8').split('\n')               # Linux
+
             if len(result) == 2:
                 res = json.loads(result[1])
         except TypeError as err:
+            self.log(err, level=log.LOG_LVL_ERRO)
+        except Exception as err:
             self.log(err, level=log.LOG_LVL_ERRO)
         finally:
             return res

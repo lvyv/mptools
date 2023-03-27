@@ -7,7 +7,7 @@ jaeger-client~=4.6.1
 jinja2~=3.0.0
 matplotlib~=3.3.4
 numpy~=1.19.5
-opencv-python~=4.5.3.56
+opencv-python-headless~=4.5.3.56
 opentracing~=2.4.0
 paho-mqtt~=1.5.1
 pillow~=8.3.1
@@ -20,7 +20,6 @@ python-multipart~=0.0.5
 pyzmq~=22.1.0
 requests~=2.26.0
 schedule==1.1.0
-selenium~=4.1.0
 setuptools~=57.0.0
 uvicorn~=0.14.0
 zmq~=0.0.0
