@@ -5,6 +5,8 @@
 #include "CorridorReasoning.h"
 #include "MutexReasoning.h"
 
+constexpr auto SCALE_FACTOR = 1;
+
 class CBS
 {
 public:
@@ -53,7 +55,9 @@ public:
 	void setTargetReasoning(bool t) {target_reasoning = t; heuristic_helper.target_reasoning = t; }
 	void setMutexReasoning(bool m) {mutex_reasoning = m; heuristic_helper.mutex_reasoning = m; }
 	void setDisjointSplitting(bool d) {disjoint_splitting = d; heuristic_helper.disjoint_splitting = d; }
-	void setBypass(bool b) { bypass = b; } // 2-agent solver for heuristic calculation does not need bypass strategy.
+	void setBypass(bool b) { 
+		bypass = b; 
+	} // 2-agent solver for heuristic calculation does not need bypass strategy.
 	void setNodeLimit(int n) { node_limit = n; }
 	void setSavingStats(bool s) { save_stats = s; heuristic_helper.save_stats = s; }
 
@@ -112,7 +116,9 @@ private:
 
 
 	vector<Path*> paths;
-	vector<Path> paths_found_initially;  // contain initial paths found
+	vector<Path> paths_found_initially; // contain initial paths found
+	vector<Path> paths_planned;			// contain planned paths Awen
+
 	// vector<MDD*> mdds_initially;  // contain initial paths found
 	vector < SingleAgentSolver* > search_engines;  // used to find (single) agents' paths and mdd
 

@@ -17,7 +17,7 @@ void SpaceTimeAStar::updatePath(const LLNode* goal, vector<PathEntry>& path)
 }
 
 
-// find path by time-space A* search
+// 查找路径：find path by time-space A* search
 // Returns a shortest path that satisfies the constraints of the given node while
 // minimizing the number of internal conflicts (that is conflicts with known_paths for other agents found so far).
 // lowerbound is an underestimation of the length of the path in order to speed up the search.
@@ -28,7 +28,7 @@ Path SpaceTimeAStar::findPath(const CBSNode& node, const ConstraintTable& initia
 	num_generated = 0;
 	// build constraint table
 	auto starrt_time = clock();
-	ConstraintTable constraint_table(initial_constraints);
+	ConstraintTable constraint_table(initial_constraints);//Awen 此处需要考虑一下，怎么引入以前规划路径的信息，然后构造出约束表，并实现constrained_extra函数。
 	constraint_table.build(node, agent);
 	runtime_build_CT = (double) (clock() - starrt_time) / CLOCKS_PER_SEC;
 	if (constraint_table.length_min >= MAX_TIMESTEP ||
@@ -39,7 +39,7 @@ Path SpaceTimeAStar::findPath(const CBSNode& node, const ConstraintTable& initia
 	}
 
 	starrt_time = clock();
-	constraint_table.buildCAT(agent, paths, node.makespan + 1);
+	constraint_table.buildCAT(agent, paths, node.makespan + 1);	//似乎很重要，是为了规避冲突的
 	runtime_build_CAT = (double) (clock() - starrt_time) / CLOCKS_PER_SEC;
 
 	if (constraint_table.getNumOfLandmarks() > 0)
@@ -251,7 +251,7 @@ Path SpaceTimeAStar::findPath(const CBSNode& node, const ConstraintTable& initia
 		return findShortestPath(constraint_table, make_pair(start_location, 0), lowerbound);
 }
 
-// find a shortest path from start_state to the goal location
+// 查找最短路径：find a shortest path from start_state to the goal location
 Path SpaceTimeAStar::findShortestPath(ConstraintTable& constraint_table, const pair<int, int> start_state, int lowerbound)
 {
 	// generate start and add it to the OPEN & FOCAL list
@@ -301,19 +301,57 @@ Path SpaceTimeAStar::findShortestPath(ConstraintTable& constraint_table, const p
 		if (curr->timestep >= constraint_table.length_max)
 			continue;
 
-		list<int> next_locations = instance.getNeighbors(curr->location);
-		next_locations.emplace_back(curr->location);
+		list<int> next_locations = instance.getNeighbors(curr->location);	
+		next_locations.emplace_back(curr->location);  // 返回的邻接点不但是空间上的，还包含本位置下一个时刻的点
 		for (int next_location : next_locations)
 		{
 			int next_timestep = curr->timestep + 1;
-			if (max((int) constraint_table.cat_size, constraint_table.latest_timestep) + 1 < curr->timestep)
-			{ // now everything is static, so switch to space A* where we always use the same timestep
+			
+			//如果当前时间已经过了很久，冲突表冲突已经可以忽略，再添加一个已规划路径不存在冲突
+
+			if (
+				(max((int) constraint_table.cat_size, constraint_table.latest_timestep) < curr->timestep - 1) &&  
+				!(constraint_table.constrained_extra(next_location, next_timestep)) &&
+				!(constraint_table.constrained_extra(curr->location, next_location, next_timestep))
+				)
+			{ // now everything is static, so switch to space A* where we always use the same timestep	时间过了足够久，已经绕开冲突路径的总时间了
 				if (next_location == curr->location)
 				{
 					continue;
-				}
-				next_timestep--;
+				}//看不懂，为什么要--，是走不通要退回去吗，不是，就当成普通A*（静态）。这个地方是性能的关键点，一定要注意控制，如果取消，则每一次timestep都会往openlist插入，大大增加了搜索空间。
+				//next_timestep--;	
 			}
+			else if (constraint_table.constrained_extra(next_location, next_timestep) ||constraint_table.constrained_extra(curr->location, next_location, next_timestep)) 
+			{
+				continue;
+			}
+
+
+
+			// Awen 在此处添加一个新的类似constraint_table的表，记录以前的规划路径如何？直接使用constraint_table，只是在其中添加一个预置类型
+			// constraint_table是initial_constraints这个vector数组中的一个元素，类型是ConstraintTable
+			// 1.构建一个约束表，看看约束表是否包含，
+			// 2.跳过(为什么此处不能继续了呢)，为何找不到agent0的路径，就因为111那个通道口从0-5拍堵塞吗？
+			// 能否对阻塞的节点，选择设置其f=G+H值，增加G值（等待3拍才会消失，则G=G+3）。
+			/*
+			if (constraint_table.constrained_extra(next_location, next_timestep) ||
+				constraint_table.constrained_extra(curr->location, next_location, next_timestep)) {
+
+				//int next_g_val = curr->g_val + 1;
+				//int next_h_val = my_heuristic[next_location];
+				//auto next = new AStarNode(curr->location, next_g_val, next_h_val,
+				//	curr, next_timestep+1, 0, false);
+				//auto it = allNodes_table.find(next);	//位置+时间吻合
+				//if (it == allNodes_table.end())
+				//{
+				//	pushNode(next);		//往open_list插入，allNodes_table作用需要调查。
+				//	allNodes_table.insert(next);
+				//	continue;
+				//}
+				continue;
+			}
+			*/
+
 
 			if (constraint_table.constrained(next_location, next_timestep) ||
 				constraint_table.constrained(curr->location, next_location, next_timestep))
@@ -327,7 +365,7 @@ Path SpaceTimeAStar::findShortestPath(ConstraintTable& constraint_table, const p
 			int next_internal_conflicts = curr->num_of_conflicts +
 										  constraint_table.getNumOfConflictsForStep(curr->location, next_location, next_timestep);
 
-			// generate (maybe temporary) node
+			// 这步很关键，产生下一步节点，位置、时间等。generate (maybe temporary) node
 			auto next = new AStarNode(next_location, next_g_val, next_h_val,
 									  curr, next_timestep, next_internal_conflicts, false);
 			if (next_location == goal_location && curr->location == goal_location)
@@ -338,12 +376,18 @@ Path SpaceTimeAStar::findShortestPath(ConstraintTable& constraint_table, const p
 				delete(next);  // prune the node
 				continue;
 			}
+
 			// try to retrieve it from the hash table
-			auto it = allNodes_table.find(next);
+			auto it = allNodes_table.find(next);	//位置location+时间timestep+waitatgoal+unsatisfied_positive_constraint_sets
 			if (it == allNodes_table.end())
 			{
-				pushNode(next);
+				pushNode(next);		//往open_list插入，allNodes_table作用需要调查，应该是open和closelist的合并。
 				allNodes_table.insert(next);
+				//Awen 是否插入了
+				double fscore = next->getFVal();
+				//if (next_location == curr->location)
+					//std::cout << "NEW Node [" << next->location << "]" << " ts(" << next->timestep << "):" << fscore  << std::endl;
+				//Awen 
 				continue;
 			}
 			// update existing node's if needed (only in the open_list)

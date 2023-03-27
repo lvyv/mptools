@@ -24,10 +24,11 @@ int main(int argc, char** argv)
 		// params for the input instance and experiment settings
 		("map,m", po::value<string>()->required(), "input file for map")
 		("agents,a", po::value<string>()->required(), "input file for agents")
+		("planned,p", po::value<string>()->default_value("32x32.path"), "planed paths that is running.")
 		("output,o", po::value<string>(), "output file for schedule")
 		("outputPaths", po::value<string>(), "output file for paths")
 		("agentNum,k", po::value<int>()->default_value(0), "number of agents")
-		("cutoffTime,t", po::value<double>()->default_value(60), "cutoff time (seconds)")
+		("cutoffTime,t", po::value<double>()->default_value(600), "cutoff time (seconds)")	//Awen change 60 to 600 seconds.
 		("nodeLimit", po::value<int>()->default_value(MAX_NODES), "node limit")
 		("screen,s", po::value<int>()->default_value(1), "screen option (0: none; 1: results; 2:all)")
 		("seed,d", po::value<int>()->default_value(0), "random seed")
@@ -119,11 +120,11 @@ int main(int argc, char** argv)
 
 
 	///////////////////////////////////////////////////////////////////////////
-	/// load the instance
+	/// load the instance(此处载入地图)
     //////////////////////////////////////////////////////////////////////
 	Instance instance(vm["map"].as<string>(), vm["agents"].as<string>(),
 		vm["agentNum"].as<int>(), vm["agentIdx"].as<string>(),
-		vm["rows"].as<int>(), vm["cols"].as<int>(), vm["obs"].as<int>(), vm["warehouseWidth"].as<int>());
+		vm["rows"].as<int>(), vm["cols"].as<int>(), vm["obs"].as<int>(), vm["warehouseWidth"].as<int>(), vm["planned"].as<string>());
 
 	srand(vm["seed"].as<int>());
 

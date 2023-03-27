@@ -21,12 +21,27 @@ public:
 
 	bool constrained(size_t loc, int t) const;
 	bool constrained(size_t curr_loc, size_t next_loc, int next_t) const;
+	
+	// Awen 判断已规划的路径冲突
+	bool constrained_extra(size_t loc, int t) const;
+	bool constrained_extra(size_t curr_loc, size_t next_loc, int next_t) const;
+	
 	int getNumOfConflictsForStep(size_t curr_id, size_t next_id, int next_timestep) const;
 	size_t getNumOfPositiveConstraintSets() const {return positive_constraint_sets.size(); }
 	bool updateUnsatisfiedPositiveConstraintSet(const list<int>& old_set, list<int>& new_set, int location, int timestep) const;
+	
 	ConstraintTable() = default;
-	ConstraintTable(size_t num_col, size_t map_size, int goal_location = -1) : goal_location(goal_location), num_col(num_col), map_size(map_size) {}
-	ConstraintTable(const ConstraintTable& other) { copy(other); }
+
+	typedef unordered_map<size_t, list<pair<int, int> >>* PMAP_Type;
+	ConstraintTable(size_t num_col, size_t map_size, int goal_location = -1, PMAP_Type ctplanned = NULL)
+		: goal_location(goal_location), num_col(num_col), map_size(map_size), cat_size(0) {
+		//从instance传入的一个外部冲突表，保存的是planned的路径
+		if(ctplanned)
+			pct_planned = ctplanned;
+	}
+	ConstraintTable(const ConstraintTable& other) { 
+		copy(other); 
+	}
 
 	void copy(const ConstraintTable& other);
 	void build(const CBSNode& node, int agent); // build the constraint table for the given agent at the given node
@@ -34,13 +49,17 @@ public:
 
 	void insert2CT(size_t loc, int t_min, int t_max); // insert a vertex constraint to the constraint table
 	void insert2CT(size_t from, size_t to, int t_min, int t_max); // insert an edge constraint to the constraint table
-
+	
+	void insertPlannedConstraint(size_t loc, int t_min, int t_max);//已规划路径插入到约束表
+	
 	size_t getNumOfLandmarks() const { return landmarks.size(); }
 	unordered_map<size_t, size_t> getLandmarks() const { return landmarks; }
 	list<pair<int, int> > decodeBarrier(int B1, int B2, int t);
 protected:
 	// Constraint Table (CT)
 	unordered_map<size_t, list<pair<int, int> > > ct; // location -> time range, or edge -> time range
+
+	unordered_map<size_t, list<pair<int, int> > >* pct_planned; // location -> time range, or edge -> time range,保存已经规划的路径
 
 	unordered_map<size_t, size_t> landmarks; // <timestep, location>: the agent must be at the given location at the given timestep
 

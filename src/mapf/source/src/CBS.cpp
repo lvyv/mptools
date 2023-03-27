@@ -10,8 +10,11 @@
 // also, do the same for ll_min_f_vals and paths_costs (since its already "on the way").
 inline void CBS::updatePaths(CBSNode* curr)
 {
-	for (int i = 0; i < num_of_agents; i++)
-		paths[i] = &paths_found_initially[i];
+	for (int i = 0; i < num_of_agents; i++) {
+		//if(i<3) {	// Awen add here temporarily, this should be provided by user as input parameter.
+			paths[i] = &paths_found_initially[i];
+		//}
+	}
 	vector<bool> updated(num_of_agents, false);  // initialized for false
 
 	while (curr != nullptr)
@@ -685,12 +688,12 @@ void CBS::savePaths(const string &fileName) const
         output << "\"pts" << i << "\": [";
         for (const auto & t : *paths[i]) {
 			PathEntry& p = paths[i]->back();
-			if (p.location == t.location) { //last element , json format not allow comma at the end.
-				output << "[" << search_engines[0]->instance.getColCoordinate(t.location) * 16
-					<< "," << search_engines[0]->instance.getRowCoordinate(t.location) * 16 << "]";
+			if (p.location == t.location) { //last element , json format not allow comma at the end. Awen
+				output << "[" << search_engines[0]->instance.getColCoordinate(t.location) * SCALE_FACTOR
+					<< "," << search_engines[0]->instance.getRowCoordinate(t.location) * SCALE_FACTOR << "]";
 			} else {
-				output << "[" << search_engines[0]->instance.getColCoordinate(t.location) * 16
-                   << "," << search_engines[0]->instance.getRowCoordinate(t.location) * 16 << "],";
+				output << "[" << search_engines[0]->instance.getColCoordinate(t.location) * SCALE_FACTOR
+                   << "," << search_engines[0]->instance.getRowCoordinate(t.location) * SCALE_FACTOR << "],";
 			}
 		}
 		if (i < num_of_agents - 1)
@@ -713,12 +716,12 @@ void CBS::logPaths() {
 		for (const auto& t : *paths[i]) {
 			PathEntry& p = paths[i]->back();
 			if (p.location == t.location) { //last element , json format not allow comma at the end.
-				cout << "[" << search_engines[0]->instance.getColCoordinate(t.location) * 16
-					<< "," << search_engines[0]->instance.getRowCoordinate(t.location) * 16 << "]";
+				cout << "[" << search_engines[0]->instance.getColCoordinate(t.location) * SCALE_FACTOR
+					<< "," << search_engines[0]->instance.getRowCoordinate(t.location) * SCALE_FACTOR << "]";
 			}
 			else {
-				cout << "[" << search_engines[0]->instance.getColCoordinate(t.location) * 16
-					<< "," << search_engines[0]->instance.getRowCoordinate(t.location) * 16 << "],";
+				cout << "[" << search_engines[0]->instance.getColCoordinate(t.location) * SCALE_FACTOR
+					<< "," << search_engines[0]->instance.getRowCoordinate(t.location) * SCALE_FACTOR << "],";
 			}
 		}
 
@@ -801,7 +804,7 @@ bool CBS::solve(double _time_limit, int _cost_lowerbound, int _cost_upperbound)
 
 	while (!open_list.empty() && !solution_found)
 	{
-		updateFocalList();
+		updateFocalList();// FocalList是什么,ecbs相关
 		if (min_f_val >= cost_upperbound)
 		{
 			solution_cost = (int) min_f_val;
@@ -902,7 +905,6 @@ bool CBS::solve(double _time_limit, int _cost_lowerbound, int _cost_upperbound)
 		}
 
 
-
 		//Expand the node
 		num_HL_expanded++;
 		curr->time_expanded = num_HL_expanded;
@@ -986,7 +988,7 @@ bool CBS::solve(double _time_limit, int _cost_lowerbound, int _cost_upperbound)
 
 			bool solved[2] = { false, false };
 			vector<vector<PathEntry>*> copy(paths);
-
+			// 这个位置在A* low level search.
 			for (int i = 0; i < 2; i++)
 			{
 				if (i > 0)
@@ -1049,6 +1051,7 @@ bool CBS::solve(double _time_limit, int _cost_lowerbound, int _cost_upperbound)
 			}
 			else
 			{
+				/* cbs 核心流程*/
 				for (int i = 0; i < 2; i++)
 				{
 					if (solved[i])
@@ -1085,7 +1088,6 @@ bool CBS::solve(double _time_limit, int _cost_lowerbound, int _cost_upperbound)
 		}
 		curr->clear();
 	}  // end of while loop
-
 
 	runtime = (double) (clock() - start) / CLOCKS_PER_SEC;
 	if (solution_found && !validateSolution())
@@ -1129,8 +1131,12 @@ CBS::CBS(const Instance& instance, bool sipp, int screen) :
 		heuristic_helper(instance.getDefaultNumberOfAgents(), paths, search_engines, initial_constraints, mdd_helper)
 {
 	clock_t t = clock();
+	//FIXME:把一个hash表传入给initial_constraints，这个hash表对所有agent都是共用的。
+	//auto pPlanned =  new unordered_map<size_t, list<pair<int, int> >>(instance.getPlannedConstraints());
+	unordered_map<size_t, list<pair<int, int> >>* pPlaned = instance.getPlannedConstraints();
+	
 	initial_constraints.resize(num_of_agents,
-							   ConstraintTable(instance.num_of_cols, instance.map_size));
+							   ConstraintTable(instance.num_of_cols, instance.map_size,-1, pPlaned));
 
 	search_engines.resize(num_of_agents);
 	for (int i = 0; i < num_of_agents; i++)
@@ -1150,6 +1156,7 @@ CBS::CBS(const Instance& instance, bool sipp, int screen) :
 	{
 		instance.printAgents();
 	}
+	paths_planned.resize(num_of_agents);	// 已规划路径数组前面是空的，归paths_found_initially负责，后面部份从instance载入
 }
 
 bool CBS::generateRoot()
@@ -1181,16 +1188,33 @@ bool CBS::generateRoot()
 		}
 
 		for (auto i : agents)
-		{
-			//CAT cat(dummy_start->makespan + 1);  // initialized to false
-			//updateReservationTable(cat, i, *dummy_start);
-			paths_found_initially[i] = search_engines[i]->findPath(*dummy_start, initial_constraints[i], paths, i, 0);
-			if (paths_found_initially[i].empty())
-			{
-				cout << "No path exists for agent " << i << endl;
-				return false;
-			}
-			paths[i] = &paths_found_initially[i];
+		{	
+			// if分支临时添加，用于测试在4个agent的时候，前面3个agent为滚动规划，第4个为已有规划
+			//if(i<3) { // Awen add here
+				//CAT cat(dummy_start->makespan + 1);  // initialized to false
+				//updateReservationTable(cat, i, *dummy_start);
+				paths_found_initially[i] = search_engines[i]->findPath(*dummy_start, initial_constraints[i], paths, i, 0);
+				if (paths_found_initially[i].empty())
+				{
+					cout << "No path exists for agent " << i << endl;
+					return false;
+				}
+				paths[i] = &paths_found_initially[i];
+			//}
+			//else {	// 专门处理已经规划的路径，它们是传入的参数
+			//	PathEntry pt1;
+			//	pt1.location = 14;
+			//	//pt1.mdd_width = 0;
+			//	paths_planned[i].push_back(pt1);
+			//	pt1.location = 10;
+			//	paths_planned[i].push_back(pt1);
+
+			//	paths[i] = &paths_planned[i];
+			//	//pt1.location = 34;
+			//	//pt1.mdd_width = 0;
+
+
+			//}
 			dummy_start->makespan = max(dummy_start->makespan, paths_found_initially[i].size() - 1);
 			dummy_start->g_val += (int) paths_found_initially[i].size() - 1;
 			num_LL_expanded += search_engines[i]->num_expanded;

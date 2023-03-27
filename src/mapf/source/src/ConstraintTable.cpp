@@ -18,6 +18,12 @@ void ConstraintTable::insert2CT(size_t loc, int t_min, int t_max)
 		latest_timestep = t_min;
 	}
 }
+// Path 插入到约束表，对于顶点约束需要逐段插入，但对于单通道，最好在出入口约束就可以
+void ConstraintTable::insertPlannedConstraint(size_t loc, int t_min, int t_max)
+{
+	assert(loc >= 0);
+	(*pct_planned)[loc].emplace_back(t_min, t_max);
+}
 
 void ConstraintTable::insertLandmark(size_t loc, int t)
 {
@@ -66,6 +72,28 @@ list<pair<int, int>> ConstraintTable::decodeBarrier(int x, int y, int t)
 	}
 	return rst;
 }
+// 顶点约束表（保存已有的规划）
+bool ConstraintTable::constrained_extra(size_t loc, int t) const
+{
+	if(pct_planned){
+		const auto& it = pct_planned->find(loc);
+		if (it == pct_planned->end())
+		{
+			return false;
+		}
+		for (const auto& constraint : it->second)
+		{
+			if (constraint.first <= t && t < constraint.second)
+				return true;
+		}
+	}
+	return false;
+}
+// 边约束表（保存已有的规划）
+bool ConstraintTable::constrained_extra(size_t curr_loc, size_t next_loc, int next_t) const
+{
+	return constrained_extra(getEdgeIndex(curr_loc, next_loc), next_t);
+}
 
 bool ConstraintTable::constrained(size_t loc, int t) const
 {
@@ -104,6 +132,7 @@ void ConstraintTable::copy(const ConstraintTable& other)
 	num_col = other.num_col;
 	map_size = other.map_size;
 	ct = other.ct;
+	pct_planned = other.pct_planned;
 	landmarks = other.landmarks;
 	// we do not copy cat
 }
@@ -161,8 +190,8 @@ void ConstraintTable::build(const CBSNode& node, int agent)
 			assert(curr->constraints.size() == 1);
 			if (agent == a) // this agent has to be at x at timestep t - 1 and be at y at timestep t
 			{
-				insertLandmark(x, t - 1);
-				insertLandmark(y, t);
+				insertLandmark(x, t - 1);	//edge from
+				insertLandmark(y, t);		//edge to
 			}
 			else // other agents cannot stay at x at timestep t - 1, be at y at timestep t, or traverse edge (y, x) from timesteps t - 1 to t
 			{

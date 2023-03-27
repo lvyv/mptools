@@ -1,15 +1,23 @@
 #include<boost/tokenizer.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+
 #include <algorithm>    // std::shuffle
 #include <random>      // std::default_random_engine
 #include <chrono>       // std::chrono::system_clock
+
+
 #include"Instance.h"
+
 
 int RANDOM_WALK_STEPS = 100000;
 
 Instance::Instance(const string& map_fname, const string& agent_fname, 
 	int num_of_agents, const string& agent_indices, 
-	int num_of_rows, int num_of_cols, int num_of_obstacles, int warehouse_width):
-	map_fname(map_fname), agent_fname(agent_fname), num_of_agents(num_of_agents),  agent_indices(agent_indices)
+	int num_of_rows, int num_of_cols, int num_of_obstacles, int warehouse_width, const string& planned_path_fname):
+	map_fname(map_fname), agent_fname(agent_fname), num_of_agents(num_of_agents),  agent_indices(agent_indices),
+	planned_path_fname(planned_path_fname)
 {
 	bool succ = loadMap();
 	if (!succ)
@@ -42,8 +50,20 @@ Instance::Instance(const string& map_fname, const string& agent_fname,
 		}
 	}
 
+	pct_planned = new unordered_map<size_t, list<pair<int, int> > >();
+	succ = loadPlanned();
+	if (!succ)
+	{
+		cerr << "Planned information load failed!" << endl;
+		exit(-1);
+	}
+
 }
 
+Instance::~Instance()
+{
+	delete(pct_planned);
+}
 
 int Instance::randomWalk(int curr, int steps) const
 {
@@ -463,6 +483,61 @@ void Instance::saveAgents() const
 		myfile << getRowCoordinate(start_locations[i]) << "," << getColCoordinate(start_locations[i]) << ","
 			   << getRowCoordinate(goal_locations[i]) << "," << getColCoordinate(goal_locations[i]) << "," << endl;
 	myfile.close();
+}
+
+bool Instance::loadPlanned()
+{
+	/*此处用于插入已经规划的路径产生的全局性的冲突，即对于所有的新的Agent，这些路径占用都是冲突*/
+	using namespace boost;
+	using namespace std;
+	ifstream myfile(planned_path_fname.c_str());
+	if (!myfile.is_open())
+		return false;
+	string line;
+	
+	while (getline(myfile, line)) {
+		boost::trim(line);
+
+		tokenizer<char_separator<char>>::iterator beg;
+		char_separator<char> sep(":");
+		tokenizer<char_separator<char>> tok(line, sep);
+		beg = tok.begin();
+		beg++;
+		//cout << (*beg).c_str() << "\n\n";
+		stringstream ss((*beg).c_str());
+		boost::property_tree::ptree ptree;
+		boost::property_tree::read_json(ss, ptree);
+		//boost::property_tree::write_json(std::cout, ptree);
+
+		// visit array data
+		int timestep = 0;
+		for (boost::property_tree::ptree::iterator it = ptree.begin(); it != ptree.end(); ++it) {
+			int col = 1, val = 0;
+			//std::cout << "(";
+			for (auto itj = it->second.begin(); itj != it->second.end(); ++itj)
+			{
+				//std::cout << itj->first; // [1]
+				//std::cout << itj->second.get_value<int>()<<" " ;
+				val += itj->second.get_value<int>() * col;
+				col = 32;
+			}
+			//std::cout << ")";
+			//std::cout << "loc:[" << val << "]" << "timestep:" << timestep++;
+			(*pct_planned)[val].emplace_back(timestep, timestep+1);	//约束是按照>=左边界，小于右边界计算的
+			timestep++;
+		}
+
+		//std::cout << std::endl;
+	}
+	
+	myfile.close();
+
+	//ct_planned[111].insertPlannedConstraint();
+	//int loc = 111;
+	//(*pct_planned)[loc].emplace_back(10, 45);
+	//loc = 943;
+	//(*pct_planned)[loc].emplace_back(60, 70);
+	return true;
 }
 
 

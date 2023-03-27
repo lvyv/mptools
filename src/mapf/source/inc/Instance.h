@@ -3,6 +3,7 @@
 #include"common.h"
 
 
+
 // Currently only works for undirected unweighted 4-neighbor grids
 class Instance 
 {
@@ -10,13 +11,16 @@ public:
 	int num_of_cols = 0;
 	int num_of_rows = 0;
 	int map_size = 0;
-
+	
+	~Instance();
 	Instance() = default;
 	Instance(const string& map_fname, const string& agent_fname, 
 		int num_of_agents = 0, const string& agent_indices = "",
-		int num_of_rows = 0, int num_of_cols = 0, int num_of_obstacles = 0, int warehouse_width = 0);
+		int num_of_rows = 0, int num_of_cols = 0, int num_of_obstacles = 0, int warehouse_width = 0,
+		const string& planned_path_fname = "");
 
 	void printAgents() const;
+
 
 
 	inline bool isObstacle(int loc) const { return my_map[loc]; }
@@ -101,11 +105,16 @@ public:
 
 	int getDefaultNumberOfAgents() const { return num_of_agents; }
 
+	unordered_map<size_t, list<pair<int, int>> > * getPlannedConstraints() const {
+		return pct_planned;
+	}
+
 private:
 	  // int moves_offset[MOVE_COUNT];
 	  vector<bool> my_map;
 	  string map_fname;
 	  string agent_fname;
+	  string planned_path_fname;
 	  string agent_indices;
 	  int num_of_agents = 0;
 	  vector<int> start_locations;
@@ -118,14 +127,18 @@ private:
 	bool loadAgents();
 	void saveAgents() const;
 
-	  void generateConnectedRandomGrid(int rows, int cols, int obstacles); // initialize new [rows x cols] map with random obstacles
-	  void generateRandomAgents(int warehouse_width);
-	  bool addObstacle(int obstacle); // add this obsatcle only if the map is still connected
-	  bool isConnected(int start, int goal) const; // run BFS to find a path between start and goal, return true if a path exists.
+	void generateConnectedRandomGrid(int rows, int cols, int obstacles); // initialize new [rows x cols] map with random obstacles
+	void generateRandomAgents(int warehouse_width);
+	bool addObstacle(int obstacle); // add this obsatcle only if the map is still connected
+	bool isConnected(int start, int goal) const; // run BFS to find a path between start and goal, return true if a path exists.
 
 	int randomWalk(int loc, int steps) const;
 
 	// Class  SingleAgentSolver can access private members of Node
 	friend class SingleAgentSolver;
+	
+	// 此前规划的路径
+	unordered_map<size_t, list<pair<int, int> > > * pct_planned = NULL;
+	bool loadPlanned();
 };
 

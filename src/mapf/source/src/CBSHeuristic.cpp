@@ -236,7 +236,9 @@ int CBSHeuristic::solve2Agents(int a1, int a2, const CBSNode& node, bool cardina
 	cbs.setPrioritizeConflicts(PC);
 	cbs.setHeuristicType(heuristics_type::CG);
 	cbs.setDisjointSplitting(disjoint_splitting);
-	cbs.setBypass(false); // I guess that bypassing does not help two-agent path finding???
+	//为什么呢？论文就是两个agent的例子呢？
+	cbs.setBypass(false); // I guess that bypassing does not help two-agent path finding??? 
+	
 	cbs.setRectangleReasoning(rectangle_reasoning);
 	cbs.setCorridorReasoning(corridor_reasoning);
 	cbs.setTargetReasoning(target_reasoning);
