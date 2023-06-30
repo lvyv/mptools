@@ -509,25 +509,36 @@ bool Instance::loadPlanned()
 		boost::property_tree::read_json(ss, ptree);
 		//boost::property_tree::write_json(std::cout, ptree);
 
-		// visit array data
+		// visit array data 路径数组
 		int timestep = 0;
+		int preval = -1;			//preval是记录路径的上个点位置，以便于生成边约束
 		for (boost::property_tree::ptree::iterator it = ptree.begin(); it != ptree.end(); ++it) {
-			int col = 1, val = 0;
-			//std::cout << "(";
+			int col = 1, val = 0;		//val当前点位置
+			//it对应的是路径中的每个座标[21,22]
 			for (auto itj = it->second.begin(); itj != it->second.end(); ++itj)
-			{
+			{	//itj->second对应[21,22]中的每个元素，如21,22
 				//std::cout << itj->first; // [1]
 				//std::cout << itj->second.get_value<int>()<<" " ;
 				val += itj->second.get_value<int>() * col;
-				col = 32;
+				col = num_of_cols;	//当前地图的列数
 			}
 			//std::cout << ")";
 			//std::cout << "loc:[" << val << "]" << "timestep:" << timestep++;
-			(*pct_planned)[val].emplace_back(timestep, timestep+1);	//约束是按照>=左边界，小于右边界计算的
+			(*pct_planned)[val].emplace_back(timestep, timestep+1);	//顶点约束是按照>=左边界，小于右边界计算的
+			if (preval != val)
+			{
+				if (preval != -1)	//不是最开始的0起点,preval又不等于val，则走了一格
+				{
+					int edgeInd = getEdgeIndex(val, preval);						//val->preval，反向禁入的边约束
+					(*pct_planned)[edgeInd].emplace_back(timestep-1, timestep);	//边约束是按照>=左边界，小于右边界计算的
+				}
+				preval = val;
+			}
+
 			timestep++;
 		}
 
-		//std::cout << std::endl;
+		//std::cout << "planed: " << timestep << std::endl;
 	}
 	
 	myfile.close();

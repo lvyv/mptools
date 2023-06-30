@@ -28,7 +28,7 @@ int main(int argc, char** argv)
 		("output,o", po::value<string>(), "output file for schedule")
 		("outputPaths", po::value<string>(), "output file for paths")
 		("agentNum,k", po::value<int>()->default_value(0), "number of agents")
-		("cutoffTime,t", po::value<double>()->default_value(600), "cutoff time (seconds)")	//Awen change 60 to 600 seconds.
+		("cutoffTime,t", po::value<double>()->default_value(60), "cutoff time (seconds)")	//Awen change 60 to 600 seconds.
 		("nodeLimit", po::value<int>()->default_value(MAX_NODES), "node limit")
 		("screen,s", po::value<int>()->default_value(1), "screen option (0: none; 1: results; 2:all)")
 		("seed,d", po::value<int>()->default_value(0), "random seed")

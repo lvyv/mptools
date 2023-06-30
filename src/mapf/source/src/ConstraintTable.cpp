@@ -1,4 +1,4 @@
-#include "ConstraintTable.h"
+ï»¿#include "ConstraintTable.h"
 
 void ConstraintTable::insert2CT(size_t from, size_t to, int t_min, int t_max)
 {
@@ -18,7 +18,7 @@ void ConstraintTable::insert2CT(size_t loc, int t_min, int t_max)
 		latest_timestep = t_min;
 	}
 }
-// Path ²åÈëµ½Ô¼Êø±í£¬¶ÔÓÚ¶¥µãÔ¼ÊøĞèÒªÖğ¶Î²åÈë£¬µ«¶ÔÓÚµ¥Í¨µÀ£¬×îºÃÔÚ³öÈë¿ÚÔ¼Êø¾Í¿ÉÒÔ
+// Path æ’å…¥åˆ°çº¦æŸè¡¨ï¼Œå¯¹äºé¡¶ç‚¹çº¦æŸéœ€è¦é€æ®µæ’å…¥ï¼Œä½†å¯¹äºå•é€šé“ï¼Œæœ€å¥½åœ¨å‡ºå…¥å£çº¦æŸå°±å¯ä»¥
 void ConstraintTable::insertPlannedConstraint(size_t loc, int t_min, int t_max)
 {
 	assert(loc >= 0);
@@ -72,7 +72,7 @@ list<pair<int, int>> ConstraintTable::decodeBarrier(int x, int y, int t)
 	}
 	return rst;
 }
-// ¶¥µãÔ¼Êø±í£¨±£´æÒÑÓĞµÄ¹æ»®£©
+// é¡¶ç‚¹çº¦æŸè¡¨ï¼ˆä¿å­˜å·²æœ‰çš„è§„åˆ’ï¼‰
 bool ConstraintTable::constrained_extra(size_t loc, int t) const
 {
 	if(pct_planned){
@@ -89,7 +89,7 @@ bool ConstraintTable::constrained_extra(size_t loc, int t) const
 	}
 	return false;
 }
-// ±ßÔ¼Êø±í£¨±£´æÒÑÓĞµÄ¹æ»®£©
+// è¾¹çº¦æŸè¡¨ï¼ˆä¿å­˜å·²æœ‰çš„è§„åˆ’ï¼‰
 bool ConstraintTable::constrained_extra(size_t curr_loc, size_t next_loc, int next_t) const
 {
 	return constrained_extra(getEdgeIndex(curr_loc, next_loc), next_t);
@@ -129,6 +129,7 @@ void ConstraintTable::copy(const ConstraintTable& other)
 	length_max = other.length_max;
 	goal_location = other.goal_location;
 	latest_timestep = other.latest_timestep;
+	last_pct_planned_timestep = other.last_pct_planned_timestep;	//æ‹·è´æ„é€ 
 	num_col = other.num_col;
 	map_size = other.map_size;
 	ct = other.ct;

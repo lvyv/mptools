@@ -149,6 +149,10 @@ private:
 	//inline void releaseMDDTable();
 	// void copyConflictGraph(CBSNode& child, const CBSNode& parent);
 
+	//helper
+	size_t openlistCounting();
+	size_t focallistCounting();
+
 	// print and save
 	void printPaths() const;
 	void printResults() const;

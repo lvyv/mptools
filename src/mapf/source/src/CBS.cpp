@@ -23,7 +23,7 @@ inline void CBS::updatePaths(CBSNode* curr)
 		{
 			if (!updated[path.first])
 			{
-				paths[path.first] = &(path.second);
+				paths[path.first] = &(path.second);//paths赋值
 				updated[path.first] = true;
 			}
 		}
@@ -80,7 +80,7 @@ void CBS::findConflicts(CBSNode& curr, int a1, int a2)
 			}
 			assert(!conflict->constraint1.empty());
 			assert(!conflict->constraint2.empty());
-			curr.unknownConf.push_back(conflict);
+			curr.unknownConf.push_back(conflict);	// vetex conflict
 		}
 		else if (timestep < min_path_length - 1
 				 && loc1 == paths[a2]->at(timestep + 1).location
@@ -540,7 +540,7 @@ void CBS::printPaths() const
 }
 
 
-// adding new nodes to FOCAL (those with min-f-val*f_weight between the old and new LB)
+// adding new nodes to FOCAL (those with min-f-val*f_weight 权重focal_w between the old and new LB)
 void CBS::updateFocalList()
 {
 	CBSNode* open_head = open_list.top();
@@ -687,8 +687,8 @@ void CBS::savePaths(const string &fileName) const
     {
         output << "\"pts" << i << "\": [";
         for (const auto & t : *paths[i]) {
-			PathEntry& p = paths[i]->back();
-			if (p.location == t.location) { //last element , json format not allow comma at the end. Awen
+			const PathEntry& p = paths[i]->back();
+			if (&p == &t) { //last element , json format not allow comma at the end. Awen
 				output << "[" << search_engines[0]->instance.getColCoordinate(t.location) * SCALE_FACTOR
 					<< "," << search_engines[0]->instance.getRowCoordinate(t.location) * SCALE_FACTOR << "]";
 			} else {
@@ -714,8 +714,8 @@ void CBS::logPaths() {
 
 
 		for (const auto& t : *paths[i]) {
-			PathEntry& p = paths[i]->back();
-			if (p.location == t.location) { //last element , json format not allow comma at the end.
+			const PathEntry& p = paths[i]->back();
+			if (&p == &t) { //last element , json format not allow comma at the end.
 				cout << "[" << search_engines[0]->instance.getColCoordinate(t.location) * SCALE_FACTOR
 					<< "," << search_engines[0]->instance.getRowCoordinate(t.location) * SCALE_FACTOR << "]";
 			}
@@ -784,6 +784,22 @@ string CBS::getSolverName() const
 	name += " with " + search_engines[0]->getName();
 	return name;
 }
+size_t CBS::openlistCounting()
+{
+	size_t count = 0;
+	for (const auto& item : open_list) {
+		++count;
+	}
+	return count;
+}
+size_t CBS::focallistCounting()
+{
+	size_t count = 0;
+	for (const auto& item : focal_list) {
+		++count;
+	}
+	return count;
+}
 
 bool CBS::solve(double _time_limit, int _cost_lowerbound, int _cost_upperbound)
 {
@@ -804,7 +820,7 @@ bool CBS::solve(double _time_limit, int _cost_lowerbound, int _cost_upperbound)
 
 	while (!open_list.empty() && !solution_found)
 	{
-		updateFocalList();// FocalList是什么,ecbs相关
+		updateFocalList();// FocalList是什么,f值*权重，便于跳出局部最小点
 		if (min_f_val >= cost_upperbound)
 		{
 			solution_cost = (int) min_f_val;
@@ -819,17 +835,19 @@ bool CBS::solve(double _time_limit, int _cost_lowerbound, int _cost_upperbound)
 			solution_found = false;
 			break;
 		}
-		CBSNode* curr = focal_list.top();
+		CBSNode* curr = focal_list.top();//选一个点来找是否存在不冲突的路径
 		focal_list.pop();
 		open_list.erase(curr->open_handle);
 		// takes the paths_found_initially and UPDATE all constrained paths found for agents from curr to dummy_start (and lower-bounds)
 		updatePaths(curr);
 
-		if (screen > 1)
+		if (screen > 1) {
 			cout << endl << "Pop " << *curr << endl;
-
+			cout << endl << "Open list " << openlistCounting() << endl;
+			cout << endl << "focal list " << focallistCounting() << endl;
+		}
 		if (curr->unknownConf.size() + curr->conflicts.size() == 0) //no conflicts
-		{// found a solution (and finish the while look)
+		{// 找到一个解，found a solution (and finish the while look)
 			solution_found = true;
 			solution_cost = curr->g_val;
 			goal_node = curr;
@@ -1241,7 +1259,7 @@ bool CBS::generateRoot()
 	dummy_start->time_generated = num_HL_generated;
 	allNodes_table.push_back(dummy_start);
 	findConflicts(*dummy_start);
-	// We didn't compute the node-selection tie-breaking value for the root node
+	// We didn't compute the node-selection tie-breajiuceking value for the root node
 	// since it does not need it.
 	min_f_val = max(min_f_val, (double) dummy_start->g_val);
 	focal_list_threshold = min_f_val * focal_w;

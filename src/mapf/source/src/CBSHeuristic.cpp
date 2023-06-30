@@ -21,7 +21,7 @@ void CBSHeuristic::computeQuickHeuristics(CBSNode& node) const // for non-root n
 	copyConflictGraph(node, *node.parent);
 }
 
-
+//参考论文文献：Improved Heuristics for Multi - Agent Path Finding with Conflict - Based Search
 bool CBSHeuristic::computeInformedHeuristics(CBSNode& curr, double _time_limit)
 {
 	curr.h_computed = true;

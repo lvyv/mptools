@@ -1,36 +1,37 @@
-#include "SpaceTimeAStar.h"
+ï»¿#include "SpaceTimeAStar.h"
 
 
 void SpaceTimeAStar::updatePath(const LLNode* goal, vector<PathEntry>& path)
 {
+	//æŒ‰ç…§g_valé€ç‚¹å›æº¯å¡«å……pathæ•°ç»„ï¼Œgæ˜¯ä»èµ·ç‚¹åˆ°è¾¾å½“å‰ä½ç½®ç‚¹çš„æ­¥æ•°
 	path.resize(goal->g_val + 1);
 	const LLNode* curr = goal;
-	while (curr != nullptr) 
+	while (curr != nullptr)
 	{
 		path[curr->g_val].location = curr->location;
 		// path[curr->g_val].single = false;
 		path[curr->g_val].mdd_width = 0;
-        assert((curr->parent != nullptr && curr->g_val == curr->parent->g_val + 1) ||
-               (curr->parent == nullptr && curr->g_val == 0));
+		assert((curr->parent != nullptr && curr->g_val == curr->parent->g_val + 1) ||
+			(curr->parent == nullptr && curr->g_val == 0));
 		curr = curr->parent;
 	}
 }
 
 
-// ²éÕÒÂ·¾¶£ºfind path by time-space A* search
+// æŸ¥æ‰¾è·¯å¾„ï¼šfind path by time-space A* search
 // Returns a shortest path that satisfies the constraints of the given node while
 // minimizing the number of internal conflicts (that is conflicts with known_paths for other agents found so far).
 // lowerbound is an underestimation of the length of the path in order to speed up the search.
 Path SpaceTimeAStar::findPath(const CBSNode& node, const ConstraintTable& initial_constraints,
-							  const vector<Path*>& paths, int agent, int lowerbound)
+	const vector<Path*>& paths, int agent, int lowerbound)
 {
 	num_expanded = 0;
 	num_generated = 0;
 	// build constraint table
 	auto starrt_time = clock();
-	ConstraintTable constraint_table(initial_constraints);//Awen ´Ë´¦ĞèÒª¿¼ÂÇÒ»ÏÂ£¬ÔõÃ´ÒıÈëÒÔÇ°¹æ»®Â·¾¶µÄĞÅÏ¢£¬È»ºó¹¹Ôì³öÔ¼Êø±í£¬²¢ÊµÏÖconstrained_extraº¯Êı¡£
+	ConstraintTable constraint_table(initial_constraints);//Awen æ­¤å¤„éœ€è¦è€ƒè™‘ä¸€ä¸‹ï¼Œæ€ä¹ˆå¼•å…¥ä»¥å‰è§„åˆ’è·¯å¾„çš„ä¿¡æ¯ï¼Œç„¶åæ„é€ å‡ºçº¦æŸè¡¨ï¼Œå¹¶å®ç°constrained_extraå‡½æ•°ã€‚
 	constraint_table.build(node, agent);
-	runtime_build_CT = (double) (clock() - starrt_time) / CLOCKS_PER_SEC;
+	runtime_build_CT = (double)(clock() - starrt_time) / CLOCKS_PER_SEC;
 	if (constraint_table.length_min >= MAX_TIMESTEP ||
 		constraint_table.length_min > constraint_table.length_max ||  // the agent cannot reach its goal location
 		constraint_table.constrained(start_location, 0)) // the agent cannot stay at its start location
@@ -39,14 +40,14 @@ Path SpaceTimeAStar::findPath(const CBSNode& node, const ConstraintTable& initia
 	}
 
 	starrt_time = clock();
-	constraint_table.buildCAT(agent, paths, node.makespan + 1);	//ËÆºõºÜÖØÒª£¬ÊÇÎªÁË¹æ±Ü³åÍ»µÄ
-	runtime_build_CAT = (double) (clock() - starrt_time) / CLOCKS_PER_SEC;
+	constraint_table.buildCAT(agent, paths, node.makespan + 1);	//ä¼¼ä¹å¾ˆé‡è¦ï¼Œæ˜¯ä¸ºäº†è§„é¿å†²çªçš„
+	runtime_build_CAT = (double)(clock() - starrt_time) / CLOCKS_PER_SEC;
 
 	if (constraint_table.getNumOfLandmarks() > 0)
 	{
 		// find the new constrained time range, so that, later, we only need to replan the path segment that covers this time range
 		int t_min = MAX_TIMESTEP, t_max = 0;
-		for (const auto constraint : node.constraints)
+		for (const auto& constraint : node.constraints)
 		{
 			int a, x, y, t, prev, curr;
 			constraint_type type;
@@ -156,7 +157,7 @@ Path SpaceTimeAStar::findPath(const CBSNode& node, const ConstraintTable& initia
 		pair<int, int> start_state(start_location, 0), goal_state(goal_location, MAX_TIMESTEP);
 		for (const auto landmark : constraint_table.getLandmarks())
 		{
-			if (start_state.second < landmark.first&& landmark.first < t_min)
+			if (start_state.second < landmark.first && landmark.first < t_min)
 			{
 				start_state = make_pair(landmark.second, landmark.first);
 			}
@@ -181,14 +182,14 @@ Path SpaceTimeAStar::findPath(const CBSNode& node, const ConstraintTable& initia
 				return path_segment;
 			Path path;
 			if (paths[agent]->size() > start_state.second)
-			    path.insert(path.begin(), paths[agent]->begin(), paths[agent]->begin() + start_state.second);
-            else // the start state is after the agent reaches its goal location
-            {
-                assert(start_state.first == goal_location);
-                path.insert(path.begin(), paths[agent]->begin(), paths[agent]->end());
-                while((int)path.size() < start_state.second)
-                    path.emplace_back(goal_location);
-            }
+				path.insert(path.begin(), paths[agent]->begin(), paths[agent]->begin() + start_state.second);
+			else // the start state is after the agent reaches its goal location
+			{
+				assert(start_state.first == goal_location);
+				path.insert(path.begin(), paths[agent]->begin(), paths[agent]->end());
+				while ((int)path.size() < start_state.second)
+					path.emplace_back(goal_location);
+			}
 			path.insert(path.end(), path_segment.begin(), path_segment.end());
 
 			//debug 
@@ -196,40 +197,40 @@ Path SpaceTimeAStar::findPath(const CBSNode& node, const ConstraintTable& initia
 			return path;
 		}
 		else if ((int)paths[agent]->size() <= goal_state.second) // the landmark is at the goal location after the agent reaches
-        {
-            assert(goal_state.first == goal_location);
-            auto path_segment = findShortestPath(constraint_table, start_state, lowerbound - start_state.second, goal_state);
-            if (path_segment.empty())
-            {
-                // assert(test_path.empty());
-                return Path();
-            }
+		{
+			assert(goal_state.first == goal_location);
+			auto path_segment = findShortestPath(constraint_table, start_state, lowerbound - start_state.second, goal_state);
+			if (path_segment.empty())
+			{
+				// assert(test_path.empty());
+				return Path();
+			}
 
-            if (start_state.second == 0)
-                return path_segment;
-            Path path;
-            if (paths[agent]->size() > start_state.second)
-                path.insert(path.begin(), paths[agent]->begin(), paths[agent]->begin() + start_state.second);
-            else // the start state is after the agent reaches its goal location
-            {
-                assert(start_state.first == goal_location);
-                path.insert(path.begin(), paths[agent]->begin(), paths[agent]->end());
-                while((int)path.size() < start_state.second)
-                    path.emplace_back(goal_location);
-            }
-            path.insert(path.end(), path_segment.begin(), path_segment.end());
+			if (start_state.second == 0)
+				return path_segment;
+			Path path;
+			if (paths[agent]->size() > start_state.second)
+				path.insert(path.begin(), paths[agent]->begin(), paths[agent]->begin() + start_state.second);
+			else // the start state is after the agent reaches its goal location
+			{
+				assert(start_state.first == goal_location);
+				path.insert(path.begin(), paths[agent]->begin(), paths[agent]->end());
+				while ((int)path.size() < start_state.second)
+					path.emplace_back(goal_location);
+			}
+			path.insert(path.end(), path_segment.begin(), path_segment.end());
 
-            //debug
-            // assert(path.size() == test_path.size());
-            return path;
-        }
+			//debug
+			// assert(path.size() == test_path.size());
+			return path;
+		}
 		else
 		{
 			// debug
 			// auto test_path = findShortestPath(constraint_table, make_pair(start_location, 0), lowerbound);
 
 			auto path_segment = findPath(constraint_table, start_state, goal_state);
-			
+
 			if (path_segment.empty())
 			{
 				// assert(test_path.empty());
@@ -238,8 +239,8 @@ Path SpaceTimeAStar::findPath(const CBSNode& node, const ConstraintTable& initia
 			// assert(test_path.size() == paths[agent]->size());
 			Path path(*paths[agent]);
 			assert(path_segment.size() == 1 + goal_state.second - start_state.second &&
-						path[start_state.second].location == path_segment.front().location &&
-						path[goal_state.second].location == path_segment.back().location);
+				path[start_state.second].location == path_segment.front().location &&
+				path[goal_state.second].location == path_segment.back().location);
 			for (int t = 1; t < (int)path_segment.size() - 1; t++)
 			{
 				path[start_state.second + t] = path_segment[t];
@@ -248,27 +249,31 @@ Path SpaceTimeAStar::findPath(const CBSNode& node, const ConstraintTable& initia
 		}
 	}
 	else
-		return findShortestPath(constraint_table, make_pair(start_location, 0), lowerbound);
+	{
+		//æ‰¾æŸä¸ªagentä»t0æ—¶åˆ»ï¼Œstart_locationå¼€å§‹çš„è·¯å¾„ï¼Œæ‰€æœ‰è·¯å¾„éƒ½è¦ä»t0å¼€å§‹è§„åˆ’ï¼Œä¸ç„¶ä¹±å¥—äº†ã€‚
+		Path pt = findShortestPath(constraint_table, make_pair(start_location, 0), lowerbound);
+		return pt;
+	}
 }
 
-// ²éÕÒ×î¶ÌÂ·¾¶£ºfind a shortest path from start_state to the goal location
+// æŸ¥æ‰¾æœ€çŸ­è·¯å¾„ï¼šfind a shortest path from start_state to the goal location
 Path SpaceTimeAStar::findShortestPath(ConstraintTable& constraint_table, const pair<int, int> start_state, int lowerbound)
 {
 	// generate start and add it to the OPEN & FOCAL list
 	Path path;
 	auto start = new AStarNode(start_state.first,  // location
-			              0,  // g val
-			              my_heuristic[start_state.first],  // h val
-			                    nullptr,  // parent
-			                    start_state.second,  // timestep
-			                    0,
-			                    false);
+		0,  // g val
+		my_heuristic[start_state.first],  // h val
+		nullptr,  // parent
+		start_state.second,  // timestep
+		0,
+		false);
 	list<int> positive_constraint_sets;
 	for (size_t i = 0; i < constraint_table.getNumOfPositiveConstraintSets(); i++)
 		positive_constraint_sets.push_back(i);
 	bool keep = constraint_table.updateUnsatisfiedPositiveConstraintSet(positive_constraint_sets,
-																		start->unsatisfied_positive_constraint_sets,
-																		start_state.first, start_state.second);
+		start->unsatisfied_positive_constraint_sets,
+		start_state.first, start_state.second);
 	if (!keep)
 	{
 		delete(start);  // prune the node
@@ -280,13 +285,17 @@ Path SpaceTimeAStar::findShortestPath(ConstraintTable& constraint_table, const p
 	start->focal_handle = focal_list.push(start);
 	start->in_openlist = true;
 	allNodes_table.insert(start);
-	min_f_val = (int) start->getFVal();
+	min_f_val = (int)start->getFVal();
 	int holding_time = constraint_table.getHoldingTime(); // the earliest timestep that the agent can hold its goal location. The length_min is considered here.
 	lower_bound = max(holding_time - start_state.second, max(min_f_val, lowerbound));
 
+
+
 	while (!open_list.empty())
 	{
-		updateFocalList(); // update FOCAL if min f-val increased
+
+
+		updateFocalList(); // update FOCAL if min f-val increased f=G+H
 		auto* curr = popNode();
 
 		// check if the popped node is a goal
@@ -301,73 +310,218 @@ Path SpaceTimeAStar::findShortestPath(ConstraintTable& constraint_table, const p
 		if (curr->timestep >= constraint_table.length_max)
 			continue;
 
-		list<int> next_locations = instance.getNeighbors(curr->location);	
-		next_locations.emplace_back(curr->location);  // ·µ»ØµÄÁÚ½Óµã²»µ«ÊÇ¿Õ¼äÉÏµÄ£¬»¹°üº¬±¾Î»ÖÃÏÂÒ»¸öÊ±¿ÌµÄµã
+		list<int> next_locations = instance.getNeighbors(curr->location);
+		next_locations.emplace_back(curr->location);  // è¿”å›çš„é‚»æ¥ç‚¹ä¸ä½†æ˜¯ç©ºé—´ä¸Šçš„ï¼Œè¿˜åŒ…å«æœ¬ä½ç½®ä¸‹ä¸€ä¸ªæ—¶åˆ»çš„ç‚¹
 		for (int next_location : next_locations)
 		{
 			int next_timestep = curr->timestep + 1;
-			
-			//Èç¹ûµ±Ç°Ê±¼äÒÑ¾­¹ıÁËºÜ¾Ã£¬³åÍ»±í³åÍ»ÒÑ¾­¿ÉÒÔºöÂÔ£¬ÔÙÌí¼ÓÒ»¸öÒÑ¹æ»®Â·¾¶²»´æÔÚ³åÍ»
 
-			if (
-				(max((int) constraint_table.cat_size, constraint_table.latest_timestep) < curr->timestep - 1) &&  
-				!(constraint_table.constrained_extra(next_location, next_timestep)) &&
-				!(constraint_table.constrained_extra(curr->location, next_location, next_timestep))
-				)
-			{ // now everything is static, so switch to space A* where we always use the same timestep	Ê±¼ä¹ıÁË×ã¹»¾Ã£¬ÒÑ¾­ÈÆ¿ª³åÍ»Â·¾¶µÄ×ÜÊ±¼äÁË
+			//åŠ¨æ€éšœç¢è§„é¿éœ€è¦çš„æ—¶é—´æ­¥éª¤å˜é‡ã€‚å½“å‰é—®é¢˜æ˜¯å› ä¸ºnext_timestepä¼š--æ“ä½œï¼Œå¯¼è‡´dynamicè·¯å¾„ä¸ä¼šè®¤ä¸ºå‡ºç°å†²çª
+			int dynamicNextTimeStep = curr->dynamictimestep + 1;
+			AStarNode* next = NULL;
+			int next_g_val, next_h_val, next_internal_conflicts;
+			
+			if (constraint_table.constrained_extra(next_location, dynamicNextTimeStep) || 
+				constraint_table.constrained_extra(curr->location, next_location, dynamicNextTimeStep-1))	// dynamicNextTimeStep-1å°±æ˜¯å½“å‰è¿™ä¸€æ­¥çš„è¾¹å†²çªçº¦æŸ
+			{	// å½“å‰æ¢ç´¢ç‚¹ä¸åŠ¨æ€éšœç¢å‘ç”Ÿå†²çªï¼Œæ’é™¤
+				continue;
+			}
+			else
+			{	// å½“å‰æ¢ç´¢ç‚¹ä¸ä¼šå†²çªï¼Œå¯ä»¥è€ƒè™‘å¤‡é€‰open listå¾…è€ƒå¯Ÿçš„å‰çº¿é›†åˆ
+				// å¦‚æœæ‰€æœ‰ä¸å†²çªç‚¹éƒ½æ·»åŠ ä¸ºå¾…è€ƒå¯Ÿç‚¹ï¼Œæ˜¾ç„¶éšç€æ—¶é—´æ¨ç§»ï¼Œå®åœ¨å¤ªå¤šæ°¸æ— ç©·å°½ï¼Œå› æ­¤åŸæ¥ç¨‹åºé€‰æ‹©äº†ä¸€ä¸ªå–å·§çš„æ–¹æ³•ï¼Œå¦‚æœæ—¶é—´æ­¥é•¿è¶…è¿‡æœ€åå†²çªçš„æ—¶é—´æ­¥ï¼Œå°±ä¸å†æ·»åŠ èŠ‚ç‚¹
+				// å› æ­¤æˆ‘ä»¬å¯ä»¥ä»¿ç…§è¿™ä¸ªåšæ³•ï¼Œåœ¨maxå‡½æ•°ä¸­åŠ ä¸€ä¸‹ï¼ŒåŠ¨æ€éšœç¢çš„å†²çªæœ€åä¸€æ­¥ä¹Ÿè€ƒè™‘è¿›æ¥
+
+		
+
+				//å¦‚æœå½“å‰æ—¶é—´å·²ç»è¿‡äº†å¾ˆä¹…ï¼Œå†²çªè¡¨å†²çªå·²ç»å¯ä»¥å¿½ç•¥ï¼Œå†æ·»åŠ ä¸€ä¸ªå·²è§„åˆ’è·¯å¾„ä¸å­˜åœ¨å†²çª
+				if (max((int)constraint_table.cat_size, constraint_table.latest_timestep) < curr->timestep - 1 && constraint_table.last_pct_planned_timestep <  curr->timestep - 1)
+				{ 
+					// now everything is static, so switch to space A* where we always use the same timestep	
+					// ä¿æŒæ—¶é—´æ­¥é•¿ä¸å¢åŠ ï¼Œä¼šé€ æˆæ‰¾ä¸åˆ°è·¯çš„æƒ…å†µï¼Œå› ä¸ºå½“ä¸‹ä¸åªè¿™ä¸€ä¸ªå”¯ä¸€å†²çªè¡¨ï¼Œå¿…é¡»è€ƒè™‘å¦ä¸€ä¸ªå†²çªè¡¨æ—¶é—´
+					if (next_location == curr->location)	//æ—¢ç„¶æ˜¯é™æ€A*ï¼Œåˆ™è¦æŠŠåŸåœ°ä¸åŠ¨ç‚¹æ’é™¤
+					{
+						/*ç›®å‰æ¥çœ‹ï¼Œç­‰30æ­¥ï¼Œæ¯æ­¥æ’å…¥æ˜¯å¯ä»¥æ‰¾åˆ°ä¸€æ¡æ–°è·¯å¾„çš„ï¼Œéœ€è¦è®¤çœŸè€ƒè™‘è¿™ä¸ªæ–¹æ¡ˆ*/
+						continue;	//å¿½ç•¥æœ¬åœ°ä¸åŠ¨çš„ç‚¹ï¼ˆåœ¨é™æ€A*ä¸­ï¼Œä¸èƒ½åœæ­¢ï¼‰
+					}  //çœ‹ä¸æ‡‚ï¼Œä¸ºä»€ä¹ˆè¦--ï¼Œæ˜¯èµ°ä¸é€šè¦é€€å›å»å—ï¼Œä¸æ˜¯ï¼Œå°±å½“æˆæ™®é€šA*ï¼ˆé™æ€ï¼‰ã€‚è¿™ä¸ªåœ°æ–¹æ˜¯æ€§èƒ½çš„å…³é”®ç‚¹ï¼Œä¸€å®šè¦æ³¨æ„æ§åˆ¶ï¼Œå¦‚æœå–æ¶ˆï¼Œåˆ™æ¯ä¸€æ¬¡timestepéƒ½ä¼šå¾€openlistæ’å…¥ï¼Œå¤§å¤§å¢åŠ äº†æœç´¢ç©ºé—´ã€‚
+					// cout << "è¾“å‡ºçº¦æŸè¡¨æœ€åä¸€æ­¥ï¼š" << curr->location << " " << next_location  << " next ts: "  << next_timestep << endl;
+					next_timestep--;	//æ—¶é—´é€€å›ä¸Šä¸€æ­¥ï¼Œå˜ä¸ºæ­£å¸¸çš„ç©ºé—´å¯»å¾„
+				}
+
+				//ç»•å¼€å†²çªç‚¹ï¼Œcontinueè¡¨ç¤ºå½“å‰currèŠ‚ç‚¹çš„é‚»å±…ä½ç½®ä¸èƒ½å…¥openlist
+				if (constraint_table.constrained(next_location, next_timestep) ||
+					constraint_table.constrained(curr->location, next_location, next_timestep)) {
+					//cout << "next_location constrained, continue." << endl;
+					continue;
+				}
+
+				// compute cost to next_id via curr node
+				next_g_val = curr->g_val + 1;
+				next_h_val = my_heuristic[next_location];
+				if (next_g_val + next_h_val > constraint_table.length_max) {
+					//cout << "next_g_val+next_h_val too large, continue" << endl;
+					continue;
+				}
+				next_internal_conflicts = curr->num_of_conflicts +
+					constraint_table.getNumOfConflictsForStep(curr->location, next_location, next_timestep);
+
+				// è¿™æ­¥å¾ˆå…³é”®ï¼Œäº§ç”Ÿä¸‹ä¸€æ­¥èŠ‚ç‚¹ï¼Œä½ç½®ã€æ—¶é—´ç­‰ã€‚generate (maybe temporary) node
+				auto newnext = new AStarNode(next_location, next_g_val, next_h_val,
+					curr, next_timestep, next_internal_conflicts, false);
+				next = newnext;
+				
+				next->dynamictimestep = dynamicNextTimeStep;	//è§„é¿timestep--é—®é¢˜ï¼Œè§„é¿åŠ¨æ€è·¯éšœçš„æ—¶é—´
+
+				if (next_location == goal_location && curr->location == goal_location)
+					next->wait_at_goal = true;
+				keep = constraint_table.updateUnsatisfiedPositiveConstraintSet(curr->unsatisfied_positive_constraint_sets, next->unsatisfied_positive_constraint_sets, next_location, next_timestep);
+				if (!keep)
+				{
+					delete(next);  // prune the node
+					continue;
+				}
+				// try to retrieve it from the hash table
+				auto it = allNodes_table.find(next);	//ä½ç½®location+æ—¶é—´timestep+waitatgoal+unsatisfied_positive_constraint_sets
+				if (it == allNodes_table.end())	//æ²¡æœ‰æ‰¾åˆ°ï¼Œè¿™ä¸ªèŠ‚ç‚¹ä¸å­˜åœ¨çš„
+				{
+					pushNode(next);		//å¾€open_listæ’å…¥ï¼ŒallNodes_tableä½œç”¨éœ€è¦è°ƒæŸ¥ï¼Œåº”è¯¥æ˜¯openå’Œcloselistçš„åˆå¹¶ã€‚
+										//è¿™ä¸ªallNodes_tableæ˜¯ä¸€ä¸ªæ—¶ç©ºèŠ‚ç‚¹çš„hashè¡¨ï¼Œæ¯ä¸€ä¸ªèŠ‚ç‚¹çš„é‚»å±…éƒ½ä¼šè¢«æ·»åŠ è¿›å»ã€‚æ³¨æ„ï¼Œå› ä¸ºè€ƒè™‘æ—¶é—´ï¼Œæ‰€ä»¥è¿™ä¸ªè¡¨ä¸ä¼šæœ‰å®Œç»“çš„ã€‚å› ä¸ºæ—¶é—´å¯ä»¥å»¶ç»­ä¸‹å»ï¼Œå¯¼è‡´ä¸ä¼šæœ‰ç»ˆç‚¹ã€‚
+					allNodes_table.insert(next);
+					//Awen æ˜¯å¦æ’å…¥äº†
+					//double fscore = next->getFVal();
+					//if (next_location == curr->location)
+						//std::cout << "NEW Node [" << next->location << "]" << " ts(" << next->timestep << "):" << fscore  << std::endl;
+					//Awen 
+					continue;
+				}
+				// update existing node's if needed (only in the open_list)
+				auto existing_next = *it;
+				if (existing_next->getFVal() > next->getFVal() || // if f-val decreased through this new path
+					(existing_next->getFVal() == next->getFVal() &&
+						existing_next->num_of_conflicts > next->num_of_conflicts)) // or it remains the same but there's fewer conflicts
+				{
+					if (!existing_next->in_openlist) // if its in the closed list (reopen)
+					{
+						existing_next->copy(*next);
+						pushNode(existing_next);
+					}
+					else
+					{
+						bool add_to_focal = false;  // check if it was above the focal bound before and now below (thus need to be inserted)
+						bool update_in_focal = false;  // check if it was inside the focal and needs to be updated (because f-val changed)
+						bool update_open = false;
+						if ((next_g_val + next_h_val) <= lower_bound)
+						{  // if the new f-val qualify to be in FOCAL
+							if (existing_next->getFVal() > lower_bound)
+								add_to_focal = true;  // and the previous f-val did not qualify to be in FOCAL then add
+							else
+								update_in_focal = true;  // and the previous f-val did qualify to be in FOCAL then update
+						}
+						if (existing_next->getFVal() > next_g_val + next_h_val)
+							update_open = true;
+
+						existing_next->copy(*next);  // update existing node
+
+						if (update_open)
+							open_list.increase(existing_next->open_handle);  // increase because f-val improved
+						if (add_to_focal)
+							existing_next->focal_handle = focal_list.push(existing_next);
+						if (update_in_focal)
+							focal_list.update(existing_next->focal_handle);  // should we do update? yes, because number of conflicts may go up or down			
+					}
+				}
+				delete next;  // not needed anymore -- we already generated it before
+
+			}
+
+		}  // end for loop that generates successors
+	}  // end while loop
+
+	releaseNodes();
+	return path;
+}
+
+// find a shortest path from start_state to the goal location while traversing the landmark
+Path SpaceTimeAStar::findShortestPath(ConstraintTable& constraint_table, const pair<int, int> start_state,
+	int lowerbound, const pair<int, int> landmark)
+{
+	assert(landmark.first == goal_location && landmark.second >= start_state.second);
+	// generate start and add it to the OPEN & FOCAL list
+	Path path;
+	auto start = new AStarNode(start_state.first,  // location
+		0,  // g val
+		my_heuristic[start_state.first],  // h val
+		nullptr,  // parent
+		start_state.second,  // timestep
+		0,
+		false);
+	list<int> positive_constraint_sets;
+	for (size_t i = 0; i < constraint_table.getNumOfPositiveConstraintSets(); i++)
+		positive_constraint_sets.push_back(i);
+	bool keep = constraint_table.updateUnsatisfiedPositiveConstraintSet(positive_constraint_sets,
+		start->unsatisfied_positive_constraint_sets,
+		start_state.first, start_state.second);
+	if (!keep)
+	{
+		delete(start);  // prune the node
+		return path;
+	}
+
+	num_generated++;
+	start->open_handle = open_list.push(start);
+	start->focal_handle = focal_list.push(start);
+	start->in_openlist = true;
+	allNodes_table.insert(start);
+	min_f_val = (int)start->getFVal();
+	int holding_time = constraint_table.getHoldingTime(); // the earliest timestep that the agent can hold its goal location. The length_min is considered here.
+	lower_bound = max(holding_time - start_state.second, max(min_f_val, lowerbound));
+
+	while (!open_list.empty())
+	{
+		updateFocalList(); // update FOCAL if min f-val increased
+		auto* curr = popNode();
+
+		// check if the popped node is a goal
+		if (curr->location == goal_location && // arrive at the goal location
+			!curr->wait_at_goal && // not wait at the goal location
+			curr->timestep >= holding_time) // the agent can hold the goal location afterward
+		{
+			updatePath(curr, path);// curr åŒ…å«äº†çˆ¶èŠ‚ç‚¹çš„æŒ‡é’ˆï¼Œé€šè¿‡å›æº¯ï¼ŒæŠŠpathç”Ÿæˆ
+			break;
+		}
+
+		if (curr->timestep >= constraint_table.length_max)
+			continue;
+
+		list<int> next_locations = instance.getNeighbors(curr->location);
+		next_locations.emplace_back(curr->location);
+		for (int next_location : next_locations)
+		{
+			int next_timestep = curr->timestep + 1;
+			if (next_timestep == landmark.second && next_location != landmark.first)
+				continue;
+			if (max((int)constraint_table.cat_size, constraint_table.latest_timestep) + 1 < curr->timestep)
+			{ // now everything is static, so switch to space A* where we always use the same timestep
 				if (next_location == curr->location)
 				{
 					continue;
-				}//¿´²»¶®£¬ÎªÊ²Ã´Òª--£¬ÊÇ×ß²»Í¨ÒªÍË»ØÈ¥Âğ£¬²»ÊÇ£¬¾Íµ±³ÉÆÕÍ¨A*£¨¾²Ì¬£©¡£Õâ¸öµØ·½ÊÇĞÔÄÜµÄ¹Ø¼üµã£¬Ò»¶¨Òª×¢Òâ¿ØÖÆ£¬Èç¹ûÈ¡Ïû£¬ÔòÃ¿Ò»´Îtimestep¶¼»áÍùopenlist²åÈë£¬´ó´óÔö¼ÓÁËËÑË÷¿Õ¼ä¡£
-				//next_timestep--;	
+				}
+				next_timestep--;
 			}
-			else if (constraint_table.constrained_extra(next_location, next_timestep) ||constraint_table.constrained_extra(curr->location, next_location, next_timestep)) 
-			{
-				continue;
-			}
-
-
-
-			// Awen ÔÚ´Ë´¦Ìí¼ÓÒ»¸öĞÂµÄÀàËÆconstraint_tableµÄ±í£¬¼ÇÂ¼ÒÔÇ°µÄ¹æ»®Â·¾¶ÈçºÎ£¿Ö±½ÓÊ¹ÓÃconstraint_table£¬Ö»ÊÇÔÚÆäÖĞÌí¼ÓÒ»¸öÔ¤ÖÃÀàĞÍ
-			// constraint_tableÊÇinitial_constraintsÕâ¸övectorÊı×éÖĞµÄÒ»¸öÔªËØ£¬ÀàĞÍÊÇConstraintTable
-			// 1.¹¹½¨Ò»¸öÔ¼Êø±í£¬¿´¿´Ô¼Êø±íÊÇ·ñ°üº¬£¬
-			// 2.Ìø¹ı(ÎªÊ²Ã´´Ë´¦²»ÄÜ¼ÌĞøÁËÄØ)£¬ÎªºÎÕÒ²»µ½agent0µÄÂ·¾¶£¬¾ÍÒòÎª111ÄÇ¸öÍ¨µÀ¿Ú´Ó0-5ÅÄ¶ÂÈûÂğ£¿
-			// ÄÜ·ñ¶Ô×èÈûµÄ½Úµã£¬Ñ¡ÔñÉèÖÃÆäf=G+HÖµ£¬Ôö¼ÓGÖµ£¨µÈ´ı3ÅÄ²Å»áÏûÊ§£¬ÔòG=G+3£©¡£
-			/*
-			if (constraint_table.constrained_extra(next_location, next_timestep) ||
-				constraint_table.constrained_extra(curr->location, next_location, next_timestep)) {
-
-				//int next_g_val = curr->g_val + 1;
-				//int next_h_val = my_heuristic[next_location];
-				//auto next = new AStarNode(curr->location, next_g_val, next_h_val,
-				//	curr, next_timestep+1, 0, false);
-				//auto it = allNodes_table.find(next);	//Î»ÖÃ+Ê±¼äÎÇºÏ
-				//if (it == allNodes_table.end())
-				//{
-				//	pushNode(next);		//Íùopen_list²åÈë£¬allNodes_table×÷ÓÃĞèÒªµ÷²é¡£
-				//	allNodes_table.insert(next);
-				//	continue;
-				//}
-				continue;
-			}
-			*/
-
 
 			if (constraint_table.constrained(next_location, next_timestep) ||
 				constraint_table.constrained(curr->location, next_location, next_timestep))
 				continue;
-
 			// compute cost to next_id via curr node
 			int next_g_val = curr->g_val + 1;
 			int next_h_val = my_heuristic[next_location];
 			if (next_g_val + next_h_val > constraint_table.length_max)
 				continue;
 			int next_internal_conflicts = curr->num_of_conflicts +
-										  constraint_table.getNumOfConflictsForStep(curr->location, next_location, next_timestep);
+				constraint_table.getNumOfConflictsForStep(curr->location, next_location, next_timestep);
 
-			// Õâ²½ºÜ¹Ø¼ü£¬²úÉúÏÂÒ»²½½Úµã£¬Î»ÖÃ¡¢Ê±¼äµÈ¡£generate (maybe temporary) node
+			// generate (maybe temporary) node
 			auto next = new AStarNode(next_location, next_g_val, next_h_val,
-									  curr, next_timestep, next_internal_conflicts, false);
+				curr, next_timestep, next_internal_conflicts, false);
 			if (next_location == goal_location && curr->location == goal_location)
 				next->wait_at_goal = true;
 			keep = constraint_table.updateUnsatisfiedPositiveConstraintSet(curr->unsatisfied_positive_constraint_sets, next->unsatisfied_positive_constraint_sets, next_location, next_timestep);
@@ -376,18 +530,12 @@ Path SpaceTimeAStar::findShortestPath(ConstraintTable& constraint_table, const p
 				delete(next);  // prune the node
 				continue;
 			}
-
 			// try to retrieve it from the hash table
-			auto it = allNodes_table.find(next);	//Î»ÖÃlocation+Ê±¼ätimestep+waitatgoal+unsatisfied_positive_constraint_sets
+			auto it = allNodes_table.find(next);
 			if (it == allNodes_table.end())
 			{
-				pushNode(next);		//Íùopen_list²åÈë£¬allNodes_table×÷ÓÃĞèÒªµ÷²é£¬Ó¦¸ÃÊÇopenºÍcloselistµÄºÏ²¢¡£
-				allNodes_table.insert(next);
-				//Awen ÊÇ·ñ²åÈëÁË
-				double fscore = next->getFVal();
-				//if (next_location == curr->location)
-					//std::cout << "NEW Node [" << next->location << "]" << " ts(" << next->timestep << "):" << fscore  << std::endl;
-				//Awen 
+				pushNode(next);					// open listæ’å…¥
+				allNodes_table.insert(next);	// hashè¡¨æ’å…¥
 				continue;
 			}
 			// update existing node's if needed (only in the open_list)
@@ -395,7 +543,7 @@ Path SpaceTimeAStar::findShortestPath(ConstraintTable& constraint_table, const p
 			auto existing_next = *it;
 			if (existing_next->getFVal() > next->getFVal() || // if f-val decreased through this new path
 				(existing_next->getFVal() == next->getFVal() &&
-				 existing_next->num_of_conflicts > next->num_of_conflicts)) // or it remains the same but there's fewer conflicts
+					existing_next->num_of_conflicts > next->num_of_conflicts)) // or it remains the same but there's fewer conflicts
 			{
 				if (!existing_next->in_openlist) // if its in the closed list (reopen)
 				{
@@ -424,7 +572,7 @@ Path SpaceTimeAStar::findShortestPath(ConstraintTable& constraint_table, const p
 					if (add_to_focal)
 						existing_next->focal_handle = focal_list.push(existing_next);
 					if (update_in_focal)
-						focal_list.update(existing_next->focal_handle);  // should we do update? yes, because number of conflicts may go up or down			
+						focal_list.update(existing_next->focal_handle);  // should we do update? yes, because number of conflicts may go up or down
 				}
 			}
 			delete next;  // not needed anymore -- we already generated it before
@@ -433,149 +581,6 @@ Path SpaceTimeAStar::findShortestPath(ConstraintTable& constraint_table, const p
 
 	releaseNodes();
 	return path;
-}
-
-// find a shortest path from start_state to the goal location while traversing the landmark
-Path SpaceTimeAStar::findShortestPath(ConstraintTable& constraint_table, const pair<int, int> start_state,
-        int lowerbound, const pair<int, int> landmark)
-{
-    assert(landmark.first == goal_location && landmark.second >= start_state.second);
-    // generate start and add it to the OPEN & FOCAL list
-    Path path;
-    auto start = new AStarNode(start_state.first,  // location
-                               0,  // g val
-                               my_heuristic[start_state.first],  // h val
-                               nullptr,  // parent
-                               start_state.second,  // timestep
-                               0,
-                               false);
-    list<int> positive_constraint_sets;
-    for (size_t i = 0; i < constraint_table.getNumOfPositiveConstraintSets(); i++)
-        positive_constraint_sets.push_back(i);
-    bool keep = constraint_table.updateUnsatisfiedPositiveConstraintSet(positive_constraint_sets,
-                                                                        start->unsatisfied_positive_constraint_sets,
-                                                                        start_state.first, start_state.second);
-    if (!keep)
-    {
-        delete(start);  // prune the node
-        return path;
-    }
-
-    num_generated++;
-    start->open_handle = open_list.push(start);
-    start->focal_handle = focal_list.push(start);
-    start->in_openlist = true;
-    allNodes_table.insert(start);
-    min_f_val = (int) start->getFVal();
-    int holding_time = constraint_table.getHoldingTime(); // the earliest timestep that the agent can hold its goal location. The length_min is considered here.
-    lower_bound = max(holding_time - start_state.second, max(min_f_val, lowerbound));
-
-    while (!open_list.empty())
-    {
-        updateFocalList(); // update FOCAL if min f-val increased
-        auto* curr = popNode();
-
-        // check if the popped node is a goal
-        if (curr->location == goal_location && // arrive at the goal location
-            !curr->wait_at_goal && // not wait at the goal location
-            curr->timestep >= holding_time) // the agent can hold the goal location afterward
-        {
-            updatePath(curr, path);
-            break;
-        }
-
-        if (curr->timestep >= constraint_table.length_max)
-            continue;
-
-        list<int> next_locations = instance.getNeighbors(curr->location);
-        next_locations.emplace_back(curr->location);
-        for (int next_location : next_locations)
-        {
-            int next_timestep = curr->timestep + 1;
-            if (next_timestep == landmark.second && next_location != landmark.first)
-                continue;
-            if (max((int) constraint_table.cat_size, constraint_table.latest_timestep) + 1 < curr->timestep)
-            { // now everything is static, so switch to space A* where we always use the same timestep
-                if (next_location == curr->location)
-                {
-                    continue;
-                }
-                next_timestep--;
-            }
-
-            if (constraint_table.constrained(next_location, next_timestep) ||
-                constraint_table.constrained(curr->location, next_location, next_timestep))
-                continue;
-            // compute cost to next_id via curr node
-            int next_g_val = curr->g_val + 1;
-            int next_h_val = my_heuristic[next_location];
-            if (next_g_val + next_h_val > constraint_table.length_max)
-                continue;
-            int next_internal_conflicts = curr->num_of_conflicts +
-                                          constraint_table.getNumOfConflictsForStep(curr->location, next_location, next_timestep);
-
-            // generate (maybe temporary) node
-            auto next = new AStarNode(next_location, next_g_val, next_h_val,
-                                      curr, next_timestep, next_internal_conflicts, false);
-            if (next_location == goal_location && curr->location == goal_location)
-                next->wait_at_goal = true;
-            keep = constraint_table.updateUnsatisfiedPositiveConstraintSet(curr->unsatisfied_positive_constraint_sets, next->unsatisfied_positive_constraint_sets, next_location, next_timestep);
-            if (!keep)
-            {
-                delete(next);  // prune the node
-                continue;
-            }
-            // try to retrieve it from the hash table
-            auto it = allNodes_table.find(next);
-            if (it == allNodes_table.end())
-            {
-                pushNode(next);
-                allNodes_table.insert(next);
-                continue;
-            }
-            // update existing node's if needed (only in the open_list)
-
-            auto existing_next = *it;
-            if (existing_next->getFVal() > next->getFVal() || // if f-val decreased through this new path
-                (existing_next->getFVal() == next->getFVal() &&
-                 existing_next->num_of_conflicts > next->num_of_conflicts)) // or it remains the same but there's fewer conflicts
-            {
-                if (!existing_next->in_openlist) // if its in the closed list (reopen)
-                {
-                    existing_next->copy(*next);
-                    pushNode(existing_next);
-                }
-                else
-                {
-                    bool add_to_focal = false;  // check if it was above the focal bound before and now below (thus need to be inserted)
-                    bool update_in_focal = false;  // check if it was inside the focal and needs to be updated (because f-val changed)
-                    bool update_open = false;
-                    if ((next_g_val + next_h_val) <= lower_bound)
-                    {  // if the new f-val qualify to be in FOCAL
-                        if (existing_next->getFVal() > lower_bound)
-                            add_to_focal = true;  // and the previous f-val did not qualify to be in FOCAL then add
-                        else
-                            update_in_focal = true;  // and the previous f-val did qualify to be in FOCAL then update
-                    }
-                    if (existing_next->getFVal() > next_g_val + next_h_val)
-                        update_open = true;
-
-                    existing_next->copy(*next);  // update existing node
-
-                    if (update_open)
-                        open_list.increase(existing_next->open_handle);  // increase because f-val improved
-                    if (add_to_focal)
-                        existing_next->focal_handle = focal_list.push(existing_next);
-                    if (update_in_focal)
-                        focal_list.update(existing_next->focal_handle);  // should we do update? yes, because number of conflicts may go up or down
-                }
-            }
-            delete next;  // not needed anymore -- we already generated it before
-        }  // end for loop that generates successors
-    }  // end while loop
-
-    releaseNodes();
-    return path;
 }
 
 // find a path from from start_state to goal_state
@@ -598,7 +603,7 @@ Path SpaceTimeAStar::findPath(ConstraintTable& constraint_table, const pair<int,
 
 	while (!focal_list.empty())
 	{
-		auto* curr = focal_list.top(); 
+		auto* curr = focal_list.top();
 		focal_list.pop();
 		curr->in_openlist = false;
 
@@ -632,7 +637,7 @@ Path SpaceTimeAStar::findPath(ConstraintTable& constraint_table, const pair<int,
 			// generate (maybe temporary) node
 			auto next = new AStarNode(next_location, next_g_val, next_h_val,
 				curr, next_timestep, next_internal_conflicts, false);
-			
+
 			// try to retrieve it from the hash table
 			auto it = allNodes_table.find(next);
 			if (it == allNodes_table.end())
@@ -656,7 +661,7 @@ Path SpaceTimeAStar::findPath(ConstraintTable& constraint_table, const pair<int,
 				}
 				else
 				{
-					focal_list.update(existing_next->focal_handle);		
+					focal_list.update(existing_next->focal_handle);
 				}
 			}
 			delete next;  // not needed anymore -- we already generated it before
@@ -688,7 +693,7 @@ int SpaceTimeAStar::getTravelTime(int end, const ConstraintTable& constraint_tab
 			break;
 		}
 		list<int> next_locations = instance.getNeighbors(curr->location);
-		
+
 		int next_timestep = curr->timestep;
 		int next_g_val = curr->g_val + 1;
 		if (constraint_table.latest_timestep > curr->timestep)
@@ -746,7 +751,7 @@ inline void SpaceTimeAStar::pushNode(AStarNode* node)
 	node->in_openlist = true;
 	num_generated++;
 	if (node->getFVal() <= lower_bound)
-		node->focal_handle = focal_list.push(node);		
+		node->focal_handle = focal_list.push(node);
 }
 
 
@@ -755,7 +760,7 @@ void SpaceTimeAStar::updateFocalList()
 	auto open_head = open_list.top();
 	if (open_head->getFVal() > min_f_val)
 	{
-		int new_min_f_val = (int) open_head->getFVal();
+		int new_min_f_val = (int)open_head->getFVal();
 		int new_lower_bound = max(lower_bound, new_min_f_val);
 		for (auto n : open_list)
 		{
@@ -772,7 +777,7 @@ void SpaceTimeAStar::releaseNodes()
 {
 	open_list.clear();
 	focal_list.clear();
-	for (auto node: allNodes_table)
+	for (auto node : allNodes_table)
 		delete node;
 	allNodes_table.clear();
 }

@@ -11,6 +11,8 @@ public:
 	int h_val = 0;
 	LLNode* parent;
 	int timestep = 0;
+	int dynamictimestep = 0;	//为了规避timestep--的问题
+
 	int num_of_conflicts = 0;
 	bool in_openlist = false;
 	bool wait_at_goal; // the action is to wait at the goal vertex or not. This is used for >length constraints

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "common.h"
 #include "CBSNode.h"
@@ -10,7 +10,9 @@ public:
 	int length_min = 0;
 	int length_max = MAX_TIMESTEP;
 	int goal_location;
-	int latest_timestep = 0; // No negative constraints after this timestep.
+	int latest_timestep = 0;			// No negative constraints after this timestep.
+	int last_pct_planned_timestep = 0;	// 保存最长动态障碍（已规划路径）的时间步，用于从STA*算法从时空向静态A*转换，构造函数中计算
+
 	size_t num_col;
 	size_t map_size;
 	size_t cat_size;
@@ -22,7 +24,7 @@ public:
 	bool constrained(size_t loc, int t) const;
 	bool constrained(size_t curr_loc, size_t next_loc, int next_t) const;
 	
-	// Awen �ж��ѹ滮��·����ͻ
+	// Awen 判断已规划的路径冲突
 	bool constrained_extra(size_t loc, int t) const;
 	bool constrained_extra(size_t curr_loc, size_t next_loc, int next_t) const;
 	
@@ -35,9 +37,20 @@ public:
 	typedef unordered_map<size_t, list<pair<int, int> >>* PMAP_Type;
 	ConstraintTable(size_t num_col, size_t map_size, int goal_location = -1, PMAP_Type ctplanned = NULL)
 		: goal_location(goal_location), num_col(num_col), map_size(map_size), cat_size(0) {
-		//��instance�����һ���ⲿ��ͻ�����������planned��·��
-		if(ctplanned)
+		//从instance传入的一个外部冲突表，保存的是planned的路径
+		//数据结构是 
+		if(ctplanned) {
+			int latestTimeStep = 0;
 			pct_planned = ctplanned;
+			for (auto& x : *pct_planned) {
+				for (auto tt = x.second.begin(); tt != x.second.end(); ++tt) {
+					latestTimeStep = max(latestTimeStep, (*tt).second);
+				}
+			}
+			last_pct_planned_timestep = latestTimeStep;
+			
+		}
+		// cout << "动态障碍最后时间步：" << last_timestep << endl;
 	}
 	ConstraintTable(const ConstraintTable& other) { 
 		copy(other); 
@@ -50,7 +63,7 @@ public:
 	void insert2CT(size_t loc, int t_min, int t_max); // insert a vertex constraint to the constraint table
 	void insert2CT(size_t from, size_t to, int t_min, int t_max); // insert an edge constraint to the constraint table
 	
-	void insertPlannedConstraint(size_t loc, int t_min, int t_max);//�ѹ滮·�����뵽Լ����
+	void insertPlannedConstraint(size_t loc, int t_min, int t_max);//已规划路径插入到约束表
 	
 	size_t getNumOfLandmarks() const { return landmarks.size(); }
 	unordered_map<size_t, size_t> getLandmarks() const { return landmarks; }
@@ -59,15 +72,17 @@ protected:
 	// Constraint Table (CT)
 	unordered_map<size_t, list<pair<int, int> > > ct; // location -> time range, or edge -> time range
 
-	unordered_map<size_t, list<pair<int, int> > >* pct_planned; // location -> time range, or edge -> time range,�����Ѿ��滮��·��
-
+	unordered_map<size_t, list<pair<int, int> > >* pct_planned = NULL;	// location -> time range, or edge -> time range,保存已经规划的路径
+	
 	unordered_map<size_t, size_t> landmarks; // <timestep, location>: the agent must be at the given location at the given timestep
 
 	vector< list<pair<int, int> > > positive_constraint_sets; // a vector of positive constraint sets, each of which is a sorted list of <location, timestep> pair.
 
 	void insertLandmark(size_t loc, int t); // insert a landmark, i.e., the agent has to be at the given location at the given timestep
 
-	inline size_t getEdgeIndex(size_t from, size_t to) const { return (1 + from) * map_size + to; }
+	inline size_t getEdgeIndex(size_t from, size_t to) const { 
+		return (1 + from) * map_size + to; 
+	}
 
 private:
 	size_t map_size_threshold = 10000;

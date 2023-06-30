@@ -40,7 +40,12 @@ public:
 	inline int getColCoordinate(int id) const { return id % this->num_of_cols; }
 	inline pair<int, int> getCoordinate(int id) const { return make_pair(id / this->num_of_cols, id % this->num_of_cols); }
 	inline int getCols() const { return num_of_cols; }
-
+	
+	//为计算构建保存动态障碍的边约束表
+	inline size_t getEdgeIndex(size_t from, size_t to) const {
+		return (1 + from) * map_size + to;
+	}
+	
 	inline int getManhattanDistance(int loc1, int loc2) const
 	{
 		int loc1_x = getRowCoordinate(loc1);
