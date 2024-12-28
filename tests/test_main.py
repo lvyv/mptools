@@ -30,7 +30,7 @@ unit test module
 # License: MIT
 
 import unittest
-from ..src.core.kernel import MainContext
+from src.core.kernel import MainContext
 # from utils import config, bus
 
 
@@ -50,7 +50,7 @@ class TestMain(unittest.TestCase):
 
     def test_MainContext(self):
         """Test core.main.MainContext."""
-        p2c = 'v2v.cfg'
+        p2c = 'conf/v2v.cfg'
         with MainContext() as main_ctx:
             main_ctx.run(p2c)
 

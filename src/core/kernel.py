@@ -523,9 +523,11 @@ class MainContext(bus.IEventBusMixin):
             self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)  # 通知子进程
             time.sleep(interval)
 
-    def run(self):
+    def run(self, cfg):
         try:
             # 读取配置文件内容
+            if cfg:
+                ConfigSet.set_v2vcfg_file_path(cfg)
             _v2v_cfg_dict = ConfigSet.get_v2v_cfg_obj()
             # 读取本地微服务的参数，也就是http服务
             _ms_cfg_dict = _v2v_cfg_dict['micro_service']
