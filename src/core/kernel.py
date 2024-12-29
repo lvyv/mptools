@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2021 The CASICloud Authors. All Rights Reserved.
+# Copyright 2021 The OPTiDOCK Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -167,7 +167,7 @@ class MainContext(bus.IEventBusMixin):
         self._status = FSM()
 
     def __enter__(self):
-        self.log('********************  CASICLOUD V2V AI Dispatching Center  ********************')
+        self.log('********************  OPTiDOCK V2V AI Dispatching Center  ********************')
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -523,7 +523,7 @@ class MainContext(bus.IEventBusMixin):
             self.broadcast(bus.EBUS_TOPIC_BROADCAST, msg)  # 通知子进程
             time.sleep(interval)
 
-    def run(self, cfg):
+    def run(self, cfg=''):
         try:
             # 读取配置文件内容
             if cfg:
@@ -545,7 +545,7 @@ class MainContext(bus.IEventBusMixin):
                 # rpc远程调用服务启动，非阻塞等待外部事件出发状态改变
                 try:
                     MainContext.rpc_service()
-                except zmq.Again as e:
+                except zmq.Again as err:
                     time.sleep(0.01)
                 # 间隔输出程序运行状态
                 if (time.time() - _main_start_time) >= _log_interval:

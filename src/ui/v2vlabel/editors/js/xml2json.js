@@ -1,5 +1,5 @@
 /**
- * Copyright (c) CASICloud, Inc. and its affiliates.
+ * Copyright (c) OPTiDOCK, Inc. and its affiliates.
  *
  * v2v label frontend module.
  * xml to json and vice visa.
