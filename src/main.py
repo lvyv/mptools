@@ -6,14 +6,14 @@
 # Description：
 import sys
 from pathlib import Path
+from utils.config import ConfigSet
+from dock.DockMainContext import DockMainContext
+from utils import log
+from conf import const
 
 # 配置python加载路径
 _module_path = Path(Path(__file__).absolute().parent)
 sys.path.append(str(_module_path))
-from utils.config import ConfigSet
-from core.kernel import MainContext
-from utils import log
-from conf import const
 
 
 def _main_entry():
@@ -28,7 +28,7 @@ def _main_entry():
     ConfigSet.get_base_cfg_obj()
 
     # 进程主循环
-    with MainContext() as main_ctx:
+    with DockMainContext() as main_ctx:
         main_ctx.run()
 
 
