@@ -260,9 +260,11 @@ $ pip download -d . -r requirements.txt
 ```
 $ pip install --no-index --find-links=pack -r requirements.txt
 ```
-
 六、特性
 --------
+![img_1.png](docs/images/architecture1.png)
+
+
 
 - 支持标注。
 - 支持取流并存为背景进行标注。
@@ -274,7 +276,9 @@ $ pip install --no-index --find-links=pack -r requirements.txt
 
 七、待办事项
 --------
-
+- Factory方法需要重新实现
+- 配置文件管理混乱需要重新考虑
+- 
 - 支持pipeline在程序启动后自动启动。
 - 配置数据在客户端重新显示（更换浏览器后）。
 - UI美化。 

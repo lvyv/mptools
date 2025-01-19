@@ -35,20 +35,48 @@ import os
 import cv2
 import time
 import threading
+import importlib
 from utils import log
 
 
 # -- Process Wrapper
-def daemon_wrapper(proc_worker_class, name, **kwargs):
+def daemon_wrapper(proc_worker_class_name, name, dicts=None, **kwargs):
     ret = 0
     try:
+        module_name, class_name = proc_worker_class_name.rsplit('.', 1)
+        module = importlib.import_module(module_name)
+        cls = getattr(module, class_name)
         pid = os.getpid()
-        proc_worker = proc_worker_class(f'{name}-{pid}', None, None, kwargs)
+        proc_worker = cls(f'{name}-{pid}', None, None, dicts, **kwargs)
         ret = proc_worker.run()
     except KeyboardInterrupt:
         pass
     except RuntimeError as err:
         log.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+    except AttributeError as err:
+        log.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+    except Exception as err:
+        raise ValueError(f'Class {proc_worker_class_name} instanialize {err}.')
+    return ret
+
+
+def worker_wrapper(proc_worker_class_name, name, in_q=None, out_q=None, dicts=None, **kwargs):
+    ret = 0
+    try:
+        module_name, class_name = proc_worker_class_name.rsplit('.', 1)
+        module = importlib.import_module(module_name)
+        cls = getattr(module, class_name)
+        pid = os.getpid()
+        proc_worker = cls(f'{name}-{pid}', in_q, out_q, dicts, **kwargs)
+        ret = proc_worker.run()
+    except KeyboardInterrupt:
+        pass
+    except RuntimeError as err:
+        log.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+    except AttributeError as err:
+        log.log(f'[{__file__}]{err}', level=log.LOG_LVL_ERRO)
+    except Exception as err:
+        raise ValueError(f'Class {proc_worker_class_name} instanialize {err}.')
     return ret
 
 
@@ -89,7 +117,7 @@ class MyThread(threading.Thread):
     def get_result(self):
         try:
             return self.result
-        except Exception as err:
+        except Exception as err:    # noqa
             return None
 
 
@@ -131,5 +159,5 @@ TIME_LIMITED: int = 10
 
 def get_picture_size(path2pic):
     # width, height = (0, 0)
-    height, width, channel = cv2.imread(path2pic).shape
+    height, width, channel = cv2.imread(path2pic).shape # noqa
     return width, height

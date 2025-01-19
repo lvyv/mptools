@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # OPTiDOCK
-# The ReID Process.
+# The Object Tracking Process.
 #
 #
 # Awen. 2024.12
@@ -15,13 +15,14 @@
 Test with::
 
 """
-
+import os
+import time
 
 from core.procworker import ProcWorker
-from utils import bus
+from utils import bus, log
 
 
-class ReIDWorker(ProcWorker):
+class ObjTrackerWorker(ProcWorker):
     def __init__(self, name, in_q=None, out_q=None, dicts=None, **kwargs):
         super().__init__(name, bus.EBUS_TOPIC_BROADCAST, dicts, **kwargs)
         # self.bus_topic_ = bus.EBUS_TOPIC_AI
@@ -29,11 +30,12 @@ class ReIDWorker(ProcWorker):
         self.out_q_ = out_q
 
     def startup(self, evt=None):
+        self.log(f"[{self.__class__.__name__}] has started.", level=log.LOG_LVL_INFO)
         pass
 
     def main_func(self, event=None, *args) -> bool:
         """
-        本函数实现跨摄像头目标对象关联逻辑。
+        本函数实现单摄像头目标追踪逻辑。
         重载基类主循环函数调用。
 
         Parameters
@@ -45,8 +47,15 @@ class ReIDWorker(ProcWorker):
         -------
             返回True，退出循环，返回False，继续循环。
         """
-        _ret = False
-        return _ret
+        ret = False
+
+        part = {'ts': time.time()}
+        part.update({f'{self.__class__.__name__}': os.getpid()})
+        self.out_q_.put_nowait(part)
+        time.sleep(1)
+
+        return ret
 
     def shutdown(self):
+        self.log(f"[{self.__class__.__name__}] has exited.", level=log.LOG_LVL_INFO)
         pass

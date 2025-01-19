@@ -104,9 +104,9 @@ class RestWorker(ProcWorker):
         self.port_ = None
         self.ssl_keyfile_ = None
         self.ssl_certfile_ = None
-
-        for key, value in args_dict.items():
-            if key == 'port':
+        ms_cfg = args_dict['micro_service']
+        for key, value in ms_cfg.items():
+            if key == 'http_port':
                 self.port_ = value
             elif key == 'ssl_keyfile':
                 self.ssl_keyfile_ = value

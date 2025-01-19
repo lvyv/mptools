@@ -1,13 +1,13 @@
 #!/usr/bin/env python 
 # -*- coding: utf-8 -*-
-# @File    : main.py.py
+# @File    : main.py
 # @Time    : 2022/3/1 15:29
 # @Author  : XiongFei
 # Description：
 import sys
 from pathlib import Path
 from utils.config import ConfigSet
-from dock.DockMainContext import DockMainContext
+from dock.dock_main_context import DockMainContext
 from utils import log
 from conf import const
 
@@ -29,7 +29,7 @@ def _main_entry():
 
     # 进程主循环
     with DockMainContext() as main_ctx:
-        main_ctx.run()
+        main_ctx.run(rest='dock.dock_rest.DockRestWorker')
 
 
 if __name__ == "__main__":
